@@ -1,0 +1,23 @@
+
+{
+  "name": "contribution-os-server",
+  "version": "1.0.0",
+  "description": "Backend server for the Contribution OS application.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^1.11.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-auth-library": "^9.11.0",
+    "pg": "^8.12.0"
+  }
+}
