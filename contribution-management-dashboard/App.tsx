@@ -36,6 +36,14 @@ type AuthorizedEmail = { id: number; email: string };
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [currentUser, setCurrentUser] = useState<{ email: string } | null>(null);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+        try {
+            const savedState = localStorage.getItem('sidebar-collapsed');
+            return savedState ? JSON.parse(savedState) : false;
+        } catch {
+            return false;
+        }
+    });
     const [contributions, setContributions] = useState<Contribution[]>([]);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -297,6 +305,14 @@ const App: React.FC = () => {
         handleAdd(`${API_URL}/authorized-emails`, { email }, setAuthorizedEmails);
     };
 
+    const handleToggleSidebar = () => {
+        setIsSidebarCollapsed(prevState => {
+            const newState = !prevState;
+            localStorage.setItem('sidebar-collapsed', JSON.stringify(newState));
+            return newState;
+        });
+    };
+
     if (!isAuthenticated) {
         return (
             <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
@@ -309,7 +325,7 @@ const App: React.FC = () => {
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <HashRouter>
                 <div className="flex h-screen bg-slate-100">
-                    <Sidebar isAdmin={isAdmin} />
+                    <Sidebar isAdmin={isAdmin} isCollapsed={isSidebarCollapsed} onToggle={handleToggleSidebar} />
                     <div className="flex-1 flex flex-col overflow-hidden">
                         <Header 
                             onAddContributionClick={() => openContributionModal(null)} 
