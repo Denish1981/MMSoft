@@ -16,8 +16,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, e
     const [cost, setCost] = useState('');
     const [billDate, setBillDate] = useState('');
     const [expenseHead, setExpenseHead] = useState('');
-    const [billReceipt, setBillReceipt] = useState<string | undefined>();
-    const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+    const [billReceipts, setBillReceipts] = useState<string[]>([]);
+    const [receiptPreviews, setReceiptPreviews] = useState<string[]>([]);
     const [expenseBy, setExpenseBy] = useState('');
 
     useEffect(() => {
@@ -27,8 +27,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, e
             setCost(String(expenseToEdit.cost));
             setBillDate(new Date(expenseToEdit.billDate).toISOString().split('T')[0]);
             setExpenseHead(expenseToEdit.expenseHead);
-            setBillReceipt(expenseToEdit.billReceipt);
-            setReceiptPreview(expenseToEdit.billReceipt || null);
+            setBillReceipts(expenseToEdit.billReceipts || []);
+            setReceiptPreviews(expenseToEdit.billReceipts || []);
             setExpenseBy(expenseToEdit.expenseBy);
         }
     }, [expenseToEdit]);
@@ -37,19 +37,32 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, e
     const existingExpenseBy = useMemo(() => Array.from(new Set(expenses.map(e => e.expenseBy))), [expenses]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
-                setBillReceipt(base64String);
-                setReceiptPreview(base64String);
-            };
-            reader.readAsDataURL(file);
-        } else {
-            setBillReceipt(undefined);
-            setReceiptPreview(null);
+        const files = e.target.files;
+        if (files) {
+            const fileArray = Array.from(files);
+            const filePromises = fileArray.map(file => {
+                return new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        resolve(reader.result as string);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(filePromises)
+                .then(base64Strings => {
+                    setBillReceipts(prev => [...prev, ...base64Strings]);
+                    setReceiptPreviews(prev => [...prev, ...base64Strings]);
+                })
+                .catch(error => console.error("Error reading files:", error));
         }
+    };
+
+    const removeImage = (index: number) => {
+        setBillReceipts(prev => prev.filter((_, i) => i !== index));
+        setReceiptPreviews(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -64,7 +77,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, e
             cost: parseFloat(cost),
             billDate: new Date(billDate).toISOString(),
             expenseHead,
-            billReceipt,
+            billReceipts,
             expenseBy,
         });
     };
@@ -117,20 +130,30 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, e
                         </datalist>
                     </div>
                      <div>
-                        <label htmlFor="billReceipt" className="block text-sm font-medium text-slate-700">Bill Receipt</label>
+                        <label htmlFor="billReceipts" className="block text-sm font-medium text-slate-700">Bill Receipts</label>
                         <input 
                             type="file" 
-                            id="billReceipt" 
+                            id="billReceipts" 
                             accept="image/*" 
+                            multiple
                             onChange={handleFileChange} 
                             className="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
                         />
                     </div>
 
-                    {receiptPreview && (
+                    {receiptPreviews.length > 0 && (
                         <div className="mt-2">
-                            <p className="text-sm font-medium text-slate-600 mb-2">Receipt Preview:</p>
-                            <img src={receiptPreview} alt="Receipt preview" className="max-h-40 rounded-md border border-slate-200 p-1" />
+                             <p className="text-sm font-medium text-slate-600 mb-2">Receipt Previews:</p>
+                             <div className="grid grid-cols-3 gap-2">
+                                {receiptPreviews.map((preview, index) => (
+                                    <div key={index} className="relative">
+                                        <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-md border border-slate-200 p-1" />
+                                        <button type="button" onClick={() => removeImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
+                                            <CloseIcon className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                             </div>
                         </div>
                     )}
                     <div className="flex justify-end pt-4 space-x-2">

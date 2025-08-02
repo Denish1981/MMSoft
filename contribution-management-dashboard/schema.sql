@@ -111,3 +111,14 @@ CREATE TABLE authorized_emails (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL
 );
+
+CREATE TABLE expense_images (
+    id SERIAL PRIMARY KEY,
+    expense_id VARCHAR(255) NOT NULL,
+    image_data TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_expense
+        FOREIGN KEY(expense_id) 
+        REFERENCES expenses(id) 
+        ON DELETE CASCADE
+);

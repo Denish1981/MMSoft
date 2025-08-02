@@ -1,9 +1,9 @@
-
 import React, { useMemo, useState } from 'react';
 import type { Expense, Vendor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { formatCurrency } from '../utils/formatting';
+import { CloseIcon } from '../components/icons/CloseIcon';
 
 interface ExpensesProps {
     expenses: Expense[];
@@ -12,21 +12,65 @@ interface ExpensesProps {
     onDelete: (id: string) => void;
 }
 
+const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({ images, onClose }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    const goToPrevious = () => {
+        const isFirstImage = currentIndex === 0;
+        const newIndex = isFirstImage ? images.length - 1 : currentIndex - 1;
+        setCurrentIndex(newIndex);
+    };
+
+    const goToNext = () => {
+        const isLastImage = currentIndex === images.length - 1;
+        const newIndex = isLastImage ? 0 : currentIndex + 1;
+        setCurrentIndex(newIndex);
+    };
+
+    return (
+        <div 
+            className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-[100]" 
+            onClick={onClose}
+        >
+             <button onClick={onClose} className="absolute top-4 right-4 text-white hover:text-slate-300 z-20">
+                <CloseIcon className="w-8 h-8" />
+            </button>
+            {images.length > 1 && (
+                <>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); goToPrevious(); }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/30 text-white p-2 rounded-full hover:bg-white/50 z-20"
+                    >
+                        &lt;
+                    </button>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); goToNext(); }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/30 text-white p-2 rounded-full hover:bg-white/50 z-20"
+                    >
+                        &gt;
+                    </button>
+                </>
+            )}
+            <div className="relative p-4" onClick={e => e.stopPropagation()}>
+                <img src={images[currentIndex]} alt={`Receipt image ${currentIndex + 1}`} className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" />
+                 {images.length > 1 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white bg-black/50 px-3 py-1 rounded-full text-sm">
+                        {currentIndex + 1} / {images.length}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, onEdit, onDelete }) => {
-    const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
+    const [viewingImages, setViewingImages] = useState<string[] | null>(null);
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
 
     return (
         <>
-            {viewingReceipt && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-[100]" 
-                    onClick={() => setViewingReceipt(null)}
-                >
-                    <div className="p-4 bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                        <img src={viewingReceipt} alt="Full size receipt" className="max-w-full max-h-[85vh] object-contain" />
-                    </div>
-                </div>
+            {viewingImages && (
+                <ImageViewerModal images={viewingImages} onClose={() => setViewingImages(null)} />
             )}
             <div className="bg-white p-6 rounded-xl shadow-md">
                 <h2 className="text-xl font-semibold text-slate-800 mb-4">All Expenses</h2>
@@ -40,7 +84,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, onEdit, onDelete
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill Date</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense Head</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Done By</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Receipts</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -54,13 +98,23 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, onEdit, onDelete
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{expense.expenseHead}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{expense.expenseBy}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        {expense.billReceipt ? (
-                                            <img 
-                                                src={expense.billReceipt} 
-                                                alt="Receipt thumbnail" 
-                                                className="h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform mx-auto"
-                                                onClick={() => setViewingReceipt(expense.billReceipt!)}
-                                            />
+                                        {expense.billReceipts && expense.billReceipts.length > 0 ? (
+                                            <div className="flex items-center justify-center space-x-2">
+                                                {expense.billReceipts.slice(0, 3).map((image, index) => (
+                                                    <img 
+                                                        key={index}
+                                                        src={image} 
+                                                        alt={`Thumbnail ${index + 1}`}
+                                                        className="h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform"
+                                                        onClick={() => setViewingImages(expense.billReceipts!)}
+                                                    />
+                                                ))}
+                                                {expense.billReceipts.length > 3 && (
+                                                    <div className="flex items-center justify-center h-10 w-16 bg-slate-200 text-slate-600 font-bold text-sm rounded-md">
+                                                        +{expense.billReceipts.length - 3}
+                                                    </div>
+                                                )}
+                                            </div>
                                         ) : (
                                             <span className="text-slate-400 text-xs">N/A</span>
                                         )}

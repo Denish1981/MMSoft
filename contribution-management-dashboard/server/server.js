@@ -26,8 +26,6 @@ const googleClient = new OAuth2Client();
 // --- Production: Serve Frontend ---
 if (isProduction) {
     // Serve the static files from the Vite build directory
-
-    console.log(isProduction)
     app.use(express.static(path.join(__dirname, '../dist')));
 }
 
@@ -208,10 +206,15 @@ app.get('/api/sponsors', async (req, res) => {
 
 app.get('/api/expenses', async (req, res) => {
     try {
-        const { rows } = await db.query(
-            'SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", bill_receipt AS "billReceipt", expense_by AS "expenseBy" FROM expenses ORDER BY bill_date DESC'
+        const expensesResult = await db.query(
+            'SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy" FROM expenses ORDER BY bill_date DESC'
         );
-        res.json(rows);
+        const expenses = expensesResult.rows;
+        for (const expense of expenses) {
+            const imagesResult = await db.query('SELECT image_data FROM expense_images WHERE expense_id = $1', [expense.id]);
+            expense.billReceipts = imagesResult.rows.map(row => row.image_data);
+        }
+        res.json(expenses);
     } catch (err) {
         console.error('Error fetching expenses:', err);
         res.status(500).json({ error: 'Internal server error' });
@@ -272,14 +275,26 @@ app.post('/api/vendors', async (req, res) => {
 });
 
 app.post('/api/expenses', async (req, res) => {
-    const { name, vendorId, cost, billDate, expenseHead, billReceipt, expenseBy } = req.body;
-    const newExpense = { id: `exp_${Date.now()}`, ...req.body };
+    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy } = req.body;
+    const newExpense = { id: `exp_${Date.now()}`, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy };
+    const client = await db.getPool().connect();
     try {
-        await db.query('INSERT INTO expenses (id, name, vendor_id, cost, bill_date, expense_head, bill_receipt, expense_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [newExpense.id, name, vendorId, cost, billDate, expenseHead, billReceipt, expenseBy]);
+        await client.query('BEGIN');
+        await client.query('INSERT INTO expenses (id, name, vendor_id, cost, bill_date, expense_head, expense_by) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [newExpense.id, name, vendorId, cost, billDate, expenseHead, expenseBy]);
+        if (billReceipts && billReceipts.length > 0) {
+            for (const image of billReceipts) {
+                await client.query('INSERT INTO expense_images (expense_id, image_data) VALUES ($1, $2)', [newExpense.id, image]);
+            }
+        }
+        await client.query('COMMIT');
         res.status(201).json(newExpense);
     } catch (err) {
-        console.error('Error adding expense:', err); res.status(500).json({ error: 'Internal server error' });
+        await client.query('ROLLBACK');
+        console.error('Error adding expense:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 
@@ -354,14 +369,28 @@ app.put('/api/vendors/:id', async (req, res) => {
 
 app.put('/api/expenses/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, vendorId, cost, billDate, expenseHead, billReceipt, expenseBy } = req.body;
+    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy } = req.body;
+    const client = await db.getPool().connect();
     try {
-        const result = await db.query(
-            'UPDATE expenses SET name=$1, vendor_id=$2, cost=$3, bill_date=$4, expense_head=$5, bill_receipt=$6, expense_by=$7 WHERE id=$8 RETURNING id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", bill_receipt AS "billReceipt", expense_by AS "expenseBy"',
-            [name, vendorId, cost, billDate, expenseHead, billReceipt, expenseBy, id]
-        );
-        res.json(result.rows[0]);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update expense' }); }
+        await client.query('BEGIN');
+        await client.query('UPDATE expenses SET name=$1, vendor_id=$2, cost=$3, bill_date=$4, expense_head=$5, expense_by=$6 WHERE id=$7',
+            [name, vendorId, cost, billDate, expenseHead, expenseBy, id]);
+        
+        await client.query('DELETE FROM expense_images WHERE expense_id=$1', [id]);
+        if (billReceipts && billReceipts.length > 0) {
+            for (const image of billReceipts) {
+                await client.query('INSERT INTO expense_images (expense_id, image_data) VALUES ($1, $2)', [id, image]);
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ id, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update expense' });
+    } finally {
+        client.release();
+    }
 });
 
 app.put('/api/quotations/:id', async (req, res) => {
@@ -396,8 +425,44 @@ const createDeleteEndpoint = (tableName) => async (req, res) => {
 
 app.delete('/api/contributions/:id', createDeleteEndpoint('contributions'));
 app.delete('/api/sponsors/:id', createDeleteEndpoint('sponsors'));
-app.delete('/api/expenses/:id', createDeleteEndpoint('expenses'));
-app.delete('/api/quotations/:id', createDeleteEndpoint('quotations'));
+
+app.delete('/api/expenses/:id', async (req, res) => {
+    const { id } = req.params;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        // Delete associated images first, then the expense itself.
+        await client.query('DELETE FROM expense_images WHERE expense_id = $1', [id]);
+        await client.query('DELETE FROM expenses WHERE id = $1', [id]);
+        await client.query('COMMIT');
+        res.status(204).send();
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error deleting expense:', err);
+        res.status(500).json({ error: 'Failed to delete expense' });
+    } finally {
+        client.release();
+    }
+});
+
+app.delete('/api/quotations/:id', async (req, res) => {
+    const { id } = req.params;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM quotation_images WHERE quotation_id = $1', [id]);
+        await client.query('DELETE FROM quotations WHERE id = $1', [id]);
+        await client.query('COMMIT');
+        res.status(204).send();
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error deleting quotation:', err);
+        res.status(500).json({ error: 'Failed to delete quotation' });
+    } finally {
+        client.release();
+    }
+});
+
 
 app.delete('/api/vendors/:id', async (req, res) => {
     const { id } = req.params;

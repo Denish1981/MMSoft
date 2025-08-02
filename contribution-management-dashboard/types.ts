@@ -72,7 +72,7 @@ export interface Expense {
   cost: number;
   billDate: string; // ISO String
   expenseHead: string;
-  billReceipt?: string;
+  billReceipts?: string[];
   expenseBy: string;
 }
 
