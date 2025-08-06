@@ -1,14 +1,10 @@
 
-
 import React, { useState } from 'react';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { useAuth } from '../contexts/AuthContext';
 
-interface LoginPageProps {
-    onLogin: (user: string, pass: string) => Promise<boolean>;
-    onGoogleLogin: (token: string) => Promise<{ success: boolean; message?: string }>;
-}
-
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoogleLogin }) => {
+const LoginPage: React.FC = () => {
+    const { login, googleLogin } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -18,9 +14,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoogleLogin }) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-        const success = await onLogin(username, password);
-        if (!success) {
-            setError('Invalid username or password.');
+        const result = await login(username, password);
+        if (!result.success) {
+            setError(result.message || 'Invalid username or password.');
         }
         setIsLoading(false);
     };
@@ -28,7 +24,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoogleLogin }) => {
     const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
         if (credentialResponse.credential) {
             setIsLoading(true);
-            const result = await onGoogleLogin(credentialResponse.credential);
+            setError('');
+            const result = await googleLogin(credentialResponse.credential);
             if (!result.success) {
                 setError(result.message || 'Google Sign-In failed. Please try again.');
             }
@@ -51,7 +48,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoogleLogin }) => {
                 </div>
                 
                 <div className="flex justify-center">
-                   <GoogleLogin onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
+                   <GoogleLogin onSuccess={handleGoogleSuccess} onError={handleGoogleError} useOneTap />
                 </div>
 
                 <div className="flex items-center justify-center space-x-2">
@@ -74,7 +71,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onGoogleLogin }) => {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="admin or your@email.com"
+                            placeholder="your@email.com"
                             disabled={isLoading}
                         />
                     </div>

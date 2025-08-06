@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -12,21 +13,143 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // --- Middleware ---
 app.use(cors({
-    origin: '*', 
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json({ limit: '50mb' }));
+app.set('trust proxy', 1);
 
 // --- AI & Auth Setup ---
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const googleClient = new OAuth2Client();
 
-// --- Production: Serve Frontend ---
-if (isProduction) {
-    // Serve the static files from the Vite build directory
-    app.use(express.static(path.join(__dirname, '../dist')));
-}
+// --- RBAC Data and Seeding ---
+const ALL_PERMISSIONS = [
+    { name: 'page:dashboard:view', description: 'Can view the main dashboard' },
+    { name: 'page:contributions:view', description: 'Can view the contributions page' },
+    { name: 'page:bulk-add:view', description: 'Can view the bulk add page' },
+    { name: 'page:donors:view', description: 'Can view the donors page' },
+    { name: 'page:sponsors:view', description: 'Can view the sponsors page' },
+    { name: 'page:vendors:view', description: 'Can view the vendors page' },
+    { name: 'page:expenses:view', description: 'Can view the expenses page' },
+    { name: 'page:quotations:view', description: 'Can view the quotations page' },
+    { name: 'page:budget:view', description: 'Can view the budget page' },
+    { name: 'page:campaigns:view', description: 'Can view the campaigns page' },
+    { name: 'page:reports:view', description: 'Can view the reports page' },
+    { name: 'page:ai-insights:view', description: 'Can view the AI insights page' },
+    { name: 'page:user-management:view', description: 'Can view the user management page' },
+    { name: 'action:create', description: 'Can create new items (contributions, expenses, etc.)' },
+    { name: 'action:edit', description: 'Can edit existing items' },
+    { name: 'action:delete', description: 'Can delete items' },
+    { name: 'action:users:manage', description: 'Can create users and manage their roles' },
+];
+
+const ROLES_CONFIG = {
+    'Admin': ALL_PERMISSIONS.map(p => p.name),
+    'Manager': [
+        'page:dashboard:view', 'page:contributions:view', 'page:bulk-add:view',
+        'page:donors:view', 'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:reports:view', 'page:ai-insights:view',
+        'action:create', 'action:edit', 'action:delete'
+    ],
+    'Viewer': [
+        'page:dashboard:view', 'page:contributions:view', 'page:donors:view',
+        'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:reports:view', 'page:ai-insights:view'
+    ]
+};
+
+const seedDatabase = async () => {
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        console.log('Seeding database with roles and permissions...');
+
+        // Insert all permissions
+        const permissionMap = new Map();
+        for (const perm of ALL_PERMISSIONS) {
+            const res = await client.query('INSERT INTO permissions (name, description) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET description = $2 RETURNING id, name', [perm.name, perm.description]);
+            permissionMap.set(res.rows[0].name, res.rows[0].id);
+        }
+
+        // Insert roles and associate permissions
+        for (const roleName in ROLES_CONFIG) {
+            const roleRes = await client.query('INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id', [roleName]);
+            if (roleRes.rows.length > 0) {
+                const roleId = roleRes.rows[0].id;
+                const permissionsForRole = ROLES_CONFIG[roleName];
+                for (const permName of permissionsForRole) {
+                    const permId = permissionMap.get(permName);
+                    if (permId) {
+                         await client.query('INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [roleId, permId]);
+                    }
+                }
+                 console.log(`Role '${roleName}' created or already exists.`);
+            }
+        }
+        
+        // Ensure the admin user from .env exists and has the Admin role
+        const adminEmail = process.env.ADMIN_EMAIL;
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        if (adminEmail) {
+            let adminUser = await client.query('SELECT id FROM users WHERE username = $1', [adminEmail]);
+            let adminUserId;
+
+            if (adminUser.rows.length === 0) {
+                if(!adminPassword) {
+                    console.warn(`Admin user ${adminEmail} does not exist and no ADMIN_PASSWORD is set. Cannot create admin.`);
+                } else {
+                    const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [adminEmail, adminPassword]);
+                    adminUserId = newUserRes.rows[0].id;
+                    console.log(`Created admin user: ${adminEmail}`);
+                }
+            } else {
+                adminUserId = adminUser.rows[0].id;
+            }
+
+            if(adminUserId) {
+                const adminRole = await client.query('SELECT id FROM roles WHERE name = $1', ['Admin']);
+                if(adminRole.rows.length > 0) {
+                    const adminRoleId = adminRole.rows[0].id;
+                    await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [adminUserId, adminRoleId]);
+                    console.log(`Ensured user ${adminEmail} has 'Admin' role.`);
+                }
+            }
+        }
+
+        await client.query('COMMIT');
+        console.log('Database seeding completed successfully.');
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Database seeding failed:', error);
+    } finally {
+        client.release();
+    }
+};
+
+// --- Helper Functions ---
+const logLoginHistory = async (userId, method, req) => {
+    try {
+        await db.query(
+            'INSERT INTO login_history (user_id, login_method, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
+            [userId, method, req.ip, req.headers['user-agent']]
+        );
+    } catch (err) {
+        console.error('Failed to log login history:', err);
+    }
+};
+
+const getUserPermissions = async (userId) => {
+    const { rows } = await db.query(
+        `SELECT DISTINCT p.name FROM permissions p
+         JOIN role_permissions rp ON p.id = rp.permission_id
+         JOIN user_roles ur ON rp.role_id = ur.role_id
+         WHERE ur.user_id = $1`,
+        [userId]
+    );
+    return rows.map(r => r.name);
+};
 
 // --- API Routes ---
 
@@ -34,9 +157,17 @@ if (isProduction) {
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const result = await db.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
+        const result = await db.query('SELECT id, username FROM users WHERE username = $1 AND password = $2', [username, password]);
         if (result.rows.length > 0) {
-            res.status(200).json({ message: 'Login successful', user: { email: result.rows[0].username } });
+            const user = result.rows[0];
+            const permissions = await getUserPermissions(user.id);
+
+            if (permissions.length === 0) {
+                return res.status(403).json({ message: 'Login failed. Your account has not been assigned any roles.' });
+            }
+
+            await logLoginHistory(user.id, 'password', req);
+            res.status(200).json({ user: { id: user.id, email: user.username, permissions } });
         } else {
             res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -49,10 +180,7 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/auth/google', async (req, res) => {
     const { token } = req.body;
     try {
-        const ticket = await googleClient.verifyIdToken({
-            idToken: token,
-            audience: process.env.GOOGLE_CLIENT_ID,
-        });
+        const ticket = await googleClient.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
         const email = payload?.email;
 
@@ -60,23 +188,19 @@ app.post('/api/auth/google', async (req, res) => {
             return res.status(400).json({ message: 'Invalid Google token: email not found.' });
         }
 
-        // Whitelist check from database
-        const { rows: authorizedUsers } = await db.query('SELECT email FROM authorized_emails');
-        const whitelist = authorizedUsers.map(user => user.email);
-        if (!whitelist.includes(email)) {
-            return res.status(403).json({ message: 'Access denied. This account is not authorized.' });
+        const userResult = await db.query('SELECT id, username FROM users WHERE username = $1', [email]);
+        if (userResult.rows.length === 0) {
+            return res.status(403).json({ message: 'Access denied. Your account has not been set up by an administrator.' });
         }
 
-        // Check if user exists
-        let userResult = await db.query('SELECT * FROM users WHERE username = $1', [email]);
-        
-        // If user doesn't exist, create one
-        if (userResult.rows.length === 0) {
-            await db.query('INSERT INTO users (username) VALUES ($1)', [email]);
+        const user = userResult.rows[0];
+        const permissions = await getUserPermissions(user.id);
+        if (permissions.length === 0) {
+            return res.status(403).json({ message: 'Access denied. Your account has no assigned roles.' });
         }
-        
-        // Login successful
-        res.status(200).json({ message: 'Google login successful', user: { email } });
+
+        await logLoginHistory(user.id, 'google', req);
+        res.status(200).json({ user: { id: user.id, email: user.username, permissions } });
 
     } catch (error) {
         console.error('Google Auth Error:', error);
@@ -84,50 +208,104 @@ app.post('/api/auth/google', async (req, res) => {
     }
 });
 
-// User Management
-app.get('/api/authorized-emails', async (req, res) => {
+// Page Access Tracking
+app.post('/api/track-access', async (req, res) => {
+    const { userEmail, pagePath } = req.body;
+    if (!userEmail || !pagePath) return res.status(400).json({ error: 'userEmail and pagePath are required' });
     try {
-        const { rows } = await db.query('SELECT id, email FROM authorized_emails ORDER BY email ASC');
+        const userResult = await db.query('SELECT id FROM users WHERE username = $1', [userEmail]);
+        if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        const userId = userResult.rows[0].id;
+        await db.query('INSERT INTO page_access_history (user_id, page_path, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
+            [userId, pagePath, req.ip, req.headers['user-agent']]);
+        res.status(200).json({ success: true });
+    } catch (err) {
+        console.error('Failed to track page access:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- User & Role Management ---
+app.get('/api/users/management', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT u.id, u.username, u.created_at AS "createdAt", 
+                   COALESCE(json_agg(json_build_object('id', r.id, 'name', r.name)) FILTER (WHERE r.id IS NOT NULL), '[]') as roles
+            FROM users u
+            LEFT JOIN user_roles ur ON u.id = ur.user_id
+            LEFT JOIN roles r ON ur.role_id = r.id
+            GROUP BY u.id
+            ORDER BY u.created_at DESC
+        `);
         res.json(rows);
     } catch (err) {
-        console.error('Error fetching authorized emails:', err);
+        console.error('Error fetching users for management:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.post('/api/authorized-emails', async (req, res) => {
-    const { email } = req.body;
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
+app.post('/api/users', async (req, res) => {
+    const { username, password, roleIds } = req.body;
+    if (!username || !password || !roleIds || !Array.isArray(roleIds)) {
+        return res.status(400).json({ error: 'Username, password, and an array of roleIds are required.' });
     }
+    const client = await db.getPool().connect();
     try {
-        const result = await db.query(
-            'INSERT INTO authorized_emails (email) VALUES ($1) ON CONFLICT (email) DO NOTHING RETURNING id, email', 
-            [email.toLowerCase().trim()]
-        );
-        if (result.rows.length === 0) {
-            return res.status(409).json({ error: 'Email already exists.' });
+        await client.query('BEGIN');
+        const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [username, password]);
+        const userId = newUserRes.rows[0].id;
+
+        for (const roleId of roleIds) {
+            await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
         }
-        res.status(201).json(result.rows[0]);
+
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'User created successfully', userId });
     } catch (err) {
-        console.error('Error adding authorized email:', err);
+        await client.query('ROLLBACK');
+        if (err.code === '23505') { // unique_violation
+            return res.status(409).json({ error: 'A user with this email already exists.' });
+        }
+        console.error('Error creating user:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.get('/api/roles', async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT id, name, description FROM roles ORDER BY name ASC');
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching roles:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.delete('/api/authorized-emails/:id', async (req, res) => {
+app.put('/api/users/:id/roles', async (req, res) => {
     const { id } = req.params;
+    const { roleIds } = req.body;
+    if (!Array.isArray(roleIds)) return res.status(400).json({ error: 'roleIds must be an array.' });
+
+    const client = await db.getPool().connect();
     try {
-        const deleteResult = await db.query('DELETE FROM authorized_emails WHERE id = $1', [id]);
-        if (deleteResult.rowCount === 0) {
-            return res.status(404).json({ error: 'Email not found' });
+        await client.query('BEGIN');
+        await client.query('DELETE FROM user_roles WHERE user_id = $1', [id]);
+        for (const roleId of roleIds) {
+            await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [id, roleId]);
         }
-        res.status(204).send();
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'User roles updated successfully.' });
     } catch (err) {
-        console.error('Error deleting authorized email:', err);
-        res.status(500).json({ error: 'Failed to delete email' });
+        await client.query('ROLLBACK');
+        console.error('Error updating user roles:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
+
 
 // Generic GET all endpoint factory
 const createGetAllEndpoint = (tableName) => async (req, res) => {
@@ -246,6 +424,48 @@ app.post('/api/contributions', async (req, res) => {
         res.status(201).json(newContribution);
     } catch (err) {
         console.error('Error adding contribution:', err); res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/contributions/bulk', async (req, res) => {
+    const { contributions } = req.body;
+
+    if (!contributions || !Array.isArray(contributions) || contributions.length === 0) {
+        return res.status(400).json({ error: 'Contributions array is required and must not be empty.' });
+    }
+
+    const client = await db.getPool().connect();
+    const createdContributions = [];
+
+    try {
+        await client.query('BEGIN');
+        
+        for (let i = 0; i < contributions.length; i++) {
+            const c = contributions[i];
+            const newContribution = {
+                id: `con_${Date.now()}_${i}`,
+                status: 'Completed',
+                ...c,
+                date: c.date || new Date().toISOString(),
+            };
+            const dbCampaignId = newContribution.campaignId || null;
+
+            const result = await client.query(
+                'INSERT INTO contributions (id, donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image',
+                [newContribution.id, newContribution.donorName, newContribution.donorEmail, newContribution.mobileNumber, newContribution.towerNumber, newContribution.flatNumber, newContribution.amount, newContribution.numberOfCoupons, dbCampaignId, newContribution.date, newContribution.status, newContribution.type, newContribution.image]
+            );
+            createdContributions.push(result.rows[0]);
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json(createdContributions);
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error adding bulk contributions:', err);
+        res.status(500).json({ error: 'Internal server error during bulk insert' });
+    } finally {
+        client.release();
     }
 });
 
@@ -472,7 +692,6 @@ app.delete('/api/expenses/:id', async (req, res) => {
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        // Delete associated images first, then the expense itself.
         await client.query('DELETE FROM expense_images WHERE expense_id = $1', [id]);
         await client.query('DELETE FROM expenses WHERE id = $1', [id]);
         await client.query('COMMIT');
@@ -524,7 +743,6 @@ app.delete('/api/vendors/:id', async (req, res) => {
     }
 });
 
-
 // --- Gemini API Proxy Routes ---
 app.post('/api/ai/summary', async (req, res) => {
     const { contributions, campaigns, period } = req.body;
@@ -548,14 +766,21 @@ app.post('/api/ai/note', async (req, res) => {
     }
 });
 
-// --- Production: Catch-all to serve index.html ---
-if (isProduction) {
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../dist/index.html'));
+
+// --- Server Start ---
+const startServer = async () => {
+    await seedDatabase();
+
+    if (isProduction) {
+        app.use(express.static(path.join(__dirname, '../dist')));
+        app.get('*', (req, res) => {
+            res.sendFile(path.join(__dirname, '../dist/index.html'));
+        });
+    }
+
+    app.listen(port, () => {
+        console.log(`Server is running on http://localhost:${port}`);
     });
-}
+};
 
-
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+startServer();

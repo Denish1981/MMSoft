@@ -129,3 +129,50 @@ CREATE TABLE budgets (
     budgeted_amount NUMERIC(15, 2) NOT NULL,
     expense_head VARCHAR(255) NOT NULL
 );
+
+alter table users 
+add column created_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Table to track user login history for auditing.
+CREATE TABLE login_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, -- Links to the user who logged in
+    login_method VARCHAR(50) NOT NULL, -- Records the method, e.g., 'password' or 'google'
+    ip_address VARCHAR(45), -- The IP address of the login attempt
+    user_agent TEXT, -- Browser and OS information
+    login_timestamp TIMESTAMPTZ DEFAULT NOW() -- The exact time of the login
+);
+
+-- Table to track page access by logged-in users.
+CREATE TABLE page_access_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, -- Links to the user who visited
+    page_path TEXT NOT NULL, -- The page they viewed (e.g., '/contributions')
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    access_timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,      -- e.g., 'Admin', 'Manager', 'Viewer'
+    description TEXT                       -- Optional description of the role's purpose
+);
+
+CREATE TABLE permissions (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,     -- e.g., 'page:dashboard:view', 'action:create'
+    description TEXT                       -- Optional description of what the permission allows
+);
+
+CREATE TABLE user_roles (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id) -- Ensures a user cannot have the same role twice
+);
+
+CREATE TABLE role_permissions (
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id) -- Ensures a role cannot have the same permission twice
+);

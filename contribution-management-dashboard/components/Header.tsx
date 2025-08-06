@@ -1,5 +1,7 @@
+
 import React from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon } from './icons/PlusIcon';
 import { LogoutIcon } from './icons/LogoutIcon';
 
@@ -15,95 +17,33 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onLogout }) => {
     const location = useLocation();
+    const { hasPermission } = useAuth();
 
     const getPageDetails = () => {
         const path = location.pathname;
+        const canCreate = hasPermission('action:create');
+        
+        const createButton = (onClick: () => void, text: string) => (
+            canCreate ? (
+                <button
+                    onClick={onClick}
+                    className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
+                    <PlusIcon className="w-5 h-5 mr-2" />
+                    {text}
+                </button>
+            ) : null
+        );
+
         if (path === '/') return { title: 'Dashboard', button: null };
-        if (path.startsWith('/contributions')) {
-            return { 
-                title: 'Contributions', 
-                button: (
-                    <button
-                        onClick={onAddContributionClick}
-                        className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Add Contribution
-                    </button>
-                )
-            };
-        }
+        if (path.startsWith('/contributions')) return { title: 'Contributions', button: createButton(onAddContributionClick, 'Add Contribution') };
+        if (path.startsWith('/bulk-add')) return { title: 'Bulk Add Contributions', button: null };
         if (path.startsWith('/donors')) return { title: 'Donors', button: null };
-        if (path.startsWith('/sponsors')) {
-             return { 
-                title: 'Sponsors', 
-                button: (
-                    <button
-                        onClick={onAddSponsorClick}
-                        className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Add Sponsor
-                    </button>
-                )
-            };
-        }
-        if (path.startsWith('/vendors')) {
-             return { 
-                title: 'Vendors', 
-                button: (
-                    <button
-                        onClick={onAddVendorClick}
-                        className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Add Vendor
-                    </button>
-                )
-            };
-        }
-         if (path.startsWith('/expenses')) {
-             return { 
-                title: 'Expenses', 
-                button: (
-                    <button
-                        onClick={onAddExpenseClick}
-                        className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Add Expense
-                    </button>
-                )
-            };
-        }
-        if (path.startsWith('/quotations')) {
-             return { 
-                title: 'Quotations', 
-                button: (
-                    <button
-                        onClick={onAddQuotationClick}
-                        className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Add Quotation
-                    </button>
-                )
-            };
-        }
-        if (path.startsWith('/budget')) {
-             return { 
-                title: 'Budget', 
-                button: (
-                    <button
-                        onClick={onAddBudgetClick}
-                        className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                        <PlusIcon className="w-5 h-5 mr-2" />
-                        Add Budget Item
-                    </button>
-                )
-            };
-        }
+        if (path.startsWith('/sponsors')) return { title: 'Sponsors', button: createButton(onAddSponsorClick, 'Add Sponsor') };
+        if (path.startsWith('/vendors')) return { title: 'Vendors', button: createButton(onAddVendorClick, 'Add Vendor') };
+        if (path.startsWith('/expenses')) return { title: 'Expenses', button: createButton(onAddExpenseClick, 'Add Expense') };
+        if (path.startsWith('/quotations')) return { title: 'Quotations', button: createButton(onAddQuotationClick, 'Add Quotation') };
+        if (path.startsWith('/budget')) return { title: 'Budget', button: createButton(onAddBudgetClick, 'Add Budget Item') };
         if (path.startsWith('/campaigns')) return { title: 'Campaigns', button: null };
         if (path.startsWith('/reports')) return { title: 'Reports', button: null };
         if (path.startsWith('/ai-insights')) return { title: 'AI-Powered Insights', button: null };
