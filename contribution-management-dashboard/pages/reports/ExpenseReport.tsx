@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Expense, Vendor } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -11,8 +12,18 @@ interface ExpenseReportProps {
     vendors: Vendor[];
 }
 
+interface ExpenseFilters {
+    expenseName: string;
+    vendorId: string;
+    costComparator: string;
+    costValue: string;
+    doneBy: string;
+    expenseHead: string;
+    expenseDate: string;
+}
+
 const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
-    const [filters, setFilters] = useState({
+    const [filters, setFilters] = useState<ExpenseFilters>({
         expenseName: '',
         vendorId: '',
         costComparator: '>=',

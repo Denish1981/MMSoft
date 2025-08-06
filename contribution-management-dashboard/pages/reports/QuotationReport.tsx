@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Quotation, Vendor } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -11,8 +12,16 @@ interface QuotationReportProps {
     vendors: Vendor[];
 }
 
+interface QuotationFilters {
+    quotationFor: string;
+    vendorId: string;
+    costComparator: string;
+    costValue: string;
+    quotationDate: string;
+}
+
 const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors }) => {
-    const [filters, setFilters] = useState({
+    const [filters, setFilters] = useState<QuotationFilters>({
         quotationFor: '',
         vendorId: '',
         costComparator: '>=',

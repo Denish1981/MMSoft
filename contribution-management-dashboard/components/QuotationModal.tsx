@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Quotation, Vendor } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -45,16 +46,16 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, quotati
 
             Promise.all(filePromises)
                 .then(base64Strings => {
-                    setQuotationImages(prev => [...prev, ...base64Strings]);
-                    setPreviews(prev => [...prev, ...base64Strings]);
+                    setQuotationImages((prev: string[]) => [...prev, ...base64Strings]);
+                    setPreviews((prev: string[]) => [...prev, ...base64Strings]);
                 })
                 .catch(error => console.error("Error reading files:", error));
         }
     };
     
     const removeImage = (index: number) => {
-        setQuotationImages(prev => prev.filter((_, i) => i !== index));
-        setPreviews(prev => prev.filter((_, i) => i !== index));
+        setQuotationImages((prev: string[]) => prev.filter((_, i) => i !== index));
+        setPreviews((prev: string[]) => prev.filter((_, i) => i !== index));
     };
 
 

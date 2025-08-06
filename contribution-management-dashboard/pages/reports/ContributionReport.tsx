@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Contribution, ContributionType } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -10,8 +11,18 @@ interface ContributionReportProps {
     contributions: Contribution[];
 }
 
+interface ContributionFilters {
+    towerNumber: string;
+    flatNumber: string;
+    donorName: string;
+    mobileNumber: string;
+    amountComparator: string;
+    amountValue: string;
+    type: string;
+}
+
 const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }) => {
-    const [filters, setFilters] = useState({
+    const [filters, setFilters] = useState<ContributionFilters>({
         towerNumber: '',
         flatNumber: '',
         donorName: '',

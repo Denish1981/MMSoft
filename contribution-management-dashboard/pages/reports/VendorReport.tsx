@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Vendor } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -9,8 +10,14 @@ interface VendorReportProps {
     vendors: Vendor[];
 }
 
+interface VendorFilters {
+    vendorName: string;
+    vendorBusiness: string;
+    contactName: string;
+}
+
 const VendorReport: React.FC<VendorReportProps> = ({ vendors }) => {
-    const [filters, setFilters] = useState({
+    const [filters, setFilters] = useState<VendorFilters>({
         vendorName: '',
         vendorBusiness: '',
         contactName: '',

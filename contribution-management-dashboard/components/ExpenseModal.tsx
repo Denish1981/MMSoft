@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Expense, Vendor } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -53,16 +54,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, e
 
             Promise.all(filePromises)
                 .then(base64Strings => {
-                    setBillReceipts(prev => [...prev, ...base64Strings]);
-                    setReceiptPreviews(prev => [...prev, ...base64Strings]);
+                    setBillReceipts((prev: string[]) => [...prev, ...base64Strings]);
+                    setReceiptPreviews((prev: string[]) => [...prev, ...base64Strings]);
                 })
                 .catch(error => console.error("Error reading files:", error));
         }
     };
 
     const removeImage = (index: number) => {
-        setBillReceipts(prev => prev.filter((_, i) => i !== index));
-        setReceiptPreviews(prev => prev.filter((_, i) => i !== index));
+        setBillReceipts((prev: string[]) => prev.filter((_, i) => i !== index));
+        setReceiptPreviews((prev: string[]) => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = (e: React.FormEvent) => {

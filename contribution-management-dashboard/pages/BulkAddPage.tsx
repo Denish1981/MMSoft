@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-//import type { Campaign, Contribution, ContributionType } from '../types';
-import type { Campaign, Contribution } from '../types';
+import type { Campaign, Contribution, ContributionType } from '../types';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { PlusIcon } from '../components/icons/PlusIcon';
 import { SaveIcon } from '../components/icons/SaveIcon';
@@ -49,7 +49,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
+        setFormData((prev: StagedContribution) => ({
             ...prev,
             [name]: name === 'amount' || name === 'numberOfCoupons' ? (value ? parseFloat(value) : 0) : value
         }));
@@ -61,7 +61,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64String = reader.result as string;
-                setFormData(prev => ({ ...prev, image: base64String }));
+                setFormData((prev: StagedContribution) => ({ ...prev, image: base64String }));
                 setImagePreview(base64String);
             };
             reader.readAsDataURL(file);
@@ -69,7 +69,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {
-        setFormData(prev => ({ ...prev, image: imageDataUrl }));
+        setFormData((prev: StagedContribution) => ({ ...prev, image: imageDataUrl }));
         setImagePreview(imageDataUrl);
         setIsCameraOpen(false);
     };
@@ -83,9 +83,9 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
             return;
         }
 
-        setStagedContributions(prev => [...prev, formData]);
+        setStagedContributions((prev: StagedContribution[]) => [...prev, formData]);
         // Reset form, but keep campaign, date, and type for faster entry
-        setFormData(prev => ({
+        setFormData((prev: StagedContribution) => ({
             ...initialFormState,
             campaignId: prev.campaignId,
             date: prev.date,
@@ -95,7 +95,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
     };
     
     const handleRemoveFromList = (index: number) => {
-        setStagedContributions(prev => prev.filter((_, i) => i !== index));
+        setStagedContributions((prev: StagedContribution[]) => prev.filter((_, i) => i !== index));
     };
 
     const handleSaveAll = async () => {
@@ -214,7 +214,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
                                 <p className="text-sm font-medium text-slate-600 mb-2">Image Preview:</p>
                                 <div className="relative w-fit">
                                     <img src={imagePreview} alt="Contribution preview" className="max-h-40 rounded-md border border-slate-200 p-1" />
-                                     <button type="button" onClick={() => { setFormData(prev => ({...prev, image: undefined})); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
+                                     <button type="button" onClick={() => { setFormData((prev: StagedContribution) => ({...prev, image: undefined})); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
                                         <CloseIcon className="w-4 h-4" />
                                     </button>
                                 </div>
