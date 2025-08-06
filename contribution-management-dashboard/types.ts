@@ -84,3 +84,10 @@ export interface Quotation {
     date: string; // ISO String
     quotationImages: string[];
 }
+
+export interface Budget {
+  id: string;
+  itemName: string;
+  budgetedAmount: number;
+  expenseHead: string;
+}

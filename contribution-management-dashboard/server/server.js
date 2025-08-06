@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -191,6 +190,17 @@ app.get('/api/contributions', async (req, res) => {
     }
 });
 app.get('/api/campaigns', createGetAllEndpoint('campaigns'));
+app.get('/api/budgets', async (req, res) => {
+    try {
+        const { rows } = await db.query(
+            'SELECT id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead" FROM budgets ORDER BY item_name ASC'
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching budgets:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 app.get('/api/sponsors', async (req, res) => {
     try {
@@ -319,6 +329,21 @@ app.post('/api/quotations', async (req, res) => {
     }
 });
 
+app.post('/api/budgets', async (req, res) => {
+    const { itemName, budgetedAmount, expenseHead } = req.body;
+    const newBudget = { id: `bud_${Date.now()}`, ...req.body };
+    try {
+        await db.query(
+            'INSERT INTO budgets (id, item_name, budgeted_amount, expense_head) VALUES ($1, $2, $3, $4)',
+            [newBudget.id, itemName, budgetedAmount, expenseHead]
+        );
+        res.status(201).json(newBudget);
+    } catch (err) {
+        console.error('Error adding budget:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- PUT (Update) Endpoints ---
 app.put('/api/contributions/:id', async (req, res) => {
     const { id } = req.params;
@@ -415,6 +440,21 @@ app.put('/api/quotations/:id', async (req, res) => {
     }
 });
 
+app.put('/api/budgets/:id', async (req, res) => {
+    const { id } = req.params;
+    const { itemName, budgetedAmount, expenseHead } = req.body;
+    try {
+        const result = await db.query(
+            'UPDATE budgets SET item_name=$1, budgeted_amount=$2, expense_head=$3 WHERE id=$4 RETURNING id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead"',
+            [itemName, budgetedAmount, expenseHead, id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update budget' });
+    }
+});
+
 // --- DELETE Endpoints ---
 const createDeleteEndpoint = (tableName) => async (req, res) => {
     try {
@@ -425,6 +465,7 @@ const createDeleteEndpoint = (tableName) => async (req, res) => {
 
 app.delete('/api/contributions/:id', createDeleteEndpoint('contributions'));
 app.delete('/api/sponsors/:id', createDeleteEndpoint('sponsors'));
+app.delete('/api/budgets/:id', createDeleteEndpoint('budgets'));
 
 app.delete('/api/expenses/:id', async (req, res) => {
     const { id } = req.params;

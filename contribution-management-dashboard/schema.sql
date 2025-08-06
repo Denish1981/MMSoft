@@ -122,3 +122,10 @@ CREATE TABLE expense_images (
         REFERENCES expenses(id) 
         ON DELETE CASCADE
 );
+
+CREATE TABLE budgets (
+    id VARCHAR(255) PRIMARY KEY,
+    item_name VARCHAR(255) NOT NULL,
+    budgeted_amount NUMERIC(15, 2) NOT NULL,
+    expense_head VARCHAR(255) NOT NULL
+);

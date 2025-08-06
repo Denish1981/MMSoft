@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -13,6 +14,7 @@ import Sponsors from './pages/Sponsors';
 import Vendors from './pages/Vendors';
 import Expenses from './pages/Expenses';
 import Quotations from './pages/Quotations';
+import Budget from './pages/Budget';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
 import LoginPage from './pages/LoginPage';
@@ -22,8 +24,9 @@ import { SponsorModal } from './components/SponsorModal';
 import { VendorModal } from './components/VendorModal';
 import { ExpenseModal } from './components/ExpenseModal';
 import { QuotationModal } from './components/QuotationModal';
+import { BudgetModal } from './components/BudgetModal';
 import { ConfirmationModal } from './components/ConfirmationModal';
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation } from './types';
+import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType } from './types';
 import { API_URL } from './config';
 
 // IMPORTANT: Replace with your actual Google Client ID from the Google Cloud Console
@@ -36,20 +39,14 @@ type AuthorizedEmail = { id: number; email: string };
 const App: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [currentUser, setCurrentUser] = useState<{ email: string } | null>(null);
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-        try {
-            const savedState = localStorage.getItem('sidebar-collapsed');
-            return savedState ? JSON.parse(savedState) : false;
-        } catch {
-            return false;
-        }
-    });
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [contributions, setContributions] = useState<Contribution[]>([]);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [sponsors, setSponsors] = useState<Sponsor[]>([]);
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [quotations, setQuotations] = useState<Quotation[]>([]);
+    const [budgets, setBudgets] = useState<BudgetType[]>([]);
     const [authorizedEmails, setAuthorizedEmails] = useState<AuthorizedEmail[]>([]);
     
     // Modal visibility state
@@ -58,6 +55,7 @@ const App: React.FC = () => {
     const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+    const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
 
     // State for editing items
     const [contributionToEdit, setContributionToEdit] = useState<Contribution | null>(null);
@@ -65,6 +63,7 @@ const App: React.FC = () => {
     const [vendorToEdit, setVendorToEdit] = useState<Vendor | null>(null);
     const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
     const [quotationToEdit, setQuotationToEdit] = useState<Quotation | null>(null);
+    const [budgetToEdit, setBudgetToEdit] = useState<BudgetType | null>(null);
 
     // State for deletion confirmation
     const [itemToDelete, setItemToDelete] = useState<{ id: string | number; type: string } | null>(null);
@@ -92,12 +91,12 @@ const App: React.FC = () => {
         if (!isAuthenticated) return;
         try {
             const [
-                contributionsRes, campaignsRes, sponsorsRes, vendorsRes, expensesRes, quotationsRes, authorizedEmailsRes
+                contributionsRes, campaignsRes, sponsorsRes, vendorsRes, expensesRes, quotationsRes, budgetsRes, authorizedEmailsRes
             ] = await Promise.all([
                 fetch(`${API_URL}/contributions`), fetch(`${API_URL}/campaigns`),
                 fetch(`${API_URL}/sponsors`), fetch(`${API_URL}/vendors`),
                 fetch(`${API_URL}/expenses`), fetch(`${API_URL}/quotations`),
-                fetch(`${API_URL}/authorized-emails`),
+                fetch(`${API_URL}/budgets`), fetch(`${API_URL}/authorized-emails`),
             ]);
 
             setContributions(await contributionsRes.json());
@@ -106,6 +105,7 @@ const App: React.FC = () => {
             setVendors(await vendorsRes.json());
             setExpenses(await expensesRes.json());
             setQuotations(await quotationsRes.json());
+            setBudgets(await budgetsRes.json());
             setAuthorizedEmails(await authorizedEmailsRes.json());
         } catch (error) {
             console.error("Failed to fetch data:", error);
@@ -142,6 +142,24 @@ const App: React.FC = () => {
         });
         return Array.from(donorMap.values()).sort((a,b) => b.totalContributed - a.totalContributed);
     }, [contributions]);
+
+    const expenseHeads = useMemo(() => Array.from(new Set(expenses.map(e => e.expenseHead))), [expenses]);
+
+    const confirmMessage = useMemo(() => {
+        if (!itemToDelete) return '';
+        let itemType = 'item';
+        switch (itemToDelete.type) {
+            case 'authorizedEmails':
+                itemType = 'email';
+                break;
+            case 'budgets':
+                itemType = 'budget item';
+                break;
+            default:
+                itemType = itemToDelete.type.slice(0, -1);
+        }
+        return `Are you sure you want to delete this ${itemType}? This action cannot be undone.`;
+    }, [itemToDelete]);
     
     const handleLogin = async (user: string, pass: string): Promise<boolean> => {
         try {
@@ -235,6 +253,7 @@ const App: React.FC = () => {
             vendors: 'vendors',
             expenses: 'expenses',
             quotations: 'quotations',
+            budgets: 'budgets',
             authorizedEmails: 'authorized-emails',
         };
         const endpoint = endpointMap[type];
@@ -258,6 +277,7 @@ const App: React.FC = () => {
                 case 'vendors': setVendors(prev => prev.filter(item => item.id !== id)); break;
                 case 'expenses': setExpenses(prev => prev.filter(item => item.id !== id)); break;
                 case 'quotations': setQuotations(prev => prev.filter(item => item.id !== id)); break;
+                case 'budgets': setBudgets(prev => prev.filter(item => item.id !== id)); break;
                 case 'authorizedEmails': setAuthorizedEmails(prev => prev.filter(item => item.id !== id)); break;
                 default: break;
             }
@@ -301,16 +321,14 @@ const App: React.FC = () => {
     };
     const openQuotationModal = (item: Quotation | null) => { setQuotationToEdit(item); setIsQuotationModalOpen(true); };
     
+    const handleBudgetSubmit = (data: Omit<BudgetType, 'id'>) => {
+        if (budgetToEdit) handleUpdate(`${API_URL}/budgets`, { ...data, id: budgetToEdit.id }, setBudgets, () => setIsBudgetModalOpen(false));
+        else handleAdd(`${API_URL}/budgets`, data, setBudgets, () => setIsBudgetModalOpen(false));
+    };
+    const openBudgetModal = (item: BudgetType | null) => { setBudgetToEdit(item); setIsBudgetModalOpen(true); };
+
     const handleAddEmail = (email: string) => {
         handleAdd(`${API_URL}/authorized-emails`, { email }, setAuthorizedEmails);
-    };
-
-    const handleToggleSidebar = () => {
-        setIsSidebarCollapsed(prevState => {
-            const newState = !prevState;
-            localStorage.setItem('sidebar-collapsed', JSON.stringify(newState));
-            return newState;
-        });
     };
 
     if (!isAuthenticated) {
@@ -325,27 +343,33 @@ const App: React.FC = () => {
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <HashRouter>
                 <div className="flex h-screen bg-slate-100">
-                    <Sidebar isAdmin={isAdmin} isCollapsed={isSidebarCollapsed} onToggle={handleToggleSidebar} />
-                    <div className="flex-1 flex flex-col overflow-hidden">
+                    <Sidebar 
+                        isAdmin={isAdmin}
+                        isCollapsed={isSidebarCollapsed}
+                        toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    />
+                    <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
                         <Header 
                             onAddContributionClick={() => openContributionModal(null)} 
                             onAddSponsorClick={() => openSponsorModal(null)}
                             onAddVendorClick={() => openVendorModal(null)}
                             onAddExpenseClick={() => openExpenseModal(null)}
                             onAddQuotationClick={() => openQuotationModal(null)}
+                            onAddBudgetClick={() => openBudgetModal(null)}
                             onLogout={handleLogout}
                         />
                         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-8">
                             <Routes>
-                                <Route path="/" element={<Dashboard contributions={contributions} donors={donors} sponsors={sponsors} />} />
+                                <Route path="/" element={<Dashboard contributions={contributions} donors={donors} sponsors={sponsors} expenses={expenses} />} />
                                 <Route path="/contributions" element={<Contributions contributions={contributions} campaigns={campaigns} onEdit={openContributionModal} onDelete={(id) => handleDeleteClick(id, 'contributions')} />} />
                                 <Route path="/donors" element={<Donors donors={donors} />} />
                                 <Route path="/sponsors" element={<Sponsors sponsors={sponsors} onEdit={openSponsorModal} onDelete={(id) => handleDeleteClick(id, 'sponsors')} />} />
                                 <Route path="/vendors" element={<Vendors vendors={vendors} onEdit={openVendorModal} onDelete={(id) => handleDeleteClick(id, 'vendors')} />} />
                                 <Route path="/expenses" element={<Expenses expenses={expenses} vendors={vendors} onEdit={openExpenseModal} onDelete={(id) => handleDeleteClick(id, 'expenses')} />} />
                                 <Route path="/quotations" element={<Quotations quotations={quotations} vendors={vendors} onEdit={openQuotationModal} onDelete={(id) => handleDeleteClick(id, 'quotations')} />} />
+                                <Route path="/budget" element={<Budget budgets={budgets} onEdit={openBudgetModal} onDelete={(id) => handleDeleteClick(id, 'budgets')} />} />
                                 <Route path="/campaigns" element={<Campaigns campaigns={campaigns} contributions={contributions}/>} />
-                                <Route path="/reports" element={<Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} />} />
+                                <Route path="/reports" element={<Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} />} />
                                 <Route path="/ai-insights" element={<AiInsights />} />
                                 <Route path="/user-management" element={
                                     isAdmin ? (
@@ -362,7 +386,8 @@ const App: React.FC = () => {
                      {isVendorModalOpen && <VendorModal vendorToEdit={vendorToEdit} onClose={() => { setIsVendorModalOpen(false); setVendorToEdit(null); }} onSubmit={handleVendorSubmit} />}
                      {isExpenseModalOpen && <ExpenseModal vendors={vendors} expenses={expenses} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
                      {isQuotationModalOpen && <QuotationModal vendors={vendors} quotationToEdit={quotationToEdit} onClose={() => { setIsQuotationModalOpen(false); setQuotationToEdit(null); }} onSubmit={handleQuotationSubmit} />}
-                     {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={`Are you sure you want to delete this ${itemToDelete?.type === 'authorizedEmails' ? 'email' : itemToDelete?.type.slice(0, -1)}? This action cannot be undone.`} />}
+                     {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
+                     {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} />}
                 </div>
             </HashRouter>
         </GoogleOAuthProvider>
