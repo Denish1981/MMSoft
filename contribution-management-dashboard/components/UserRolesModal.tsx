@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import type { UserForManagement, Role } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 
 interface UserRolesModalProps {
     user: UserForManagement | null; // null for creating a new user
@@ -11,6 +11,7 @@ interface UserRolesModalProps {
 }
 
 export const UserRolesModal: React.FC<UserRolesModalProps> = ({ user, allRoles, onClose }) => {
+    const { token, logout } = useAuth();
     const isCreating = user === null;
     const [selectedRoleIds, setSelectedRoleIds] = useState<Set<number>>(new Set());
     const [isLoading, setIsLoading] = useState(false);
@@ -43,11 +44,16 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({ user, allRoles, 
 
         try {
             let response;
+            const authHeaders = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+
             if (isCreating) {
                 // Logic to create a new user
                 response = await fetch(`${API_URL}/users`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders,
                     body: JSON.stringify({ 
                         username, 
                         password, 
@@ -58,9 +64,14 @@ export const UserRolesModal: React.FC<UserRolesModalProps> = ({ user, allRoles, 
                 // Logic to update an existing user's roles
                 response = await fetch(`${API_URL}/users/${user.id}/roles`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders,
                     body: JSON.stringify({ roleIds: Array.from(selectedRoleIds) }),
                 });
+            }
+            
+            if (response.status === 401) {
+                logout();
+                return;
             }
 
             if (!response.ok) {

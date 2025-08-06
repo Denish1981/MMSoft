@@ -176,3 +176,11 @@ CREATE TABLE role_permissions (
     permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     PRIMARY KEY (role_id, permission_id) -- Ensures a role cannot have the same permission twice
 );
+
+CREATE TABLE user_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);

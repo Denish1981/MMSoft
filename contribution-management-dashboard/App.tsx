@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -37,7 +35,7 @@ import PageViewTracker from './components/PageViewTracker';
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
 
 const AppContent: React.FC = () => {
-    const { isAuthenticated, user, isLoading, hasPermission, logout } = useAuth();
+    const { isAuthenticated, isLoading, hasPermission, logout, token } = useAuth();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     
     // Data state
@@ -68,18 +66,26 @@ const AppContent: React.FC = () => {
     // State for deletion confirmation
     const [itemToDelete, setItemToDelete] = useState<{ id: string | number; type: string } | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+    
+    const getAuthHeaders = () => ({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+    });
 
     const fetchData = async () => {
         if (!isAuthenticated) return;
         try {
+            const headers = { 'Authorization': `Bearer ${token}` };
             const [
                 contributionsRes, campaignsRes, sponsorsRes, vendorsRes, expensesRes, quotationsRes, budgetsRes
             ] = await Promise.all([
-                fetch(`${API_URL}/contributions`), fetch(`${API_URL}/campaigns`),
-                fetch(`${API_URL}/sponsors`), fetch(`${API_URL}/vendors`),
-                fetch(`${API_URL}/expenses`), fetch(`${API_URL}/quotations`),
-                fetch(`${API_URL}/budgets`),
+                fetch(`${API_URL}/contributions`, { headers }), fetch(`${API_URL}/campaigns`, { headers }),
+                fetch(`${API_URL}/sponsors`, { headers }), fetch(`${API_URL}/vendors`, { headers }),
+                fetch(`${API_URL}/expenses`, { headers }), fetch(`${API_URL}/quotations`, { headers }),
+                fetch(`${API_URL}/budgets`, { headers }),
             ]);
+            
+            if (contributionsRes.status === 401) { logout(); return; }
 
             setContributions(await contributionsRes.json());
             setCampaigns(await campaignsRes.json());
@@ -94,10 +100,10 @@ const AppContent: React.FC = () => {
     };
 
     useEffect(() => {
-        if (isAuthenticated) {
+        if (isAuthenticated && token) {
             fetchData();
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, token]);
 
     const donors = useMemo((): Donor[] => {
         const donorMap = new Map<string, Donor>();
@@ -133,13 +139,14 @@ const AppContent: React.FC = () => {
     // --- Generic CRUD Handlers ---
     const handleAdd = async <T extends { id: any }>(url: string, body: Omit<T, 'id'>, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal?: () => void) => {
         try {
-            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body) });
+            if (response.status === 401) { logout(); return; }
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || `Failed to add item`);
             }
             const newItem: T = await response.json();
-            setData(prev => [newItem, ...prev]);
+            setData((prev: T[]) => [newItem, ...prev]);
             if (closeModal) closeModal();
         } catch (error) {
             console.error(`Failed to add item:`, error);
@@ -149,9 +156,10 @@ const AppContent: React.FC = () => {
 
     const handleUpdate = async <T extends {id: string}>(url: string, body: T, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal: () => void) => {
         try {
-            const response = await fetch(`${url}/${body.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const response = await fetch(`${url}/${body.id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body) });
+            if (response.status === 401) { logout(); return; }
             const updatedItem: T = await response.json();
-            setData(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+            setData((prev: T[]) => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
             closeModal();
         } catch (error) {
             console.error(`Failed to update item:`, error);
@@ -181,27 +189,28 @@ const AppContent: React.FC = () => {
             return;
         }
         try {
-            const response = await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
+            const response = await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+            if (response.status === 401) { logout(); return; }
             if (!response.ok) { throw new Error(`Failed to delete ${type}`); }
             
             switch (type) {
                 case 'contributions':
-                    setContributions(prev => prev.filter(item => item.id !== id));
+                    setContributions((prev: Contribution[]) => prev.filter(item => item.id !== id));
                     break;
                 case 'sponsors':
-                    setSponsors(prev => prev.filter(item => item.id !== id));
+                    setSponsors((prev: Sponsor[]) => prev.filter(item => item.id !== id));
                     break;
                 case 'vendors':
-                    setVendors(prev => prev.filter(item => item.id !== id));
+                    setVendors((prev: Vendor[]) => prev.filter(item => item.id !== id));
                     break;
                 case 'expenses':
-                    setExpenses(prev => prev.filter(item => item.id !== id));
+                    setExpenses((prev: Expense[]) => prev.filter(item => item.id !== id));
                     break;
                 case 'quotations':
-                    setQuotations(prev => prev.filter(item => item.id !== id));
+                    setQuotations((prev: Quotation[]) => prev.filter(item => item.id !== id));
                     break;
                 case 'budgets':
-                    setBudgets(prev => prev.filter(item => item.id !== id));
+                    setBudgets((prev: BudgetType[]) => prev.filter(item => item.id !== id));
                     break;
             }
         } catch (error) {
@@ -275,7 +284,6 @@ const AppContent: React.FC = () => {
                         onAddExpenseClick={() => openModal(setIsExpenseModalOpen, 'action:create', setExpenseToEdit, null)}
                         onAddQuotationClick={() => openModal(setIsQuotationModalOpen, 'action:create', setQuotationToEdit, null)}
                         onAddBudgetClick={() => openModal(setIsBudgetModalOpen, 'action:create', setBudgetToEdit, null)}
-                        onLogout={logout}
                     />
                     <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-8">
                         <Routes>

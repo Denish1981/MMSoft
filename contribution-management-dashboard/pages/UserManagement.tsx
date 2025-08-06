@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import type { UserForManagement, Role } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,7 +6,7 @@ import { PlusIcon } from '../components/icons/PlusIcon';
 import { UserRolesModal } from '../components/UserRolesModal';
 
 const UserManagement: React.FC = () => {
-    const { hasPermission } = useAuth();
+    const { hasPermission, token, logout } = useAuth();
     const [users, setUsers] = useState<UserForManagement[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -20,10 +19,17 @@ const UserManagement: React.FC = () => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
+            const headers = { 'Authorization': `Bearer ${token}` };
             const [usersRes, rolesRes] = await Promise.all([
-                fetch(`${API_URL}/users/management`),
-                fetch(`${API_URL}/roles`),
+                fetch(`${API_URL}/users/management`, { headers }),
+                fetch(`${API_URL}/roles`, { headers }),
             ]);
+
+            if (usersRes.status === 401 || rolesRes.status === 401) {
+                logout();
+                return;
+            }
+
             if (!usersRes.ok || !rolesRes.ok) throw new Error('Failed to fetch user management data');
             setUsers(await usersRes.json());
             setRoles(await rolesRes.json());
@@ -35,8 +41,10 @@ const UserManagement: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (token) {
+            fetchData();
+        }
+    }, [token]);
     
     const handleManageRolesClick = (user: UserForManagement) => {
         setSelectedUser(user);

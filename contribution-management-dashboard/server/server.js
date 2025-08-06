@@ -1,10 +1,10 @@
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const db = require('./db');
 const { GoogleGenAI } = require('@google/genai');
 const { OAuth2Client } = require('google-auth-library');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -66,14 +66,12 @@ const seedDatabase = async () => {
         await client.query('BEGIN');
         console.log('Seeding database with roles and permissions...');
 
-        // Insert all permissions
         const permissionMap = new Map();
         for (const perm of ALL_PERMISSIONS) {
             const res = await client.query('INSERT INTO permissions (name, description) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET description = $2 RETURNING id, name', [perm.name, perm.description]);
             permissionMap.set(res.rows[0].name, res.rows[0].id);
         }
 
-        // Insert roles and associate permissions
         for (const roleName in ROLES_CONFIG) {
             const roleRes = await client.query('INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id', [roleName]);
             if (roleRes.rows.length > 0) {
@@ -89,7 +87,6 @@ const seedDatabase = async () => {
             }
         }
         
-        // Ensure the admin user from .env exists and has the Admin role
         const adminEmail = process.env.ADMIN_EMAIL;
         const adminPassword = process.env.ADMIN_PASSWORD;
         if (adminEmail) {
@@ -151,6 +148,56 @@ const getUserPermissions = async (userId) => {
     return rows.map(r => r.name);
 };
 
+const createSession = async (userId) => {
+    const token = crypto.randomBytes(64).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 1); // Session valid for 1 day
+
+    await db.query('INSERT INTO user_sessions (user_id, token, expires_at) VALUES ($1, $2, $3)', [userId, token, expiresAt]);
+    return token;
+};
+
+// --- Auth Middleware ---
+const authMiddleware = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Authentication required: No token provided.' });
+    }
+    const token = authHeader.split(' ')[1];
+
+    const sessionRes = await db.query('SELECT user_id FROM user_sessions WHERE token = $1 AND expires_at > NOW()', [token]);
+    if (sessionRes.rows.length === 0) {
+        return res.status(401).json({ message: 'Authentication failed: Invalid or expired token.' });
+    }
+    const userId = sessionRes.rows[0].user_id;
+
+    const userRes = await db.query('SELECT id, username FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) {
+        return res.status(401).json({ message: 'Authentication failed: User not found.' });
+    }
+    
+    const user = userRes.rows[0];
+    const permissions = await getUserPermissions(userId);
+    
+    req.user = { id: user.id, email: user.username, permissions };
+    next();
+};
+
+const permissionMiddleware = (permission) => (req, res, next) => {
+    if (!req.user || !req.user.permissions) {
+        return res.status(403).json({ message: 'Forbidden: No permissions found for user.' });
+    }
+    // Admin role (defined by 'action:users:manage' permission) has all rights.
+    if (req.user.permissions.includes('action:users:manage')) {
+        return next();
+    }
+    if (!req.user.permissions.includes(permission)) {
+        return res.status(403).json({ message: `Forbidden: Lacks '${permission}' permission.` });
+    }
+    next();
+};
+
+
 // --- API Routes ---
 
 // Authentication
@@ -161,13 +208,11 @@ app.post('/api/login', async (req, res) => {
         if (result.rows.length > 0) {
             const user = result.rows[0];
             const permissions = await getUserPermissions(user.id);
-
-            if (permissions.length === 0) {
-                return res.status(403).json({ message: 'Login failed. Your account has not been assigned any roles.' });
-            }
-
+            if (permissions.length === 0) return res.status(403).json({ message: 'Login failed. Your account has not been assigned any roles.' });
+            
+            const token = await createSession(user.id);
             await logLoginHistory(user.id, 'password', req);
-            res.status(200).json({ user: { id: user.id, email: user.username, permissions } });
+            res.status(200).json({ user: { id: user.id, email: user.username, permissions }, token });
         } else {
             res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -183,41 +228,48 @@ app.post('/api/auth/google', async (req, res) => {
         const ticket = await googleClient.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
         const email = payload?.email;
-
-        if (!email) {
-            return res.status(400).json({ message: 'Invalid Google token: email not found.' });
-        }
+        if (!email) return res.status(400).json({ message: 'Invalid Google token: email not found.' });
 
         const userResult = await db.query('SELECT id, username FROM users WHERE username = $1', [email]);
-        if (userResult.rows.length === 0) {
-            return res.status(403).json({ message: 'Access denied. Your account has not been set up by an administrator.' });
-        }
+        if (userResult.rows.length === 0) return res.status(403).json({ message: 'Access denied. Your account has not been set up by an administrator.' });
 
         const user = userResult.rows[0];
         const permissions = await getUserPermissions(user.id);
-        if (permissions.length === 0) {
-            return res.status(403).json({ message: 'Access denied. Your account has no assigned roles.' });
-        }
+        if (permissions.length === 0) return res.status(403).json({ message: 'Access denied. Your account has no assigned roles.' });
 
+        const sessionToken = await createSession(user.id);
         await logLoginHistory(user.id, 'google', req);
-        res.status(200).json({ user: { id: user.id, email: user.username, permissions } });
-
+        res.status(200).json({ user: { id: user.id, email: user.username, permissions }, token: sessionToken });
     } catch (error) {
         console.error('Google Auth Error:', error);
         res.status(401).json({ message: 'Invalid Google token' });
     }
 });
 
-// Page Access Tracking
-app.post('/api/track-access', async (req, res) => {
-    const { userEmail, pagePath } = req.body;
-    if (!userEmail || !pagePath) return res.status(400).json({ error: 'userEmail and pagePath are required' });
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+    res.status(200).json({ user: req.user });
+});
+
+app.post('/api/logout', authMiddleware, async (req, res) => {
     try {
-        const userResult = await db.query('SELECT id FROM users WHERE username = $1', [userEmail]);
-        if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-        const userId = userResult.rows[0].id;
+        const authHeader = req.headers.authorization;
+        const token = authHeader.split(' ')[1];
+        await db.query('DELETE FROM user_sessions WHERE token = $1', [token]);
+        res.status(200).json({ message: 'Logged out successfully.' });
+    } catch (err) {
+        console.error('Logout error:', err);
+        res.status(500).json({ error: 'Internal server error during logout.' });
+    }
+});
+
+
+// Page Access Tracking
+app.post('/api/track-access', authMiddleware, async (req, res) => {
+    const { pagePath } = req.body;
+    if (!pagePath) return res.status(400).json({ error: 'pagePath is required' });
+    try {
         await db.query('INSERT INTO page_access_history (user_id, page_path, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
-            [userId, pagePath, req.ip, req.headers['user-agent']]);
+            [req.user.id, pagePath, req.ip, req.headers['user-agent']]);
         res.status(200).json({ success: true });
     } catch (err) {
         console.error('Failed to track page access:', err);
@@ -225,8 +277,8 @@ app.post('/api/track-access', async (req, res) => {
     }
 });
 
-// --- User & Role Management ---
-app.get('/api/users/management', async (req, res) => {
+// --- User & Role Management (Requires Admin Permissions) ---
+app.get('/api/users/management', authMiddleware, permissionMiddleware('page:user-management:view'), async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT u.id, u.username, u.created_at AS "createdAt", 
@@ -244,7 +296,7 @@ app.get('/api/users/management', async (req, res) => {
     }
 });
 
-app.post('/api/users', async (req, res) => {
+app.post('/api/users', authMiddleware, permissionMiddleware('action:users:manage'), async (req, res) => {
     const { username, password, roleIds } = req.body;
     if (!username || !password || !roleIds || !Array.isArray(roleIds)) {
         return res.status(400).json({ error: 'Username, password, and an array of roleIds are required.' });
@@ -254,18 +306,14 @@ app.post('/api/users', async (req, res) => {
         await client.query('BEGIN');
         const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [username, password]);
         const userId = newUserRes.rows[0].id;
-
         for (const roleId of roleIds) {
             await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
         }
-
         await client.query('COMMIT');
         res.status(201).json({ message: 'User created successfully', userId });
     } catch (err) {
         await client.query('ROLLBACK');
-        if (err.code === '23505') { // unique_violation
-            return res.status(409).json({ error: 'A user with this email already exists.' });
-        }
+        if (err.code === '23505') return res.status(409).json({ error: 'A user with this email already exists.' });
         console.error('Error creating user:', err);
         res.status(500).json({ error: 'Internal server error' });
     } finally {
@@ -273,7 +321,7 @@ app.post('/api/users', async (req, res) => {
     }
 });
 
-app.get('/api/roles', async (req, res) => {
+app.get('/api/roles', authMiddleware, permissionMiddleware('page:user-management:view'), async (req, res) => {
     try {
         const { rows } = await db.query('SELECT id, name, description FROM roles ORDER BY name ASC');
         res.json(rows);
@@ -283,7 +331,7 @@ app.get('/api/roles', async (req, res) => {
     }
 });
 
-app.put('/api/users/:id/roles', async (req, res) => {
+app.put('/api/users/:id/roles', authMiddleware, permissionMiddleware('action:users:manage'), async (req, res) => {
     const { id } = req.params;
     const { roleIds } = req.body;
     if (!Array.isArray(roleIds)) return res.status(400).json({ error: 'roleIds must be an array.' });
@@ -296,7 +344,9 @@ app.put('/api/users/:id/roles', async (req, res) => {
             await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [id, roleId]);
         }
         await client.query('COMMIT');
-        res.status(200).json({ message: 'User roles updated successfully.' });
+        // Invalidate all sessions for this user to force re-login with new permissions
+        await db.query('DELETE FROM user_sessions WHERE user_id = $1', [id]);
+        res.status(200).json({ message: 'User roles updated successfully. User sessions have been cleared.' });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error updating user roles:', err);
@@ -306,9 +356,7 @@ app.put('/api/users/:id/roles', async (req, res) => {
     }
 });
 
-
-// Generic GET all endpoint factory
-const createGetAllEndpoint = (tableName) => async (req, res) => {
+const createGetAllEndpoint = (tableName, permission) => async (req, res) => {
     try {
         const { rows } = await db.query(`SELECT * FROM ${tableName} ORDER BY id DESC`);
         res.json(rows);
@@ -318,172 +366,114 @@ const createGetAllEndpoint = (tableName) => async (req, res) => {
     }
 };
 
-// GET all vendors with contacts
-app.get('/api/vendors', async (req, res) => {
+app.get('/api/vendors', authMiddleware, permissionMiddleware('page:vendors:view'), async (req, res) => {
     try {
         const vendorsResult = await db.query('SELECT * FROM vendors ORDER BY name ASC');
         const vendors = vendorsResult.rows;
-        
         for (const vendor of vendors) {
             const contactsResult = await db.query('SELECT name, contact_number as "contactNumber" FROM contact_persons WHERE vendor_id = $1', [vendor.id]);
             vendor.contacts = contactsResult.rows;
         }
-        
         res.json(vendors);
-    } catch (err) {
-        console.error('Error fetching vendors:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// GET all quotations with images
-app.get('/api/quotations', async (req, res) => {
+app.get('/api/quotations', authMiddleware, permissionMiddleware('page:quotations:view'), async (req, res) => {
     try {
         const quotationsResult = await db.query('SELECT id, quotation_for AS "quotationFor", vendor_id AS "vendorId", cost, date FROM quotations ORDER BY date DESC');
         const quotations = quotationsResult.rows;
-        
         for (const quote of quotations) {
             const imagesResult = await db.query('SELECT image_data FROM quotation_images WHERE quotation_id = $1', [quote.id]);
             quote.quotationImages = imagesResult.rows.map(row => row.image_data);
         }
-        
         res.json(quotations);
-    } catch (err) {
-        console.error('Error fetching quotations:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
-
 
 // GET Endpoints
-app.get('/api/contributions', async (req, res) => {
+app.get('/api/contributions', authMiddleware, permissionMiddleware('page:contributions:view'), async (req, res) => {
     try {
-        const { rows } = await db.query(
-            'SELECT id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image FROM contributions ORDER BY date DESC'
-        );
+        const { rows } = await db.query('SELECT id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image FROM contributions ORDER BY date DESC');
         res.json(rows);
-    } catch (err) {
-        console.error('Error fetching contributions:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
-app.get('/api/campaigns', createGetAllEndpoint('campaigns'));
-app.get('/api/budgets', async (req, res) => {
+app.get('/api/campaigns', authMiddleware, permissionMiddleware('page:campaigns:view'), createGetAllEndpoint('campaigns'));
+app.get('/api/budgets', authMiddleware, permissionMiddleware('page:budget:view'), async (req, res) => {
     try {
-        const { rows } = await db.query(
-            'SELECT id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead" FROM budgets ORDER BY item_name ASC'
-        );
+        const { rows } = await db.query('SELECT id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead" FROM budgets ORDER BY item_name ASC');
         res.json(rows);
-    } catch (err) {
-        console.error('Error fetching budgets:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-app.get('/api/sponsors', async (req, res) => {
+app.get('/api/sponsors', authMiddleware, permissionMiddleware('page:sponsors:view'), async (req, res) => {
     try {
-        const { rows } = await db.query(
-            'SELECT id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType" FROM sponsors ORDER BY name ASC'
-        );
+        const { rows } = await db.query('SELECT id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType" FROM sponsors ORDER BY name ASC');
         res.json(rows);
-    } catch (err) {
-        console.error('Error fetching sponsors:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-app.get('/api/expenses', async (req, res) => {
+app.get('/api/expenses', authMiddleware, permissionMiddleware('page:expenses:view'), async (req, res) => {
     try {
-        const expensesResult = await db.query(
-            'SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy" FROM expenses ORDER BY bill_date DESC'
-        );
+        const expensesResult = await db.query('SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy" FROM expenses ORDER BY bill_date DESC');
         const expenses = expensesResult.rows;
         for (const expense of expenses) {
             const imagesResult = await db.query('SELECT image_data FROM expense_images WHERE expense_id = $1', [expense.id]);
             expense.billReceipts = imagesResult.rows.map(row => row.image_data);
         }
         res.json(expenses);
-    } catch (err) {
-        console.error('Error fetching expenses:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // --- POST (Create) Endpoints ---
-app.post('/api/contributions', async (req, res) => {
+app.post('/api/contributions', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image } = req.body;
-    const newContribution = {
-        id: `con_${Date.now()}`, status: 'Completed', ...req.body, date: date || new Date().toISOString()
-    };
-    const dbCampaignId = campaignId || null; // Convert empty string to null
+    const newContribution = { id: `con_${Date.now()}`, status: 'Completed', ...req.body, date: date || new Date().toISOString() };
+    const dbCampaignId = campaignId || null;
     try {
-        await db.query(
-            'INSERT INTO contributions (id, donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
-            [newContribution.id, donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbCampaignId, newContribution.date, newContribution.status, type, image]
-        );
+        await db.query('INSERT INTO contributions (id, donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
+            [newContribution.id, donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbCampaignId, newContribution.date, newContribution.status, type, image]);
         res.status(201).json(newContribution);
-    } catch (err) {
-        console.error('Error adding contribution:', err); res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { console.error('Error adding contribution:', err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-app.post('/api/contributions/bulk', async (req, res) => {
+app.post('/api/contributions/bulk', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { contributions } = req.body;
-
     if (!contributions || !Array.isArray(contributions) || contributions.length === 0) {
-        return res.status(400).json({ error: 'Contributions array is required and must not be empty.' });
+        return res.status(400).json({ error: 'Contributions array is required.' });
     }
-
     const client = await db.getPool().connect();
     const createdContributions = [];
-
     try {
         await client.query('BEGIN');
-        
         for (let i = 0; i < contributions.length; i++) {
             const c = contributions[i];
-            const newContribution = {
-                id: `con_${Date.now()}_${i}`,
-                status: 'Completed',
-                ...c,
-                date: c.date || new Date().toISOString(),
-            };
-            const dbCampaignId = newContribution.campaignId || null;
-
-            const result = await client.query(
-                'INSERT INTO contributions (id, donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image',
-                [newContribution.id, newContribution.donorName, newContribution.donorEmail, newContribution.mobileNumber, newContribution.towerNumber, newContribution.flatNumber, newContribution.amount, newContribution.numberOfCoupons, dbCampaignId, newContribution.date, newContribution.status, newContribution.type, newContribution.image]
-            );
+            const newC = { id: `con_${Date.now()}_${i}`, status: 'Completed', ...c, date: c.date || new Date().toISOString() };
+            const dbCampaignId = newC.campaignId || null;
+            const result = await client.query('INSERT INTO contributions (id, donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image',
+                [newC.id, newC.donorName, newC.donorEmail, newC.mobileNumber, newC.towerNumber, newC.flatNumber, newC.amount, newC.numberOfCoupons, dbCampaignId, newC.date, newC.status, newC.type, newC.image]);
             createdContributions.push(result.rows[0]);
         }
-
         await client.query('COMMIT');
         res.status(201).json(createdContributions);
-
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Error adding bulk contributions:', err);
         res.status(500).json({ error: 'Internal server error during bulk insert' });
     } finally {
         client.release();
     }
 });
 
-app.post('/api/sponsors', async (req, res) => {
+app.post('/api/sponsors', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType } = req.body;
     const newSponsor = { id: `sp_${Date.now()}`, ...req.body };
     try {
-        await db.query(
-            'INSERT INTO sponsors (id, name, contact_number, address, email, business_category, business_info, sponsorship_amount, sponsorship_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-            [newSponsor.id, name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType]
-        );
+        await db.query('INSERT INTO sponsors (id, name, contact_number, address, email, business_category, business_info, sponsorship_amount, sponsorship_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+            [newSponsor.id, name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType]);
         res.status(201).json(newSponsor);
-    } catch (err) {
-        console.error('Error adding sponsor:', err); res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-app.post('/api/vendors', async (req, res) => {
+app.post('/api/vendors', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { name, business, address, contacts } = req.body;
     const newVendor = { id: `ven_${Date.now()}`, name, business, address, contacts };
     const client = await db.getPool().connect();
@@ -497,14 +487,11 @@ app.post('/api/vendors', async (req, res) => {
         res.status(201).json(newVendor);
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Error adding vendor:', err);
         res.status(500).json({ error: 'Internal server error' });
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
-app.post('/api/expenses', async (req, res) => {
+app.post('/api/expenses', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy } = req.body;
     const newExpense = { id: `exp_${Date.now()}`, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy };
     const client = await db.getPool().connect();
@@ -521,14 +508,11 @@ app.post('/api/expenses', async (req, res) => {
         res.status(201).json(newExpense);
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Error adding expense:', err);
         res.status(500).json({ error: 'Internal server error' });
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
-app.post('/api/quotations', async (req, res) => {
+app.post('/api/quotations', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { quotationFor, vendorId, cost, date, quotationImages } = req.body;
     const newQuotation = { id: `quo_${Date.now()}`, ...req.body };
     const client = await db.getPool().connect();
@@ -542,55 +526,42 @@ app.post('/api/quotations', async (req, res) => {
         res.status(201).json(newQuotation);
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Error adding quotation:', err);
         res.status(500).json({ error: 'Internal server error' });
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
-app.post('/api/budgets', async (req, res) => {
+app.post('/api/budgets', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { itemName, budgetedAmount, expenseHead } = req.body;
     const newBudget = { id: `bud_${Date.now()}`, ...req.body };
     try {
-        await db.query(
-            'INSERT INTO budgets (id, item_name, budgeted_amount, expense_head) VALUES ($1, $2, $3, $4)',
-            [newBudget.id, itemName, budgetedAmount, expenseHead]
-        );
+        await db.query('INSERT INTO budgets (id, item_name, budgeted_amount, expense_head) VALUES ($1, $2, $3, $4)', [newBudget.id, itemName, budgetedAmount, expenseHead]);
         res.status(201).json(newBudget);
-    } catch (err) {
-        console.error('Error adding budget:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // --- PUT (Update) Endpoints ---
-app.put('/api/contributions/:id', async (req, res) => {
+app.put('/api/contributions/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image, status } = req.body;
     const dbCampaignId = campaignId || null;
     try {
-        const result = await db.query(
-            'UPDATE contributions SET donor_name=$1, donor_email=$2, mobile_number=$3, tower_number=$4, flat_number=$5, amount=$6, number_of_coupons=$7, campaign_id=$8, date=$9, type=$10, image=$11, status=$12 WHERE id=$13 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image',
-            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbCampaignId, date, type, image, status, id]
-        );
+        const result = await db.query('UPDATE contributions SET donor_name=$1, donor_email=$2, mobile_number=$3, tower_number=$4, flat_number=$5, amount=$6, number_of_coupons=$7, campaign_id=$8, date=$9, type=$10, image=$11, status=$12 WHERE id=$13 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image',
+            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbCampaignId, date, type, image, status, id]);
         res.json(result.rows[0]);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update contribution' }); }
+    } catch (err) { res.status(500).json({ error: 'Failed to update contribution' }); }
 });
 
-app.put('/api/sponsors/:id', async (req, res) => {
+app.put('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType } = req.body;
     try {
-        const result = await db.query(
-            'UPDATE sponsors SET name=$1, contact_number=$2, address=$3, email=$4, business_category=$5, business_info=$6, sponsorship_amount=$7, sponsorship_type=$8 WHERE id=$9 RETURNING id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType"',
-            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, id]
-        );
+        const result = await db.query('UPDATE sponsors SET name=$1, contact_number=$2, address=$3, email=$4, business_category=$5, business_info=$6, sponsorship_amount=$7, sponsorship_type=$8 WHERE id=$9 RETURNING id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType"',
+            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, id]);
         res.json(result.rows[0]);
-    } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update sponsor' }); }
+    } catch (err) { res.status(500).json({ error: 'Failed to update sponsor' }); }
 });
 
-app.put('/api/vendors/:id', async (req, res) => {
+app.put('/api/vendors/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { name, business, address, contacts } = req.body;
     const client = await db.getPool().connect();
@@ -603,16 +574,11 @@ app.put('/api/vendors/:id', async (req, res) => {
         }
         await client.query('COMMIT');
         res.json({ id, name, business, address, contacts });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error(err);
-        res.status(500).json({ error: 'Failed to update vendor' });
-    } finally {
-        client.release();
-    }
+    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to update vendor' }); }
+    finally { client.release(); }
 });
 
-app.put('/api/expenses/:id', async (req, res) => {
+app.put('/api/expenses/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy } = req.body;
     const client = await db.getPool().connect();
@@ -620,7 +586,6 @@ app.put('/api/expenses/:id', async (req, res) => {
         await client.query('BEGIN');
         await client.query('UPDATE expenses SET name=$1, vendor_id=$2, cost=$3, bill_date=$4, expense_head=$5, expense_by=$6 WHERE id=$7',
             [name, vendorId, cost, billDate, expenseHead, expenseBy, id]);
-        
         await client.query('DELETE FROM expense_images WHERE expense_id=$1', [id]);
         if (billReceipts && billReceipts.length > 0) {
             for (const image of billReceipts) {
@@ -629,16 +594,11 @@ app.put('/api/expenses/:id', async (req, res) => {
         }
         await client.query('COMMIT');
         res.json({ id, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error(err);
-        res.status(500).json({ error: 'Failed to update expense' });
-    } finally {
-        client.release();
-    }
+    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to update expense' }); }
+    finally { client.release(); }
 });
 
-app.put('/api/quotations/:id', async (req, res) => {
+app.put('/api/quotations/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { quotationFor, vendorId, cost, date, quotationImages } = req.body;
     const client = await db.getPool().connect();
@@ -651,28 +611,18 @@ app.put('/api/quotations/:id', async (req, res) => {
         }
         await client.query('COMMIT');
         res.json({ id, quotationFor, vendorId, cost, date, quotationImages });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error(err);
-        res.status(500).json({ error: 'Failed to update quotation' });
-    } finally {
-        client.release();
-    }
+    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to update quotation' }); }
+    finally { client.release(); }
 });
 
-app.put('/api/budgets/:id', async (req, res) => {
+app.put('/api/budgets/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { itemName, budgetedAmount, expenseHead } = req.body;
     try {
-        const result = await db.query(
-            'UPDATE budgets SET item_name=$1, budgeted_amount=$2, expense_head=$3 WHERE id=$4 RETURNING id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead"',
-            [itemName, budgetedAmount, expenseHead, id]
-        );
+        const result = await db.query('UPDATE budgets SET item_name=$1, budgeted_amount=$2, expense_head=$3 WHERE id=$4 RETURNING id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead"',
+            [itemName, budgetedAmount, expenseHead, id]);
         res.json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to update budget' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Failed to update budget' }); }
 });
 
 // --- DELETE Endpoints ---
@@ -680,14 +630,14 @@ const createDeleteEndpoint = (tableName) => async (req, res) => {
     try {
         await db.query(`DELETE FROM ${tableName} WHERE id = $1`, [req.params.id]);
         res.status(204).send();
-    } catch (err) { console.error(err); res.status(500).json({ error: `Failed to delete from ${tableName}` }); }
+    } catch (err) { res.status(500).json({ error: `Failed to delete from ${tableName}` }); }
 };
 
-app.delete('/api/contributions/:id', createDeleteEndpoint('contributions'));
-app.delete('/api/sponsors/:id', createDeleteEndpoint('sponsors'));
-app.delete('/api/budgets/:id', createDeleteEndpoint('budgets'));
+app.delete('/api/contributions/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('contributions'));
+app.delete('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('sponsors'));
+app.delete('/api/budgets/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('budgets'));
 
-app.delete('/api/expenses/:id', async (req, res) => {
+app.delete('/api/expenses/:id', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
     const { id } = req.params;
     const client = await db.getPool().connect();
     try {
@@ -696,16 +646,11 @@ app.delete('/api/expenses/:id', async (req, res) => {
         await client.query('DELETE FROM expenses WHERE id = $1', [id]);
         await client.query('COMMIT');
         res.status(204).send();
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('Error deleting expense:', err);
-        res.status(500).json({ error: 'Failed to delete expense' });
-    } finally {
-        client.release();
-    }
+    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to delete expense' }); }
+    finally { client.release(); }
 });
 
-app.delete('/api/quotations/:id', async (req, res) => {
+app.delete('/api/quotations/:id', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
     const { id } = req.params;
     const client = await db.getPool().connect();
     try {
@@ -714,70 +659,54 @@ app.delete('/api/quotations/:id', async (req, res) => {
         await client.query('DELETE FROM quotations WHERE id = $1', [id]);
         await client.query('COMMIT');
         res.status(204).send();
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('Error deleting quotation:', err);
-        res.status(500).json({ error: 'Failed to delete quotation' });
-    } finally {
-        client.release();
-    }
+    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to delete quotation' }); }
+    finally { client.release(); }
 });
 
 
-app.delete('/api/vendors/:id', async (req, res) => {
+app.delete('/api/vendors/:id', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
     const { id } = req.params;
     try {
         const expenseCheck = await db.query('SELECT id FROM expenses WHERE vendor_id = $1 LIMIT 1', [id]);
-        if (expenseCheck.rows.length > 0) {
-            return res.status(400).json({ error: 'Cannot delete vendor. It is associated with one or more expenses.' });
-        }
+        if (expenseCheck.rows.length > 0) return res.status(400).json({ error: 'Cannot delete vendor. It is associated with one or more expenses.' });
+        
         const quotationCheck = await db.query('SELECT id FROM quotations WHERE vendor_id = $1 LIMIT 1', [id]);
-        if (quotationCheck.rows.length > 0) {
-            return res.status(400).json({ error: 'Cannot delete vendor. It is associated with one or more quotations.' });
-        }
+        if (quotationCheck.rows.length > 0) return res.status(400).json({ error: 'Cannot delete vendor. It is associated with one or more quotations.' });
+        
         await db.query('DELETE FROM vendors WHERE id = $1', [id]);
         res.status(204).send();
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to delete vendor' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Failed to delete vendor' }); }
 });
 
 // --- Gemini API Proxy Routes ---
-app.post('/api/ai/summary', async (req, res) => {
+app.post('/api/ai/summary', authMiddleware, permissionMiddleware('page:ai-insights:view'), async (req, res) => {
     const { contributions, campaigns, period } = req.body;
     const prompt = `Analyze the following contribution data for the period: ${period}. Provide a concise, insightful summary for a non-profit manager. Include total contributions, top campaign, trends, and average contribution. Data: Campaigns: ${JSON.stringify(campaigns)}, Contributions: ${JSON.stringify(contributions.slice(0, 100))}`;
     try {
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { temperature: 0.3 } });
         res.json({ summary: response.text });
-    } catch (error) {
-        console.error("Error generating summary:", error); res.status(500).json({ error: "AI analysis failed." });
-    }
+    } catch (error) { res.status(500).json({ error: "AI analysis failed." }); }
 });
 
-app.post('/api/ai/note', async (req, res) => {
+app.post('/api/ai/note', authMiddleware, permissionMiddleware('page:contributions:view'), async (req, res) => {
     const { donorName, amount, campaignName } = req.body;
     const prompt = `Generate a warm, personal 3-4 sentence thank you note to ${donorName} for their contribution of ₹${amount} to the "${campaignName}" campaign.`;
     try {
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { temperature: 0.7 } });
         res.json({ note: response.text });
-    } catch (error) {
-        console.error("Error generating note:", error); res.status(500).json({ error: "AI note generation failed." });
-    }
+    } catch (error) { res.status(500).json({ error: "AI note generation failed." }); }
 });
 
 
 // --- Server Start ---
 const startServer = async () => {
     await seedDatabase();
-
     if (isProduction) {
         app.use(express.static(path.join(__dirname, '../dist')));
         app.get('*', (req, res) => {
             res.sendFile(path.join(__dirname, '../dist/index.html'));
         });
     }
-
     app.listen(port, () => {
         console.log(`Server is running on http://localhost:${port}`);
     });

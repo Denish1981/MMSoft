@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,12 +11,11 @@ interface HeaderProps {
     onAddExpenseClick: () => void;
     onAddQuotationClick: () => void;
     onAddBudgetClick: () => void;
-    onLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick }) => {
     const location = useLocation();
-    const { hasPermission } = useAuth();
+    const { hasPermission, logout } = useAuth();
 
     const getPageDetails = () => {
         const path = location.pathname;
@@ -61,7 +59,7 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
                     <div className="flex items-center space-x-4">
                         {button}
                         <button 
-                            onClick={onLogout}
+                            onClick={logout}
                             className="flex items-center text-slate-600 hover:text-slate-900 focus:outline-none transition-colors duration-200"
                             aria-label="Logout"
                         >
