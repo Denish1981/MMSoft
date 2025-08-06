@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -137,7 +138,7 @@ const AppContent: React.FC = () => {
                 const errorData = await response.json();
                 throw new Error(errorData.error || `Failed to add item`);
             }
-            const newItem = await response.json();
+            const newItem: T = await response.json();
             setData(prev => [newItem, ...prev]);
             if (closeModal) closeModal();
         } catch (error) {
@@ -149,7 +150,7 @@ const AppContent: React.FC = () => {
     const handleUpdate = async <T extends {id: string}>(url: string, body: T, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal: () => void) => {
         try {
             const response = await fetch(`${url}/${body.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-            const updatedItem = await response.json();
+            const updatedItem: T = await response.json();
             setData(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
             closeModal();
         } catch (error) {
@@ -182,11 +183,27 @@ const AppContent: React.FC = () => {
         try {
             const response = await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
             if (!response.ok) { throw new Error(`Failed to delete ${type}`); }
-            const setDataMap = {
-                contributions: setContributions, sponsors: setSponsors, vendors: setVendors,
-                expenses: setExpenses, quotations: setQuotations, budgets: setBudgets,
-            };
-            setDataMap[type](prev => prev.filter(item => item.id !== id));
+            
+            switch (type) {
+                case 'contributions':
+                    setContributions(prev => prev.filter(item => item.id !== id));
+                    break;
+                case 'sponsors':
+                    setSponsors(prev => prev.filter(item => item.id !== id));
+                    break;
+                case 'vendors':
+                    setVendors(prev => prev.filter(item => item.id !== id));
+                    break;
+                case 'expenses':
+                    setExpenses(prev => prev.filter(item => item.id !== id));
+                    break;
+                case 'quotations':
+                    setQuotations(prev => prev.filter(item => item.id !== id));
+                    break;
+                case 'budgets':
+                    setBudgets(prev => prev.filter(item => item.id !== id));
+                    break;
+            }
         } catch (error) {
             console.error(error);
             alert(error instanceof Error ? error.message : "An unknown error occurred.");
