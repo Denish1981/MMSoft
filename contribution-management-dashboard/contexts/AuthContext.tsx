@@ -20,9 +20,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
 
     const hasPermission = useCallback((permission: string): boolean => {
-        if (!user) return false;
-        // Admin has all permissions
-        if (user.permissions.includes('page:user-management:view') && user.permissions.includes('action:users:manage')) return true;
+        if (!user || !Array.isArray(user.permissions)) {
+            return false;
+        }
+        // Admin has all permissions, defined by having user management rights.
+        if (user.permissions.includes('page:user-management:view') && user.permissions.includes('action:users:manage')) {
+            return true;
+        }
         return user.permissions.includes(permission);
     }, [user]);
 
@@ -31,7 +35,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const savedUser = localStorage.getItem('contribution-os-user');
             if (savedUser) {
                 const parsedUser: AuthUser = JSON.parse(savedUser);
-                setUser(parsedUser);
+                // Data integrity check for user object from localStorage
+                if (parsedUser && parsedUser.id && parsedUser.email && Array.isArray(parsedUser.permissions)) {
+                    setUser(parsedUser);
+                } else {
+                    console.warn("Malformed user object in localStorage. Clearing session.");
+                    localStorage.removeItem('contribution-os-user');
+                }
             }
         } catch (e) {
             console.error("Failed to parse user from localStorage", e);
