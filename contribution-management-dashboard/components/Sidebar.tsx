@@ -4,9 +4,6 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { HomeIcon } from './icons/HomeIcon';
 import { ContributionIcon } from './icons/DonateIcon';
-import { UsersIcon } from './icons/UsersIcon';
-import { CampaignIcon } from './icons/CampaignIcon';
-import { SparklesIcon } from './icons/SparklesIcon';
 import { BriefcaseIcon } from './icons/BriefcaseIcon';
 import { StoreIcon } from './icons/StoreIcon';
 import { ReceiptIcon } from './icons/ReceiptIcon';
@@ -15,7 +12,8 @@ import { ChartBarIcon } from './icons/ChartBarIcon';
 import { UserGroupIcon } from './icons/UserGroupIcon';
 import { CalculatorIcon } from './icons/CalculatorIcon';
 import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
-import { DocumentAddIcon } from './icons/DocumentAddIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
+import { CheckSquareIcon } from './icons/CheckSquareIcon';
 
 interface NavItemProps {
     to: string;
@@ -47,17 +45,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
     
     const navItems = [
         { to: "/", permission: 'page:dashboard:view', icon: <HomeIcon className="w-5 h-5" />, label: "Dashboard" },
+        { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
+        { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },
         { to: "/contributions", permission: 'page:contributions:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Contributions" },
-        { to: "/bulk-add", permission: 'page:bulk-add:view', icon: <DocumentAddIcon className="w-5 h-5" />, label: "Bulk Add" },
-        { to: "/donors", permission: 'page:donors:view', icon: <UsersIcon className="w-5 h-5" />, label: "Donors" },
+        //{ to: "/donors", permission: 'page:donors:view', icon: <UsersIcon className="w-5 h-5" />, label: "Donors" },
         { to: "/sponsors", permission: 'page:sponsors:view', icon: <BriefcaseIcon className="w-5 h-5" />, label: "Sponsors" },
-        { to: "/vendors", permission: 'page:vendors:view', icon: <StoreIcon className="w-5 h-5" />, label: "Vendors" },
-        { to: "/expenses", permission: 'page:expenses:view', icon: <ReceiptIcon className="w-5 h-5" />, label: "Expenses" },
-        { to: "/quotations", permission: 'page:quotations:view', icon: <ClipboardIcon className="w-5 h-5" />, label: "Quotations" },
         { to: "/budget", permission: 'page:budget:view', icon: <CalculatorIcon className="w-5 h-5" />, label: "Budget" },
-        { to: "/campaigns", permission: 'page:campaigns:view', icon: <CampaignIcon className="w-5 h-5" />, label: "Campaigns" },
+        { to: "/vendors", permission: 'page:vendors:view', icon: <StoreIcon className="w-5 h-5" />, label: "Vendors" },
+        { to: "/quotations", permission: 'page:quotations:view', icon: <ClipboardIcon className="w-5 h-5" />, label: "Quotations" },
+        { to: "/expenses", permission: 'page:expenses:view', icon: <ReceiptIcon className="w-5 h-5" />, label: "Expenses" },
+        //{ to: "/campaigns", permission: 'page:campaigns:view', icon: <CampaignIcon className="w-5 h-5" />, label: "Campaigns" },
         { to: "/reports", permission: 'page:reports:view', icon: <ChartBarIcon className="w-5 h-5" />, label: "Reports" },
-        { to: "/ai-insights", permission: 'page:ai-insights:view', icon: <SparklesIcon className="w-5 h-5" />, label: "AI Insights" },
+        //{ to: "/ai-insights", permission: 'page:ai-insights:view', icon: <SparklesIcon className="w-5 h-5" />, label: "AI Insights" },
         { to: "/user-management", permission: 'page:user-management:view', icon: <UserGroupIcon className="w-5 h-5" />, label: "User Management" },
     ];
 

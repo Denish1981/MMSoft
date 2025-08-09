@@ -1,5 +1,6 @@
+
 import React, { useMemo, useState } from 'react';
-import type { Expense, Vendor } from '../types';
+import type { Expense, Vendor, Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { formatCurrency } from '../utils/formatting';
@@ -8,6 +9,7 @@ import { CloseIcon } from '../components/icons/CloseIcon';
 interface ExpensesProps {
     expenses: Expense[];
     vendors: Vendor[];
+    festivals: Festival[];
     onEdit: (expense: Expense) => void;
     onDelete: (id: string) => void;
 }
@@ -63,9 +65,10 @@ const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({
     );
 };
 
-const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, onEdit, onDelete }) => {
+const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdit, onDelete }) => {
     const [viewingImages, setViewingImages] = useState<string[] | null>(null);
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     return (
         <>
@@ -80,6 +83,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, onEdit, onDelete
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vendor</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Associated Festival</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cost</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill Date</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense Head</th>
@@ -93,6 +97,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, onEdit, onDelete
                                 <tr key={expense.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{expense.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(expense.vendorId) || 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(expense.festivalId && festivalMap.get(expense.festivalId)) || 'N/A'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(expense.cost)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(expense.billDate).toLocaleDateString()}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{expense.expenseHead}</td>

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -21,14 +23,18 @@ import UserManagement from './pages/UserManagement';
 import LoginPage from './pages/LoginPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import BulkAddPage from './pages/BulkAddPage';
+import Festivals from './pages/Festivals';
+import Tasks from './pages/Tasks';
 import { ContributionModal } from './components/DonationModal';
 import { SponsorModal } from './components/SponsorModal';
 import { VendorModal } from './components/VendorModal';
 import { ExpenseModal } from './components/ExpenseModal';
 import { QuotationModal } from './components/QuotationModal';
 import { BudgetModal } from './components/BudgetModal';
+import { FestivalModal } from './components/FestivalModal';
+import { TaskModal } from './components/TaskModal';
 import { ConfirmationModal } from './components/ConfirmationModal';
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType } from './types';
+import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement } from './types';
 import { API_URL } from './config';
 import PageViewTracker from './components/PageViewTracker';
 
@@ -46,6 +52,9 @@ const AppContent: React.FC = () => {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [budgets, setBudgets] = useState<BudgetType[]>([]);
+    const [festivals, setFestivals] = useState<Festival[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [users, setUsers] = useState<UserForManagement[]>([]);
     
     // Modal visibility state
     const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
@@ -54,6 +63,8 @@ const AppContent: React.FC = () => {
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
     const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+    const [isFestivalModalOpen, setIsFestivalModalOpen] = useState(false);
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     // State for editing items
     const [contributionToEdit, setContributionToEdit] = useState<Contribution | null>(null);
@@ -62,6 +73,8 @@ const AppContent: React.FC = () => {
     const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
     const [quotationToEdit, setQuotationToEdit] = useState<Quotation | null>(null);
     const [budgetToEdit, setBudgetToEdit] = useState<BudgetType | null>(null);
+    const [festivalToEdit, setFestivalToEdit] = useState<Festival | null>(null);
+    const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
     // State for deletion confirmation
     const [itemToDelete, setItemToDelete] = useState<{ id: string | number; type: string } | null>(null);
@@ -77,15 +90,20 @@ const AppContent: React.FC = () => {
         try {
             const headers = { 'Authorization': `Bearer ${token}` };
             const [
-                contributionsRes, campaignsRes, sponsorsRes, vendorsRes, expensesRes, quotationsRes, budgetsRes
+                contributionsRes, campaignsRes, sponsorsRes, vendorsRes, expensesRes, quotationsRes, budgetsRes, festivalsRes, tasksRes, usersRes
             ] = await Promise.all([
                 fetch(`${API_URL}/contributions`, { headers }), fetch(`${API_URL}/campaigns`, { headers }),
                 fetch(`${API_URL}/sponsors`, { headers }), fetch(`${API_URL}/vendors`, { headers }),
                 fetch(`${API_URL}/expenses`, { headers }), fetch(`${API_URL}/quotations`, { headers }),
-                fetch(`${API_URL}/budgets`, { headers }),
+                fetch(`${API_URL}/budgets`, { headers }), fetch(`${API_URL}/festivals`, { headers }),
+                fetch(`${API_URL}/tasks`, { headers }), fetch(`${API_URL}/users/management`, { headers })
             ]);
             
-            if (contributionsRes.status === 401) { logout(); return; }
+            const allResponses = [contributionsRes, campaignsRes, sponsorsRes, vendorsRes, expensesRes, quotationsRes, budgetsRes, festivalsRes, tasksRes, usersRes];
+            if (allResponses.some(res => res.status === 401)) {
+                logout();
+                return;
+            }
 
             setContributions(await contributionsRes.json());
             setCampaigns(await campaignsRes.json());
@@ -94,6 +112,15 @@ const AppContent: React.FC = () => {
             setExpenses(await expensesRes.json());
             setQuotations(await quotationsRes.json());
             setBudgets(await budgetsRes.json());
+            setFestivals(await festivalsRes.json());
+            setTasks(await tasksRes.json());
+
+            if (usersRes.ok) {
+                setUsers(await usersRes.json());
+            } else {
+                setUsers([]); // Prevent crash for users without permission
+                console.warn(`Could not fetch user management data: Status ${usersRes.status}`);
+            }
         } catch (error) {
             console.error("Failed to fetch data:", error);
         }
@@ -180,7 +207,8 @@ const AppContent: React.FC = () => {
         const { id, type } = itemToDelete;
         const endpointMap: { [key: string]: string } = {
             contributions: 'contributions', sponsors: 'sponsors', vendors: 'vendors',
-            expenses: 'expenses', quotations: 'quotations', budgets: 'budgets',
+            expenses: 'expenses', quotations: 'quotations', budgets: 'budgets', festivals: 'festivals',
+            tasks: 'tasks',
         };
         const endpoint = endpointMap[type];
         if (!endpoint) {
@@ -211,6 +239,12 @@ const AppContent: React.FC = () => {
                     break;
                 case 'budgets':
                     setBudgets((prev: BudgetType[]) => prev.filter(item => item.id !== id));
+                    break;
+                case 'festivals':
+                    setFestivals((prev: Festival[]) => prev.filter(item => item.id !== id));
+                    break;
+                case 'tasks':
+                    setTasks((prev: Task[]) => prev.filter(item => item.id !== id));
                     break;
             }
         } catch (error) {
@@ -263,6 +297,16 @@ const AppContent: React.FC = () => {
         else handleAdd(`${API_URL}/budgets`, data, setBudgets, () => setIsBudgetModalOpen(false));
     };
 
+    const handleFestivalSubmit = (data: Omit<Festival, 'id'>) => {
+        if (festivalToEdit) handleUpdate(`${API_URL}/festivals`, { ...data, id: festivalToEdit.id }, setFestivals, () => setIsFestivalModalOpen(false));
+        else handleAdd(`${API_URL}/festivals`, data, setFestivals, () => setIsFestivalModalOpen(false));
+    };
+
+    const handleTaskSubmit = (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+        if (taskToEdit) handleUpdate(`${API_URL}/tasks`, { ...data, id: taskToEdit.id, createdAt: taskToEdit.createdAt, updatedAt: new Date().toISOString() }, setTasks, () => setIsTaskModalOpen(false));
+        else handleAdd(`${API_URL}/tasks`, { ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, setTasks, () => setIsTaskModalOpen(false));
+    };
+
     if (isLoading) {
         return <div className="flex h-screen items-center justify-center">Loading...</div>;
     }
@@ -284,6 +328,8 @@ const AppContent: React.FC = () => {
                         onAddExpenseClick={() => openModal(setIsExpenseModalOpen, 'action:create', setExpenseToEdit, null)}
                         onAddQuotationClick={() => openModal(setIsQuotationModalOpen, 'action:create', setQuotationToEdit, null)}
                         onAddBudgetClick={() => openModal(setIsBudgetModalOpen, 'action:create', setBudgetToEdit, null)}
+                        onAddFestivalClick={() => openModal(setIsFestivalModalOpen, 'action:create', setFestivalToEdit, null)}
+                        onAddTaskClick={() => openModal(setIsTaskModalOpen, 'action:create', setTaskToEdit, null)}
                     />
                     <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-8">
                         <Routes>
@@ -296,11 +342,13 @@ const AppContent: React.FC = () => {
                             <Route path="/donors" element={<ProtectedRoute permission="page:donors:view"><Donors donors={donors} /></ProtectedRoute>} />
                             <Route path="/sponsors" element={<ProtectedRoute permission="page:sponsors:view"><Sponsors sponsors={sponsors} onEdit={(item) => openModal(setIsSponsorModalOpen, 'action:edit', setSponsorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'sponsors')} /></ProtectedRoute>} />
                             <Route path="/vendors" element={<ProtectedRoute permission="page:vendors:view"><Vendors vendors={vendors} onEdit={(item) => openModal(setIsVendorModalOpen, 'action:edit', setVendorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'vendors')} /></ProtectedRoute>} />
-                            <Route path="/expenses" element={<ProtectedRoute permission="page:expenses:view"><Expenses expenses={expenses} vendors={vendors} onEdit={(item) => openModal(setIsExpenseModalOpen, 'action:edit', setExpenseToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'expenses')} /></ProtectedRoute>} />
-                            <Route path="/quotations" element={<ProtectedRoute permission="page:quotations:view"><Quotations quotations={quotations} vendors={vendors} onEdit={(item) => openModal(setIsQuotationModalOpen, 'action:edit', setQuotationToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'quotations')} /></ProtectedRoute>} />
-                            <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget budgets={budgets} onEdit={(item) => openModal(setIsBudgetModalOpen, 'action:edit', setBudgetToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'budgets')} /></ProtectedRoute>} />
+                            <Route path="/expenses" element={<ProtectedRoute permission="page:expenses:view"><Expenses expenses={expenses} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsExpenseModalOpen, 'action:edit', setExpenseToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'expenses')} /></ProtectedRoute>} />
+                            <Route path="/quotations" element={<ProtectedRoute permission="page:quotations:view"><Quotations quotations={quotations} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsQuotationModalOpen, 'action:edit', setQuotationToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'quotations')} /></ProtectedRoute>} />
+                            <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget budgets={budgets} festivals={festivals} onEdit={(item) => openModal(setIsBudgetModalOpen, 'action:edit', setBudgetToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'budgets')} /></ProtectedRoute>} />
                             <Route path="/campaigns" element={<ProtectedRoute permission="page:campaigns:view"><Campaigns campaigns={campaigns} contributions={contributions}/></ProtectedRoute>} />
-                            <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} /></ProtectedRoute>} />
+                            <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals festivals={festivals} campaigns={campaigns} onEdit={(item) => openModal(setIsFestivalModalOpen, 'action:edit', setFestivalToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'festivals')} /></ProtectedRoute>} />
+                            <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks tasks={tasks} festivals={festivals} users={users} onEdit={(item) => openModal(setIsTaskModalOpen, 'action:edit', setTaskToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'tasks')} /></ProtectedRoute>} />
+                            <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} festivals={festivals} tasks={tasks} users={users} /></ProtectedRoute>} />
                             <Route path="/ai-insights" element={<ProtectedRoute permission="page:ai-insights:view"><AiInsights /></ProtectedRoute>} />
                             <Route path="/user-management" element={<ProtectedRoute permission="page:user-management:view"><UserManagement /></ProtectedRoute>} />
                             
@@ -311,9 +359,11 @@ const AppContent: React.FC = () => {
                  {isContributionModalOpen && <ContributionModal campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={() => { setIsContributionModalOpen(false); setContributionToEdit(null); }} onSubmit={handleContributionSubmit} />}
                  {isSponsorModalOpen && <SponsorModal sponsorToEdit={sponsorToEdit} onClose={() => { setIsSponsorModalOpen(false); setSponsorToEdit(null); }} onSubmit={handleSponsorSubmit} />}
                  {isVendorModalOpen && <VendorModal vendorToEdit={vendorToEdit} onClose={() => { setIsVendorModalOpen(false); setVendorToEdit(null); }} onSubmit={handleVendorSubmit} />}
-                 {isExpenseModalOpen && <ExpenseModal vendors={vendors} expenses={expenses} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
-                 {isQuotationModalOpen && <QuotationModal vendors={vendors} quotationToEdit={quotationToEdit} onClose={() => { setIsQuotationModalOpen(false); setQuotationToEdit(null); }} onSubmit={handleQuotationSubmit} />}
-                 {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
+                 {isExpenseModalOpen && <ExpenseModal vendors={vendors} expenses={expenses} festivals={festivals} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
+                 {isQuotationModalOpen && <QuotationModal vendors={vendors} festivals={festivals} quotationToEdit={quotationToEdit} onClose={() => { setIsQuotationModalOpen(false); setQuotationToEdit(null); }} onSubmit={handleQuotationSubmit} />}
+                 {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} festivals={festivals} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
+                 {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={() => { setIsFestivalModalOpen(false); setFestivalToEdit(null); }} onSubmit={handleFestivalSubmit} />}
+                 {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={() => { setIsTaskModalOpen(false); setTaskToEdit(null); }} onSubmit={handleTaskSubmit} />}
                  {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} />}
             </div>
         </HashRouter>

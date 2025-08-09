@@ -1,24 +1,28 @@
+
 import React, { useState, useEffect } from 'react';
-import type { Budget } from '../types';
+import type { Budget, Festival } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface BudgetModalProps {
     budgetToEdit: Budget | null;
     expenseHeads: string[];
+    festivals: Festival[];
     onClose: () => void;
     onSubmit: (budget: Omit<Budget, 'id'>) => void;
 }
 
-export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseHeads, onClose, onSubmit }) => {
+export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseHeads, festivals, onClose, onSubmit }) => {
     const [itemName, setItemName] = useState('');
     const [budgetedAmount, setBudgetedAmount] = useState('');
     const [expenseHead, setExpenseHead] = useState('');
+    const [festivalId, setFestivalId] = useState<string | null>(null);
 
     useEffect(() => {
         if (budgetToEdit) {
             setItemName(budgetToEdit.itemName);
             setBudgetedAmount(String(budgetToEdit.budgetedAmount));
             setExpenseHead(budgetToEdit.expenseHead);
+            setFestivalId(budgetToEdit.festivalId || null);
         }
     }, [budgetToEdit]);
 
@@ -32,6 +36,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseH
             itemName,
             budgetedAmount: parseFloat(budgetedAmount),
             expenseHead,
+            festivalId,
         });
     };
 
@@ -51,12 +56,21 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseH
                         <label htmlFor="itemName" className="block text-sm font-medium text-slate-700">Item Name</label>
                         <input type="text" id="itemName" value={itemName} onChange={e => setItemName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                     </div>
-                    <div>
-                        <label htmlFor="expenseHead" className="block text-sm font-medium text-slate-700">Expense Head</label>
-                        <input list="expense-heads" id="expenseHead" value={expenseHead} onChange={e => setExpenseHead(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
-                        <datalist id="expense-heads">
-                            {expenseHeads.map(head => <option key={head} value={head} />)}
-                        </datalist>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="expenseHead" className="block text-sm font-medium text-slate-700">Expense Head</label>
+                            <input list="expense-heads" id="expenseHead" value={expenseHead} onChange={e => setExpenseHead(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
+                            <datalist id="expense-heads">
+                                {expenseHeads.map(head => <option key={head} value={head} />)}
+                            </datalist>
+                        </div>
+                        <div>
+                            <label htmlFor="festivalId" className="block text-sm font-medium text-slate-700">Associated Festival (Optional)</label>
+                            <select id="festivalId" value={festivalId || ''} onChange={e => setFestivalId(e.target.value || null)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">None</option>
+                                {festivals.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <label htmlFor="budgetedAmount" className="block text-sm font-medium text-slate-700">Budgeted Amount (₹)</label>

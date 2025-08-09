@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -36,6 +37,8 @@ const ALL_PERMISSIONS = [
     { name: 'page:quotations:view', description: 'Can view the quotations page' },
     { name: 'page:budget:view', description: 'Can view the budget page' },
     { name: 'page:campaigns:view', description: 'Can view the campaigns page' },
+    { name: 'page:festivals:view', description: 'Can view the festivals page' },
+    { name: 'page:tasks:view', description: 'Can view the tasks page' },
     { name: 'page:reports:view', description: 'Can view the reports page' },
     { name: 'page:ai-insights:view', description: 'Can view the AI insights page' },
     { name: 'page:user-management:view', description: 'Can view the user management page' },
@@ -50,13 +53,13 @@ const ROLES_CONFIG = {
     'Manager': [
         'page:dashboard:view', 'page:contributions:view', 'page:bulk-add:view',
         'page:donors:view', 'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
-        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:reports:view', 'page:ai-insights:view',
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
         'action:create', 'action:edit', 'action:delete'
     ],
     'Viewer': [
         'page:dashboard:view', 'page:contributions:view', 'page:donors:view',
         'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
-        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:reports:view', 'page:ai-insights:view'
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view'
     ]
 };
 
@@ -86,6 +89,19 @@ const seedDatabase = async () => {
                  console.log(`Role '${roleName}' created or already exists.`);
             }
         }
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS task_history (
+                id SERIAL PRIMARY KEY,
+                task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+                field_changed VARCHAR(255) NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                changed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        `);
+        console.log('Ensured task_history table exists.');
         
         const adminEmail = process.env.ADMIN_EMAIL;
         const adminPassword = process.env.ADMIN_PASSWORD;
@@ -380,7 +396,7 @@ app.get('/api/vendors', authMiddleware, permissionMiddleware('page:vendors:view'
 
 app.get('/api/quotations', authMiddleware, permissionMiddleware('page:quotations:view'), async (req, res) => {
     try {
-        const quotationsResult = await db.query('SELECT id, quotation_for AS "quotationFor", vendor_id AS "vendorId", cost, date FROM quotations ORDER BY date DESC');
+        const quotationsResult = await db.query('SELECT id, quotation_for AS "quotationFor", vendor_id AS "vendorId", cost, date, festival_id as "festivalId" FROM quotations ORDER BY date DESC');
         const quotations = quotationsResult.rows;
         for (const quote of quotations) {
             const imagesResult = await db.query('SELECT image_data FROM quotation_images WHERE quotation_id = $1', [quote.id]);
@@ -400,7 +416,7 @@ app.get('/api/contributions', authMiddleware, permissionMiddleware('page:contrib
 app.get('/api/campaigns', authMiddleware, permissionMiddleware('page:campaigns:view'), createGetAllEndpoint('campaigns'));
 app.get('/api/budgets', authMiddleware, permissionMiddleware('page:budget:view'), async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead" FROM budgets ORDER BY item_name ASC');
+        const { rows } = await db.query('SELECT id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead", festival_id as "festivalId" FROM budgets ORDER BY item_name ASC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -414,7 +430,7 @@ app.get('/api/sponsors', authMiddleware, permissionMiddleware('page:sponsors:vie
 
 app.get('/api/expenses', authMiddleware, permissionMiddleware('page:expenses:view'), async (req, res) => {
     try {
-        const expensesResult = await db.query('SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy" FROM expenses ORDER BY bill_date DESC');
+        const expensesResult = await db.query('SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy", festival_id as "festivalId" FROM expenses ORDER BY bill_date DESC');
         const expenses = expensesResult.rows;
         for (const expense of expenses) {
             const imagesResult = await db.query('SELECT image_data FROM expense_images WHERE expense_id = $1', [expense.id]);
@@ -423,6 +439,48 @@ app.get('/api/expenses', authMiddleware, permissionMiddleware('page:expenses:vie
         res.json(expenses);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
+
+app.get('/api/festivals', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId" FROM festivals ORDER BY start_date DESC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.get('/api/tasks', authMiddleware, permissionMiddleware('page:tasks:view'), async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT id, title, description, status, due_date as "dueDate", festival_id as "festivalId", assignee_name as "assigneeName", created_at as "createdAt", updated_at as "updatedAt" FROM tasks ORDER BY due_date ASC');
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching tasks:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/tasks/:id/history', authMiddleware, permissionMiddleware('page:reports:view'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                h.id,
+                h.task_id AS "taskId",
+                h.field_changed AS "fieldChanged",
+                h.old_value AS "oldValue",
+                h.new_value AS "newValue",
+                u.username AS "changedByUser",
+                h.changed_at AS "changedAt"
+            FROM task_history h
+            LEFT JOIN users u ON h.changed_by_user_id = u.id
+            WHERE h.task_id = $1
+            ORDER BY h.changed_at DESC
+        `, [id]);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching task history:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 // --- POST (Create) Endpoints ---
 app.post('/api/contributions', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
@@ -492,13 +550,13 @@ app.post('/api/vendors', authMiddleware, permissionMiddleware('action:create'), 
 });
 
 app.post('/api/expenses', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy } = req.body;
-    const newExpense = { id: `exp_${Date.now()}`, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy };
+    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy, festivalId } = req.body;
+    const newExpense = { id: `exp_${Date.now()}`, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy, festivalId };
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        await client.query('INSERT INTO expenses (id, name, vendor_id, cost, bill_date, expense_head, expense_by) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [newExpense.id, name, vendorId, cost, billDate, expenseHead, expenseBy]);
+        await client.query('INSERT INTO expenses (id, name, vendor_id, cost, bill_date, expense_head, expense_by, festival_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [newExpense.id, name, vendorId, cost, billDate, expenseHead, expenseBy, festivalId || null]);
         if (billReceipts && billReceipts.length > 0) {
             for (const image of billReceipts) {
                 await client.query('INSERT INTO expense_images (expense_id, image_data) VALUES ($1, $2)', [newExpense.id, image]);
@@ -513,12 +571,12 @@ app.post('/api/expenses', authMiddleware, permissionMiddleware('action:create'),
 });
 
 app.post('/api/quotations', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { quotationFor, vendorId, cost, date, quotationImages } = req.body;
+    const { quotationFor, vendorId, cost, date, quotationImages, festivalId } = req.body;
     const newQuotation = { id: `quo_${Date.now()}`, ...req.body };
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        await client.query('INSERT INTO quotations (id, quotation_for, vendor_id, cost, date) VALUES ($1, $2, $3, $4, $5)', [newQuotation.id, quotationFor, vendorId, cost, date]);
+        await client.query('INSERT INTO quotations (id, quotation_for, vendor_id, cost, date, festival_id) VALUES ($1, $2, $3, $4, $5, $6)', [newQuotation.id, quotationFor, vendorId, cost, date, festivalId || null]);
         for (const image of quotationImages) {
             await client.query('INSERT INTO quotation_images (quotation_id, image_data) VALUES ($1, $2)', [newQuotation.id, image]);
         }
@@ -531,13 +589,40 @@ app.post('/api/quotations', authMiddleware, permissionMiddleware('action:create'
 });
 
 app.post('/api/budgets', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { itemName, budgetedAmount, expenseHead } = req.body;
+    const { itemName, budgetedAmount, expenseHead, festivalId } = req.body;
     const newBudget = { id: `bud_${Date.now()}`, ...req.body };
     try {
-        await db.query('INSERT INTO budgets (id, item_name, budgeted_amount, expense_head) VALUES ($1, $2, $3, $4)', [newBudget.id, itemName, budgetedAmount, expenseHead]);
+        await db.query('INSERT INTO budgets (id, item_name, budgeted_amount, expense_head, festival_id) VALUES ($1, $2, $3, $4, $5)', [newBudget.id, itemName, budgetedAmount, expenseHead, festivalId || null]);
         res.status(201).json(newBudget);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
+
+app.post('/api/festivals', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
+    const { name, description, startDate, endDate, campaignId } = req.body;
+    const newFestival = { id: `fest_${Date.now()}`, ...req.body };
+    const dbCampaignId = campaignId || null;
+    try {
+        await db.query('INSERT INTO festivals (id, name, description, start_date, end_date, campaign_id) VALUES ($1, $2, $3, $4, $5, $6)',
+            [newFestival.id, name, description, startDate, endDate, dbCampaignId]);
+        res.status(201).json(newFestival);
+    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/tasks', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
+    const { title, description, status, dueDate, festivalId, assigneeName } = req.body;
+    const newId = `task_${Date.now()}`;
+    try {
+        const result = await db.query(
+            'INSERT INTO tasks (id, title, description, status, due_date, festival_id, assignee_name) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, title, description, status, due_date as "dueDate", festival_id as "festivalId", assignee_name as "assigneeName", created_at as "createdAt", updated_at as "updatedAt"',
+            [newId, title, description, status, dueDate, festivalId || null, assigneeName]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error adding task:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 // --- PUT (Update) Endpoints ---
 app.put('/api/contributions/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
@@ -580,12 +665,12 @@ app.put('/api/vendors/:id', authMiddleware, permissionMiddleware('action:edit'),
 
 app.put('/api/expenses/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy } = req.body;
+    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy, festivalId } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        await client.query('UPDATE expenses SET name=$1, vendor_id=$2, cost=$3, bill_date=$4, expense_head=$5, expense_by=$6 WHERE id=$7',
-            [name, vendorId, cost, billDate, expenseHead, expenseBy, id]);
+        await client.query('UPDATE expenses SET name=$1, vendor_id=$2, cost=$3, bill_date=$4, expense_head=$5, expense_by=$6, festival_id=$7 WHERE id=$8',
+            [name, vendorId, cost, billDate, expenseHead, expenseBy, festivalId || null, id]);
         await client.query('DELETE FROM expense_images WHERE expense_id=$1', [id]);
         if (billReceipts && billReceipts.length > 0) {
             for (const image of billReceipts) {
@@ -593,37 +678,112 @@ app.put('/api/expenses/:id', authMiddleware, permissionMiddleware('action:edit')
             }
         }
         await client.query('COMMIT');
-        res.json({ id, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy });
+        res.json({ id, name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy, festivalId });
     } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to update expense' }); }
     finally { client.release(); }
 });
 
 app.put('/api/quotations/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { quotationFor, vendorId, cost, date, quotationImages } = req.body;
+    const { quotationFor, vendorId, cost, date, quotationImages, festivalId } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        await client.query('UPDATE quotations SET quotation_for=$1, vendor_id=$2, cost=$3, date=$4 WHERE id=$5', [quotationFor, vendorId, cost, date, id]);
+        await client.query('UPDATE quotations SET quotation_for=$1, vendor_id=$2, cost=$3, date=$4, festival_id=$5 WHERE id=$6', [quotationFor, vendorId, cost, date, festivalId || null, id]);
         await client.query('DELETE FROM quotation_images WHERE quotation_id=$1', [id]);
         for (const image of quotationImages) {
             await client.query('INSERT INTO quotation_images (quotation_id, image_data) VALUES ($1, $2)', [id, image]);
         }
         await client.query('COMMIT');
-        res.json({ id, quotationFor, vendorId, cost, date, quotationImages });
+        res.json({ id, quotationFor, vendorId, cost, date, quotationImages, festivalId });
     } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to update quotation' }); }
     finally { client.release(); }
 });
 
 app.put('/api/budgets/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { itemName, budgetedAmount, expenseHead } = req.body;
+    const { itemName, budgetedAmount, expenseHead, festivalId } = req.body;
     try {
-        const result = await db.query('UPDATE budgets SET item_name=$1, budgeted_amount=$2, expense_head=$3 WHERE id=$4 RETURNING id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead"',
-            [itemName, budgetedAmount, expenseHead, id]);
+        const result = await db.query('UPDATE budgets SET item_name=$1, budgeted_amount=$2, expense_head=$3, festival_id=$4 WHERE id=$5 RETURNING id, item_name AS "itemName", budgeted_amount AS "budgetedAmount", expense_head AS "expenseHead", festival_id AS "festivalId"',
+            [itemName, budgetedAmount, expenseHead, festivalId || null, id]);
         res.json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: 'Failed to update budget' }); }
 });
+
+app.put('/api/festivals/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { id } = req.params;
+    const { name, description, startDate, endDate, campaignId } = req.body;
+    const dbCampaignId = campaignId || null;
+    try {
+        const result = await db.query('UPDATE festivals SET name=$1, description=$2, start_date=$3, end_date=$4, campaign_id=$5 WHERE id=$6 RETURNING id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId"',
+            [name, description, startDate, endDate, dbCampaignId, id]);
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: 'Failed to update festival' }); }
+});
+
+app.put('/api/tasks/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { id } = req.params;
+    const { title, description, status, dueDate, festivalId, assigneeName } = req.body;
+    const changedByUserId = req.user.id;
+
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+
+        const oldTaskRes = await client.query('SELECT * FROM tasks WHERE id = $1 FOR UPDATE', [id]);
+        if (oldTaskRes.rows.length === 0) {
+            throw new Error('Task not found');
+        }
+        const oldTask = oldTaskRes.rows[0];
+
+        const result = await client.query(
+            'UPDATE tasks SET title=$1, description=$2, status=$3, due_date=$4, festival_id=$5, assignee_name=$6, updated_at=NOW() WHERE id=$7 RETURNING id, title, description, status, due_date as "dueDate", festival_id as "festivalId", assignee_name as "assigneeName", created_at as "createdAt", updated_at as "updatedAt"',
+            [title, description, status, dueDate, festivalId || null, assigneeName, id]
+        );
+        const updatedTaskData = result.rows[0];
+
+        const areDifferent = (a, b) => (a === null ? '' : String(a)) !== (b === null ? '' : String(b));
+        
+        const changes = [];
+        if (areDifferent(oldTask.title, updatedTaskData.title)) {
+            changes.push({ field: 'title', old: oldTask.title, new: updatedTaskData.title });
+        }
+        if (areDifferent(oldTask.description, updatedTaskData.description)) {
+            changes.push({ field: 'description', old: oldTask.description, new: updatedTaskData.description });
+        }
+        if (areDifferent(oldTask.status, updatedTaskData.status)) {
+            changes.push({ field: 'status', old: oldTask.status, new: updatedTaskData.status });
+        }
+        if (new Date(oldTask.due_date).getTime() !== new Date(updatedTaskData.dueDate).getTime()) {
+            changes.push({ field: 'dueDate', old: new Date(oldTask.due_date).toISOString().split('T')[0], new: new Date(updatedTaskData.dueDate).toISOString().split('T')[0] });
+        }
+        if (areDifferent(oldTask.festival_id, updatedTaskData.festivalId)) {
+            changes.push({ field: 'festivalId', old: oldTask.festival_id, new: updatedTaskData.festivalId });
+        }
+        if (areDifferent(oldTask.assignee_name, updatedTaskData.assigneeName)) {
+            changes.push({ field: 'assigneeName', old: oldTask.assignee_name, new: updatedTaskData.assigneeName });
+        }
+
+        for (const change of changes) {
+            await client.query(
+                'INSERT INTO task_history (task_id, field_changed, old_value, new_value, changed_by_user_id) VALUES ($1, $2, $3, $4, $5)',
+                [id, change.field, change.old, change.new, changedByUserId]
+            );
+        }
+        
+        await client.query('COMMIT');
+        res.json(updatedTaskData);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        if (err.message === 'Task not found') return res.status(404).json({ error: 'Task not found' });
+        console.error('Error updating task:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+
 
 // --- DELETE Endpoints ---
 const createDeleteEndpoint = (tableName) => async (req, res) => {
@@ -636,6 +796,10 @@ const createDeleteEndpoint = (tableName) => async (req, res) => {
 app.delete('/api/contributions/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('contributions'));
 app.delete('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('sponsors'));
 app.delete('/api/budgets/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('budgets'));
+app.delete('/api/festivals/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('festivals'));
+app.delete('/api/tasks/:id', authMiddleware, permissionMiddleware('action:delete'), createDeleteEndpoint('tasks'));
+
+
 
 app.delete('/api/expenses/:id', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
     const { id } = req.params;

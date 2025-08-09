@@ -1,6 +1,7 @@
 
-import React from 'react';
-import type { Budget } from '../types';
+
+import React, { useMemo } from 'react';
+import type { Budget, Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { formatCurrency } from '../utils/formatting';
@@ -9,17 +10,21 @@ import { exportToCsv } from '../utils/exportUtils';
 
 interface BudgetProps {
     budgets: Budget[];
+    festivals: Festival[];
     onEdit: (budget: Budget) => void;
     onDelete: (id: string) => void;
 }
 
-const Budget: React.FC<BudgetProps> = ({ budgets, onEdit, onDelete }) => {
+const Budget: React.FC<BudgetProps> = ({ budgets, festivals, onEdit, onDelete }) => {
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+    
     const handleExport = () => {
         const dataToExport = budgets.map(budget => ({
             'Budget ID': budget.id,
             'Item Name': budget.itemName,
             'Expense Head': budget.expenseHead,
             'Budgeted Amount': budget.budgetedAmount,
+            'Associated Festival': (budget.festivalId && festivalMap.get(budget.festivalId)) || 'N/A',
         }));
         exportToCsv(dataToExport, 'budget_management_report');
     };
@@ -32,6 +37,7 @@ const Budget: React.FC<BudgetProps> = ({ budgets, onEdit, onDelete }) => {
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Item Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense Head</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Associated Festival</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Budgeted Amount</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -41,6 +47,7 @@ const Budget: React.FC<BudgetProps> = ({ budgets, onEdit, onDelete }) => {
                             <tr key={budget.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{budget.itemName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{budget.expenseHead}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(budget.festivalId && festivalMap.get(budget.festivalId)) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(budget.budgetedAmount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex items-center space-x-4">

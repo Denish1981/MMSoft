@@ -1,22 +1,35 @@
 
-import React, { useMemo } from 'react';
-import type { Budget, Expense } from '../../types';
+import React, { useMemo, useState } from 'react';
+import type { Budget, Expense, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency } from '../../utils/formatting';
+import { FilterContainer, SelectInput } from './FilterControls';
 
 interface BudgetReportProps {
     budgets: Budget[];
     expenses: Expense[];
+    festivals: Festival[];
 }
 
-const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses }) => {
+const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses, festivals }) => {
+    const [selectedFestivalId, setSelectedFestivalId] = useState<string>('');
+
+    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id, label: f.name })), [festivals]);
 
     const reportData = useMemo(() => {
+        const filteredBudgets = selectedFestivalId
+            ? budgets.filter(b => b.festivalId === selectedFestivalId)
+            : budgets;
+        
+        const filteredExpenses = selectedFestivalId
+            ? expenses.filter(e => e.festivalId === selectedFestivalId)
+            : expenses;
+
         const dataMap = new Map<string, { budgeted: number; actual: number }>();
 
         // Aggregate budgeted amounts by expense head
-        budgets.forEach(budget => {
+        filteredBudgets.forEach(budget => {
             const head = budget.expenseHead;
             const current = dataMap.get(head) || { budgeted: 0, actual: 0 };
             current.budgeted += Number(budget.budgetedAmount) || 0;
@@ -24,7 +37,7 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses }) => {
         });
 
         // Aggregate actual expenses by expense head
-        expenses.forEach(expense => {
+        filteredExpenses.forEach(expense => {
             const head = expense.expenseHead;
             const current = dataMap.get(head) || { budgeted: 0, actual: 0 };
             current.actual += Number(expense.cost) || 0;
@@ -44,9 +57,12 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses }) => {
             };
         }).sort((a, b) => a.expenseHead.localeCompare(b.expenseHead)); // Sort alphabetically
 
-    }, [budgets, expenses]);
+    }, [budgets, expenses, selectedFestivalId]);
 
     const handleExport = () => {
+        const festivalMap = new Map(festivals.map(f => [f.id, f.name]));
+        const festivalName = selectedFestivalId ? (festivalMap.get(selectedFestivalId) || 'UnknownFestival').replace(/\s/g, '_') : 'All_Festivals';
+        
         const dataToExport = reportData.map(item => ({
             'Expense Head': item.expenseHead,
             'Budgeted Amount': item.budgeted,
@@ -54,7 +70,7 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses }) => {
             'Variance': item.variance,
             'Variance %': isFinite(item.variancePercentage) ? item.variancePercentage.toFixed(2) : 'N/A',
         }));
-        exportToCsv(dataToExport, 'budget_vs_actuals_report');
+        exportToCsv(dataToExport, `budget_vs_actuals_report_${festivalName}`);
     };
 
     const totals = useMemo(() => {
@@ -71,6 +87,15 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses }) => {
 
     return (
         <ReportContainer title="Budget vs. Actuals Report" onExport={handleExport}>
+            <FilterContainer onReset={() => setSelectedFestivalId('')}>
+                <SelectInput 
+                    label="Filter by Festival"
+                    value={selectedFestivalId}
+                    onChange={setSelectedFestivalId}
+                    options={festivalOptions}
+                    placeholder="All Festivals"
+                />
+            </FilterContainer>
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">

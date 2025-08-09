@@ -1,4 +1,5 @@
 
+
 export enum ContributionStatus {
   Completed = 'Completed',
   Pending = 'Pending',
@@ -75,6 +76,7 @@ export interface Expense {
   expenseHead: string;
   billReceipts?: string[];
   expenseBy: string;
+  festivalId?: string | null;
 }
 
 export interface Quotation {
@@ -84,6 +86,7 @@ export interface Quotation {
     cost: number;
     date: string; // ISO String
     quotationImages: string[];
+    festivalId?: string | null;
 }
 
 export interface Budget {
@@ -91,7 +94,47 @@ export interface Budget {
   itemName: string;
   budgetedAmount: number;
   expenseHead: string;
+  festivalId?: string | null;
 }
+
+export interface Festival {
+  id: string;
+  name: string;
+  description?: string;
+  startDate: string; // ISO String
+  endDate: string; // ISO String
+  campaignId: string | null;
+}
+
+export enum TaskStatus {
+    ToDo = 'To Do',
+    InProgress = 'In Progress',
+    Done = 'Done',
+    Blocked = 'Blocked',
+}
+
+export interface Task {
+    id: string;
+    title: string;
+    description?: string;
+    status: TaskStatus;
+    dueDate: string; // ISO String
+    festivalId: string | null;
+    assigneeName: string;
+    createdAt: string; // ISO String
+    updatedAt: string; // ISO String
+}
+
+export interface TaskHistoryItem {
+  id: number;
+  taskId: string;
+  fieldChanged: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedByUser: string;
+  changedAt: string; // ISO String
+}
+
 
 // --- NEW RBAC TYPES ---
 

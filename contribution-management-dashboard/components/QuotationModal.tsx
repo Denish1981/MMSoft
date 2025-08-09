@@ -1,22 +1,25 @@
 
+
 import React, { useState, useEffect } from 'react';
-import type { Quotation, Vendor } from '../types';
+import type { Quotation, Vendor, Festival } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface QuotationModalProps {
     vendors: Vendor[];
+    festivals: Festival[];
     quotationToEdit: Quotation | null;
     onClose: () => void;
     onSubmit: (quotation: Omit<Quotation, 'id'>) => void;
 }
 
-export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, quotationToEdit, onClose, onSubmit }) => {
+export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, festivals, quotationToEdit, onClose, onSubmit }) => {
     const [quotationFor, setQuotationFor] = useState('');
     const [vendorId, setVendorId] = useState('');
     const [cost, setCost] = useState('');
     const [date, setDate] = useState('');
     const [quotationImages, setQuotationImages] = useState<string[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
+    const [festivalId, setFestivalId] = useState<string | null>(null);
 
     useEffect(() => {
         if (quotationToEdit) {
@@ -26,6 +29,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, quotati
             setDate(new Date(quotationToEdit.date).toISOString().split('T')[0]);
             setQuotationImages(quotationToEdit.quotationImages || []);
             setPreviews(quotationToEdit.quotationImages || []);
+            setFestivalId(quotationToEdit.festivalId || null);
         }
     }, [quotationToEdit]);
 
@@ -71,6 +75,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, quotati
             cost: parseFloat(cost),
             date: new Date(date).toISOString(),
             quotationImages,
+            festivalId,
         });
     };
     
@@ -90,12 +95,21 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, quotati
                         <label htmlFor="quotationFor" className="block text-sm font-medium text-slate-700">Quotation For</label>
                         <input type="text" id="quotationFor" value={quotationFor} onChange={e => setQuotationFor(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                     </div>
-                    <div>
-                        <label htmlFor="vendor" className="block text-sm font-medium text-slate-700">Quotation Vendor</label>
-                        <select id="vendor" value={vendorId} onChange={e => setVendorId(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                            <option value="" disabled>Select a vendor</option>
-                            {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                        </select>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="vendor" className="block text-sm font-medium text-slate-700">Quotation Vendor</label>
+                            <select id="vendor" value={vendorId} onChange={e => setVendorId(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="" disabled>Select a vendor</option>
+                                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                            </select>
+                        </div>
+                         <div>
+                            <label htmlFor="festivalId" className="block text-sm font-medium text-slate-700">Associated Festival (Optional)</label>
+                            <select id="festivalId" value={festivalId || ''} onChange={e => setFestivalId(e.target.value || null)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">None</option>
+                                {festivals.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                            </select>
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>

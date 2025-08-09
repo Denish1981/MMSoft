@@ -1,6 +1,7 @@
 
+
 import React, { useMemo, useState } from 'react';
-import type { Quotation, Vendor } from '../types';
+import type { Quotation, Vendor, Festival } from '../types';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
@@ -9,6 +10,7 @@ import { formatCurrency } from '../utils/formatting';
 interface QuotationsProps {
     quotations: Quotation[];
     vendors: Vendor[];
+    festivals: Festival[];
     onEdit: (quotation: Quotation) => void;
     onDelete: (id: string) => void;
 }
@@ -64,9 +66,10 @@ const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({
     );
 };
 
-const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, onEdit, onDelete }) => {
+const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, festivals, onEdit, onDelete }) => {
     const [viewingImages, setViewingImages] = useState<string[] | null>(null);
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     return (
         <>
@@ -81,6 +84,7 @@ const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, onEdit, on
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Quotation For</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vendor</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Associated Festival</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cost</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Images</th>
@@ -92,6 +96,7 @@ const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, onEdit, on
                                 <tr key={quote.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{quote.quotationFor}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(quote.vendorId) || 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(quote.festivalId && festivalMap.get(quote.festivalId)) || 'N/A'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(quote.cost)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(quote.date).toLocaleDateString()}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">

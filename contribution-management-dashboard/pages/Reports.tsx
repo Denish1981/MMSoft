@@ -1,11 +1,13 @@
 
+
 import React, { useState } from 'react';
-import type { Contribution, Vendor, Expense, Quotation, Budget } from '../types';
+import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement } from '../types';
 import ContributionReport from './reports/ContributionReport';
 import VendorReport from './reports/VendorReport';
 import ExpenseReport from './reports/ExpenseReport';
 import QuotationReport from './reports/QuotationReport';
 import BudgetReport from './reports/BudgetReport';
+import TaskReport from './reports/TaskReport';
 
 interface ReportsProps {
     contributions: Contribution[];
@@ -13,11 +15,16 @@ interface ReportsProps {
     expenses: Expense[];
     quotations: Quotation[];
     budgets: Budget[];
+    festivals: Festival[];
+    tasks: Task[];
+    users: UserForManagement[];
 }
 
-type ReportTab = 'contributions' | 'vendors' | 'expenses' | 'quotations' | 'budget';
+type ReportTab = 'contributions' | 'vendors' | 'expenses' | 'quotations' | 'budget' | 'tasks';
 
-const Reports: React.FC<ReportsProps> = ({ contributions, vendors, expenses, quotations, budgets }) => {
+const Reports: React.FC<ReportsProps> = ({
+    contributions, vendors, expenses, quotations, budgets, festivals, tasks, users
+}) => {
     const [activeTab, setActiveTab] = useState<ReportTab>('contributions');
 
     const renderTabContent = () => {
@@ -27,11 +34,13 @@ const Reports: React.FC<ReportsProps> = ({ contributions, vendors, expenses, quo
             case 'vendors':
                 return <VendorReport vendors={vendors} />;
             case 'expenses':
-                return <ExpenseReport expenses={expenses} vendors={vendors} />;
+                return <ExpenseReport expenses={expenses} vendors={vendors} festivals={festivals} />;
             case 'quotations':
-                return <QuotationReport quotations={quotations} vendors={vendors} />;
+                return <QuotationReport quotations={quotations} vendors={vendors} festivals={festivals} />;
             case 'budget':
-                return <BudgetReport budgets={budgets} expenses={expenses} />;
+                return <BudgetReport budgets={budgets} expenses={expenses} festivals={festivals} />;
+            case 'tasks':
+                return <TaskReport tasks={tasks} festivals={festivals} users={users} />;
             default:
                 return null;
         }
@@ -62,6 +71,7 @@ const Reports: React.FC<ReportsProps> = ({ contributions, vendors, expenses, quo
                     <TabButton tabName="expenses" label="Expense Report" />
                     <TabButton tabName="quotations" label="Quotation Report" />
                     <TabButton tabName="budget" label="Budget Report" />
+                    <TabButton tabName="tasks" label="Task Report" />
                 </div>
             </div>
             <div>{renderTabContent()}</div>

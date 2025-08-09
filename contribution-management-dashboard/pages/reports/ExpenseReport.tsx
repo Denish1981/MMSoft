@@ -1,7 +1,6 @@
 
-
 import React, { useState, useMemo } from 'react';
-import type { Expense, Vendor } from '../../types';
+import type { Expense, Vendor, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
@@ -10,6 +9,7 @@ import { formatCurrency } from '../../utils/formatting';
 interface ExpenseReportProps {
     expenses: Expense[];
     vendors: Vendor[];
+    festivals: Festival[];
 }
 
 interface ExpenseFilters {
@@ -20,9 +20,10 @@ interface ExpenseFilters {
     doneBy: string;
     expenseHead: string;
     expenseDate: string;
+    festivalId: string;
 }
 
-const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
+const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festivals }) => {
     const [filters, setFilters] = useState<ExpenseFilters>({
         expenseName: '',
         vendorId: '',
@@ -31,10 +32,13 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
         doneBy: '',
         expenseHead: '',
         expenseDate: '',
+        festivalId: '',
     });
 
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
     const vendorOptions = useMemo(() => vendors.map(v => ({ value: v.id, label: v.name })), [vendors]);
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id, label: f.name })), [festivals]);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -49,6 +53,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
             doneBy: '',
             expenseHead: '',
             expenseDate: '',
+            festivalId: '',
         });
     };
 
@@ -58,6 +63,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
             if (filters.vendorId && e.vendorId !== filters.vendorId) return false;
             if (filters.doneBy && !e.expenseBy.toLowerCase().includes(filters.doneBy.toLowerCase())) return false;
             if (filters.expenseHead && !e.expenseHead.toLowerCase().includes(filters.expenseHead.toLowerCase())) return false;
+            if (filters.festivalId && e.festivalId !== filters.festivalId) return false;
             
             if (filters.costValue) {
                 const cost = parseFloat(filters.costValue);
@@ -83,6 +89,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
             'Expense ID': e.id,
             'Expense Name': e.name,
             'Vendor': vendorMap.get(e.vendorId) || 'N/A',
+            'Associated Festival': (e.festivalId && festivalMap.get(e.festivalId)) || 'N/A',
             'Cost': e.cost,
             'Bill Date': new Date(e.billDate).toLocaleDateString(),
             'Expense Head': e.expenseHead,
@@ -96,6 +103,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
             <FilterContainer onReset={resetFilters}>
                 <TextInput label="Expense Name" value={filters.expenseName} onChange={val => handleFilterChange('expenseName', val)} />
                 <SelectInput label="Vendor" value={filters.vendorId} onChange={val => handleFilterChange('vendorId', val)} options={vendorOptions} placeholder="All Vendors" />
+                <SelectInput label="Festival" value={filters.festivalId} onChange={val => handleFilterChange('festivalId', val)} options={festivalOptions} placeholder="All Festivals" />
                 <AmountInput
                     label="Cost"
                     comparator={filters.costComparator}
@@ -114,6 +122,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vendor</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Associated Festival</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cost</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill Date</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Head</th>
@@ -125,6 +134,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors }) => {
                             <tr key={e.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{e.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(e.vendorId) || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(e.festivalId && festivalMap.get(e.festivalId)) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(e.cost)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(e.billDate).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{e.expenseHead}</td>

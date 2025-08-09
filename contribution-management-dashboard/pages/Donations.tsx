@@ -1,8 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Contribution, Campaign } from '../types';
 import { ContributionStatus } from '../types';
 import { generateThankYouNote } from '../services/geminiService';
+import { useAuth } from '../contexts/AuthContext';
 import { CopyIcon } from '../components/icons/CopyIcon';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { SparklesIcon } from '../components/icons/SparklesIcon';
@@ -70,6 +70,7 @@ const ImageViewerModal: React.FC<{ imageUrl: string; onClose: () => void }> = ({
 
 
 const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns, onEdit, onDelete }) => {
+    const { token } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('all');
     const [generatedNote, setGeneratedNote] = useState<string | null>(null);
@@ -87,9 +88,14 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
 
     const handleGenerateNote = async (contribution: Contribution) => {
         setIsLoadingNote(true);
-        const campaignName = campaignMap.get(contribution.campaignId) || "our cause";
-        const note = await generateThankYouNote(contribution.donorName, contribution.amount, campaignName);
-        setGeneratedNote(note);
+        const campaignName = (contribution.campaignId && campaignMap.get(contribution.campaignId)) || "our cause";
+        const result = await generateThankYouNote(contribution.donorName, contribution.amount, campaignName, token);
+        if (result.note) {
+            setGeneratedNote(result.note);
+        } else {
+            console.error(result.error);
+            setGeneratedNote("Failed to generate note. Please try again.");
+        }
         setIsLoadingNote(false);
     };
     
@@ -144,7 +150,7 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(contribution.amount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{campaignMap.get(contribution.campaignId)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(contribution.date).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                     {contribution.image ? (

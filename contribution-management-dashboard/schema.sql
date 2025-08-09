@@ -184,3 +184,54 @@ CREATE TABLE user_sessions (
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE festivals (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE expenses
+ADD COLUMN festival_id TEXT REFERENCES festivals(id) ON DELETE SET NULL;
+
+ALTER TABLE quotations
+ADD COLUMN festival_id TEXT REFERENCES festivals(id) ON DELETE SET NULL;
+
+ALTER TABLE budgets
+ADD COLUMN festival_id TEXT REFERENCES festivals(id) ON DELETE SET NULL;
+
+-- First, it's good practice to create a custom ENUM type for the task statuses
+CREATE TYPE task_status_enum AS ENUM (
+    'To Do',
+    'In Progress',
+    'Done',
+    'Blocked'
+);
+
+-- Then, create the tasks table
+CREATE TABLE tasks (
+    id TEXT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    status task_status_enum NOT NULL DEFAULT 'To Do',
+    due_date TIMESTAMPTZ NOT NULL,
+    assignee_name VARCHAR(255) NOT NULL,
+    festival_id TEXT REFERENCES festivals(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE task_history (
+    id SERIAL PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    field_changed VARCHAR(255) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    changed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, -- Who made the change
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
