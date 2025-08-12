@@ -309,3 +309,5 @@ CREATE TABLE task_history (
     changed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+alter table Sponsors add column date_paid DATE;

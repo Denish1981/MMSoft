@@ -57,6 +57,7 @@ export interface Sponsor {
   businessInfo: string;
   sponsorshipAmount: number;
   sponsorshipType: string;
+  datePaid: string; // ISO string
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;

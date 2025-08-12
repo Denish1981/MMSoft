@@ -93,6 +93,7 @@ const seedDatabase = async () => {
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
         }
+        await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
         
         // History tables
         await createHistoryTable(client, 'contributions_history', 'contributions');
@@ -477,7 +478,7 @@ app.get('/api/budgets', authMiddleware, permissionMiddleware('page:budget:view')
 
 app.get('/api/sponsors', authMiddleware, permissionMiddleware('page:sponsors:view'), async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType", created_at AS "createdAt", updated_at AS "updatedAt" FROM sponsors WHERE deleted_at IS NULL ORDER BY name ASC');
+        const { rows } = await db.query('SELECT id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType", date_paid as "datePaid", created_at AS "createdAt", updated_at AS "updatedAt" FROM sponsors WHERE deleted_at IS NULL ORDER BY name ASC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -636,10 +637,10 @@ app.post('/api/contributions/bulk', authMiddleware, permissionMiddleware('action
 });
 
 app.post('/api/sponsors', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType } = req.body;
+    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid } = req.body;
     try {
-        const result = await db.query('INSERT INTO sponsors (name, contact_number, address, email, business_category, business_info, sponsorship_amount, sponsorship_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType]);
+        const result = await db.query('INSERT INTO sponsors (name, contact_number, address, email, business_category, business_info, sponsorship_amount, sponsorship_type, date_paid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid]);
         const newSponsor = result.rows[0];
         res.status(201).json({
             id: newSponsor.id,
@@ -651,6 +652,7 @@ app.post('/api/sponsors', authMiddleware, permissionMiddleware('action:create'),
             businessInfo: newSponsor.business_info,
             sponsorshipAmount: newSponsor.sponsorship_amount,
             sponsorshipType: newSponsor.sponsorship_type,
+            datePaid: newSponsor.date_paid,
             createdAt: newSponsor.created_at,
             updatedAt: newSponsor.updated_at
         });
@@ -809,20 +811,20 @@ app.put('/api/contributions/:id', authMiddleware, permissionMiddleware('action:e
 
 app.put('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType } = req.body;
+    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const oldDataRes = await client.query('SELECT * FROM sponsors WHERE id=$1 FOR UPDATE', [id]);
         if (oldDataRes.rows.length === 0) throw new Error('Sponsor not found');
 
-        const result = await client.query('UPDATE sponsors SET name=$1, contact_number=$2, address=$3, email=$4, business_category=$5, business_info=$6, sponsorship_amount=$7, sponsorship_type=$8, updated_at=NOW() WHERE id=$9 RETURNING *',
-            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, id]);
+        const result = await client.query('UPDATE sponsors SET name=$1, contact_number=$2, address=$3, email=$4, business_category=$5, business_info=$6, sponsorship_amount=$7, sponsorship_type=$8, date_paid=$9, updated_at=NOW() WHERE id=$10 RETURNING *',
+            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid, id]);
         
         await logChanges(client, {
             historyTable: 'sponsors_history', recordId: id, changedByUserId: req.user.id,
             oldData: oldDataRes.rows[0], newData: req.body,
-            fieldMapping: { name: 'name', contactNumber: 'contact_number', address: 'address', email: 'email', businessCategory: 'business_category', businessInfo: 'business_info', sponsorshipAmount: 'sponsorship_amount', sponsorshipType: 'sponsorship_type' }
+            fieldMapping: { name: 'name', contactNumber: 'contact_number', address: 'address', email: 'email', businessCategory: 'business_category', businessInfo: 'business_info', sponsorshipAmount: 'sponsorship_amount', sponsorshipType: 'sponsorship_type', datePaid: 'date_paid' }
         });
 
         await client.query('COMMIT');
@@ -830,7 +832,7 @@ app.put('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:edit')
         res.json({
             id: updatedSponsor.id, name: updatedSponsor.name, contactNumber: updatedSponsor.contact_number, address: updatedSponsor.address, email: updatedSponsor.email,
             businessCategory: updatedSponsor.business_category, businessInfo: updatedSponsor.business_info, sponsorshipAmount: updatedSponsor.sponsorship_amount,
-            sponsorshipType: updatedSponsor.sponsorship_type, createdAt: updatedSponsor.created_at, updatedAt: updatedSponsor.updated_at
+            sponsorshipType: updatedSponsor.sponsorship_type, datePaid: updatedSponsor.date_paid, createdAt: updatedSponsor.created_at, updatedAt: updatedSponsor.updated_at
         });
     } catch (err) { 
         await client.query('ROLLBACK');

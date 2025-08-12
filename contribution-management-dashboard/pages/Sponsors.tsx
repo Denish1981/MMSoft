@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import type { Sponsor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
@@ -25,6 +26,7 @@ const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete, onViewH
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sponsor Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date Paid</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Business Info</th>
@@ -37,6 +39,7 @@ const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete, onViewH
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{sponsor.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.businessCategory}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(sponsor.sponsorshipAmount)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(sponsor.datePaid).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.sponsorshipType}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm text-slate-900">{sponsor.contactNumber}</div>
