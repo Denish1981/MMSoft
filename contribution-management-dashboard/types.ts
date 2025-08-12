@@ -1,5 +1,4 @@
 
-
 export enum ContributionStatus {
   Completed = 'Completed',
   Pending = 'Pending',
@@ -9,14 +8,17 @@ export enum ContributionStatus {
 export type ContributionType = 'Online' | 'Cash';
 
 export interface Campaign {
-  id: string;
+  id: number;
   name: string;
   goal: number;
   description:string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface Contribution {
-  id: string;
+  id: number;
   donorName: string;
   donorEmail?: string;
   mobileNumber?: string;
@@ -24,15 +26,18 @@ export interface Contribution {
   flatNumber: string;
   amount: number;
   numberOfCoupons: number;
-  campaignId: string | null;
+  campaignId: number | null;
   date: string; // ISO string
   status: ContributionStatus;
   type: ContributionType | null;
   image?: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface Donor {
-  id: string;
+  id: string; // This is a client-side generated composite ID, so it remains a string
   email?: string;
   name: string;
   mobileNumber?: string;
@@ -43,7 +48,7 @@ export interface Donor {
 }
 
 export interface Sponsor {
-  id: string;
+  id: number;
   name: string;
   contactNumber: string;
   address: string;
@@ -52,6 +57,9 @@ export interface Sponsor {
   businessInfo: string;
   sponsorshipAmount: number;
   sponsorshipType: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface ContactPerson {
@@ -60,50 +68,65 @@ export interface ContactPerson {
 }
 
 export interface Vendor {
-  id: string;
+  id: number;
   name: string;
   business: string;
   address: string;
   contacts: ContactPerson[];
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface Expense {
-  id: string;
+  id: number;
   name: string;
-  vendorId: string;
+  vendorId: number;
   cost: number;
   billDate: string; // ISO String
   expenseHead: string;
   billReceipts?: string[];
   expenseBy: string;
-  festivalId?: string | null;
+  festivalId?: number | null;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface Quotation {
-    id: string;
+    id: number;
     quotationFor: string;
-    vendorId: string;
+    vendorId: number;
     cost: number;
     date: string; // ISO String
     quotationImages: string[];
-    festivalId?: string | null;
+    festivalId?: number | null;
+    createdAt: string; // ISO string
+    updatedAt: string; // ISO string
+    deletedAt?: string | null;
 }
 
 export interface Budget {
-  id: string;
+  id: number;
   itemName: string;
   budgetedAmount: number;
   expenseHead: string;
-  festivalId?: string | null;
+  festivalId?: number | null;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface Festival {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   startDate: string; // ISO String
   endDate: string; // ISO String
-  campaignId: string | null;
+  campaignId: number | null;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export enum TaskStatus {
@@ -114,20 +137,20 @@ export enum TaskStatus {
 }
 
 export interface Task {
-    id: string;
+    id: number;
     title: string;
     description?: string;
     status: TaskStatus;
     dueDate: string; // ISO String
-    festivalId: string | null;
+    festivalId: number | null;
     assigneeName: string;
     createdAt: string; // ISO String
     updatedAt: string; // ISO String
+    deletedAt?: string | null;
 }
 
-export interface TaskHistoryItem {
+export interface HistoryItem {
   id: number;
-  taskId: string;
   fieldChanged: string;
   oldValue: string | null;
   newValue: string | null;
@@ -155,4 +178,11 @@ export interface UserForManagement {
     username: string;
     createdAt: string;
     roles: Role[];
+}
+
+export interface ArchivedItem {
+    id: number;
+    name: string;
+    type: string;
+    deletedAt: string;
 }

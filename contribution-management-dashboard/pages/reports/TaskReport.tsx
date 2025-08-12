@@ -1,21 +1,16 @@
-
-
-
 import React, { useState, useMemo } from 'react';
-import type { Task, Festival, UserForManagement, TaskHistoryItem } from '../../types';
+import type { Task, Festival, UserForManagement } from '../../types';
 import { TaskStatus } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
-import { useAuth } from '../../contexts/AuthContext';
-import { API_URL } from '../../config';
-import { TaskHistoryModal } from '../../components/TaskHistoryModal';
 import { HistoryIcon } from '../../components/icons/HistoryIcon';
 
 interface TaskReportProps {
     tasks: Task[];
     festivals: Festival[];
     users: UserForManagement[];
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
 interface TaskFilters {
@@ -26,8 +21,7 @@ interface TaskFilters {
     dueDate: string;
 }
 
-const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users }) => {
-    const { token, logout } = useAuth();
+const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users, onViewHistory }) => {
     const [filters, setFilters] = useState<TaskFilters>({
         title: '',
         status: '',
@@ -35,24 +29,13 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users }) => {
         festivalId: '',
         dueDate: '',
     });
-    
-    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-    const [historyData, setHistoryData] = useState<TaskHistoryItem[]>([]);
-    const [selectedTaskForHistory, setSelectedTaskForHistory] = useState<Task | null>(null);
-    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-
 
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
-    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id, label: f.name })), [festivals]);
+    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id.toString(), label: f.name })), [festivals]);
     
     const userOptions = useMemo(() => {
-        // First, get all users from the dedicated user management list if available (for admins/managers).
         const userList = new Set(users.map(u => u.username));
-        // Then, add any assignees from the tasks list who might not be in the main user list.
-        // This ensures the filter is complete even if a user was deleted or for viewers who don't get the full user list.
         tasks.forEach(task => userList.add(task.assigneeName));
-        
-        // Convert the Set to the format needed by the SelectInput, sorted alphabetically.
         return Array.from(userList)
             .sort()
             .map(username => ({ value: username, label: username }));
@@ -73,40 +56,13 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users }) => {
             dueDate: '',
         });
     };
-    
-    const handleViewHistory = async (task: Task) => {
-        if (!token) return;
-        setSelectedTaskForHistory(task);
-        setIsHistoryModalOpen(true);
-        setIsLoadingHistory(true);
-        setHistoryData([]);
-
-        try {
-            const response = await fetch(`${API_URL}/tasks/${task.id}/history`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (response.status === 401) {
-                logout();
-                return;
-            }
-            if (!response.ok) throw new Error('Failed to fetch history');
-            
-            const data: TaskHistoryItem[] = await response.json();
-            setHistoryData(data);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsLoadingHistory(false);
-        }
-    };
-
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => {
             if (filters.title && !task.title.toLowerCase().includes(filters.title.toLowerCase())) return false;
             if (filters.status && task.status !== filters.status) return false;
             if (filters.assigneeName && task.assigneeName !== filters.assigneeName) return false;
-            if (filters.festivalId && task.festivalId !== filters.festivalId) return false;
+            if (filters.festivalId && (task.festivalId === null || task.festivalId.toString() !== filters.festivalId)) return false;
 
             if (filters.dueDate) {
                 const taskDate = new Date(task.dueDate).setHours(0, 0, 0, 0);
@@ -134,73 +90,60 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users }) => {
     };
 
     return (
-        <>
-            <ReportContainer title="Task Report" onExport={handleExport}>
-                <FilterContainer onReset={resetFilters}>
-                    <TextInput label="Task Title" value={filters.title} onChange={val => handleFilterChange('title', val)} />
-                    <SelectInput label="Status" value={filters.status} onChange={val => handleFilterChange('status', val)} options={statusOptions} placeholder="All Statuses" />
-                    <SelectInput label="Assignee" value={filters.assigneeName} onChange={val => handleFilterChange('assigneeName', val)} options={userOptions} placeholder="All Assignees" />
-                    <SelectInput label="Festival" value={filters.festivalId} onChange={val => handleFilterChange('festivalId', val)} options={festivalOptions} placeholder="All Festivals" />
-                    <DateInput label="Due Date" value={filters.dueDate} onChange={val => handleFilterChange('dueDate', val)} />
-                </FilterContainer>
+        <ReportContainer title="Task Report" onExport={handleExport}>
+            <FilterContainer onReset={resetFilters}>
+                <TextInput label="Task Title" value={filters.title} onChange={val => handleFilterChange('title', val)} />
+                <SelectInput label="Status" value={filters.status} onChange={val => handleFilterChange('status', val)} options={statusOptions} placeholder="All Statuses" />
+                <SelectInput label="Assignee" value={filters.assigneeName} onChange={val => handleFilterChange('assigneeName', val)} options={userOptions} placeholder="All Assignees" />
+                <SelectInput label="Festival" value={filters.festivalId} onChange={val => handleFilterChange('festivalId', val)} options={festivalOptions} placeholder="All Festivals" />
+                <DateInput label="Due Date" value={filters.dueDate} onChange={val => handleFilterChange('dueDate', val)} />
+            </FilterContainer>
 
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Task</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Due Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Assignee</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Festival</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Task</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Due Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Assignee</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Festival</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                        {filteredTasks.map(task => (
+                            <tr key={task.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-slate-900">{task.title}</div>
+                                    <div className="text-sm text-slate-500 truncate max-w-xs" title={task.description}>{task.description}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.status}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(task.dueDate).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.assigneeName}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(task.festivalId && festivalMap.get(task.festivalId)) || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    <button
+                                        onClick={() => onViewHistory('tasks', task.id, `History for ${task.title}`)}
+                                        className="text-slate-500 hover:text-blue-600 p-1 rounded-full transition-colors"
+                                        title="View History"
+                                    >
+                                        <HistoryIcon className="w-5 h-5" />
+                                    </button>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-slate-200">
-                            {filteredTasks.map(task => (
-                                <tr key={task.id} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-slate-900">{task.title}</div>
-                                        <div className="text-sm text-slate-500 truncate max-w-xs" title={task.description}>{task.description}</div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.status}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(task.dueDate).toLocaleDateString()}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.assigneeName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(task.festivalId && festivalMap.get(task.festivalId)) || 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <button
-                                            onClick={() => handleViewHistory(task)}
-                                            className="text-slate-500 hover:text-blue-600 p-1 rounded-full transition-colors"
-                                            title="View History"
-                                        >
-                                            <HistoryIcon className="w-5 h-5" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                             {filteredTasks.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="text-center py-10 text-slate-500">
-                                        No tasks match the current filters.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </ReportContainer>
-
-            {isHistoryModalOpen && selectedTaskForHistory && (
-                <TaskHistoryModal
-                    isOpen={isHistoryModalOpen}
-                    onClose={() => setIsHistoryModalOpen(false)}
-                    taskTitle={selectedTaskForHistory.title}
-                    history={historyData}
-                    isLoading={isLoadingHistory}
-                    festivalMap={festivalMap}
-                />
-            )}
-        </>
+                        ))}
+                         {filteredTasks.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="text-center py-10 text-slate-500">
+                                    No tasks match the current filters.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </ReportContainer>
     );
 };
 

@@ -1,17 +1,20 @@
 
+
 import React, { useMemo } from 'react';
 import type { Festival, Campaign } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 
 interface FestivalsProps {
     festivals: Festival[];
     campaigns: Campaign[];
     onEdit: (festival: Festival) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
-const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onDelete }) => {
+const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onDelete, onViewHistory }) => {
     const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
 
     const formatDate = (dateString: string) => {
@@ -58,6 +61,9 @@ const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onD
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium align-top">
                                     <div className="flex items-center space-x-4">
+                                        <button onClick={() => onViewHistory('festivals', festival.id, `History for ${festival.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <HistoryIcon className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => onEdit(festival)} className="text-slate-600 hover:text-slate-900" title="Edit Festival">
                                             <EditIcon className="w-4 h-4" />
                                         </button>

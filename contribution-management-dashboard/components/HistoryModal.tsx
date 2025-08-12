@@ -1,12 +1,13 @@
+
 import React from 'react';
 import type { HistoryItem, Festival } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
 
-interface TaskHistoryModalProps {
+interface HistoryModalProps {
     isOpen: boolean;
     onClose: () => void;
-    taskTitle: string;
+    title: string;
     history: HistoryItem[];
     isLoading: boolean;
     festivalMap: Map<number, string>;
@@ -15,8 +16,12 @@ interface TaskHistoryModalProps {
 const formatFieldValue = (field: string, value: string | null, festivalMap: Map<number, string>): React.ReactNode => {
     if (value === null || value === 'null' || value === '') return <span className="text-slate-400 italic">None</span>;
 
-    if (field === 'dueDate') {
-        return new Date(value).toLocaleDateString();
+    if (field === 'dueDate' || field === 'date' || field === 'billDate' || field === 'startDate' || field === 'endDate') {
+        try {
+            return new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric'});
+        } catch (e) {
+            return value;
+        }
     }
     if (field === 'festivalId') {
         return festivalMap.get(Number(value)) || <span className="text-slate-400 italic">Unknown Festival</span>;
@@ -25,18 +30,11 @@ const formatFieldValue = (field: string, value: string | null, festivalMap: Map<
 };
 
 const formatFieldName = (field: string) => {
-    const map: Record<string, string> = {
-        title: 'Title',
-        description: 'Description',
-        status: 'Status',
-        dueDate: 'Due Date',
-        assigneeName: 'Assignee',
-        festivalId: 'Festival'
-    };
-    return map[field] || field;
+    const name = field.replace(/([A-Z])/g, ' $1');
+    return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ isOpen, onClose, taskTitle, history, isLoading, festivalMap }) => {
+export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose, title, history, isLoading, festivalMap }) => {
     if (!isOpen) return null;
 
     return (
@@ -44,8 +42,8 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ isOpen, onCl
             <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-2xl m-4 flex flex-col max-h-[90vh]">
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800">Task History</h2>
-                        <p className="text-slate-600 truncate" title={taskTitle}>{taskTitle}</p>
+                        <h2 className="text-2xl font-bold text-slate-800">Record History</h2>
+                        <p className="text-slate-600 truncate" title={title}>{title}</p>
                     </div>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
                         <CloseIcon className="w-6 h-6" />
@@ -61,7 +59,7 @@ export const TaskHistoryModal: React.FC<TaskHistoryModalProps> = ({ isOpen, onCl
                         <div className="flex flex-col justify-center items-center h-full text-center text-slate-500 py-10">
                             <HistoryIcon className="w-12 h-12 mb-4 text-slate-400"/>
                             <p className="font-semibold">No History Found</p>
-                            <p className="text-sm">This task has not been modified since its creation.</p>
+                            <p className="text-sm">This record has not been modified since its creation.</p>
                         </div>
                     ) : (
                         <ul className="space-y-4">

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { Campaign, Contribution, ContributionType } from '../types';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
@@ -15,7 +16,7 @@ interface BulkAddPageProps {
     onBulkSaveSuccess: () => void;
 }
 
-type StagedContribution = Omit<Contribution, 'id' | 'status'>;
+type StagedContribution = Omit<Contribution, 'id' | 'status' | 'createdAt' | 'updatedAt'>;
 
 const initialFormState: StagedContribution = {
     donorName: '',
@@ -25,7 +26,7 @@ const initialFormState: StagedContribution = {
     numberOfCoupons: 0,
     donorEmail: '',
     mobileNumber: '',
-    campaignId: '',
+    campaignId: null,
     date: new Date().toISOString().split('T')[0],
     type: 'Online',
     image: undefined,
@@ -43,7 +44,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
     useEffect(() => {
         // Set default campaign when campaigns load
         if (campaigns.length > 0 && !formData.campaignId) {
-            setFormData(prev => ({ ...prev, campaignId: campaigns[0]?.id || '' }));
+            setFormData(prev => ({ ...prev, campaignId: campaigns[0]?.id || null }));
         }
     }, [campaigns, formData.campaignId]);
 
@@ -51,7 +52,9 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
         const { name, value } = e.target;
         setFormData((prev: StagedContribution) => ({
             ...prev,
-            [name]: name === 'amount' || name === 'numberOfCoupons' ? (value ? parseFloat(value) : 0) : value
+            [name]: (name === 'amount' || name === 'numberOfCoupons') 
+                ? (value ? parseFloat(value) : 0) 
+                : (name === 'campaignId' ? (value ? Number(value) : null) : value)
         }));
     };
     
@@ -85,7 +88,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
 
         setStagedContributions((prev: StagedContribution[]) => [...prev, formData]);
         // Reset form, but keep campaign, date, and type for faster entry
-        setFormData((prev: StagedContribution) => ({
+        setFormData(prev => ({
             ...initialFormState,
             campaignId: prev.campaignId,
             date: prev.date,
@@ -184,7 +187,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="campaignId" className="block text-sm font-medium text-slate-700">Campaign</label>
-                            <select id="campaignId" name="campaignId" value={formData.campaignId || ''} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
+                            <select id="campaignId" name="campaignId" value={formData.campaignId ?? ''} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
                                 <option value="" disabled>Select a campaign</option>
                                 {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Contribution, Campaign } from '../types';
 import { ContributionStatus } from '../types';
@@ -8,13 +9,15 @@ import { CloseIcon } from '../components/icons/CloseIcon';
 import { SparklesIcon } from '../components/icons/SparklesIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
 
 interface ContributionsProps {
     contributions: Contribution[];
     campaigns: Campaign[];
     onEdit: (contribution: Contribution) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
 const StatusBadge: React.FC<{ status: ContributionStatus }> = ({ status }) => {
@@ -69,7 +72,7 @@ const ImageViewerModal: React.FC<{ imageUrl: string; onClose: () => void }> = ({
 );
 
 
-const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns, onEdit, onDelete }) => {
+const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns, onEdit, onDelete, onViewHistory }) => {
     const { token } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('all');
@@ -83,7 +86,7 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
     const filteredContributions = useMemo(() => {
         return contributions
             .filter(d => searchTerm === '' || d.donorName.toLowerCase().includes(searchTerm.toLowerCase()))
-            .filter(d => filterCampaign === 'all' || d.campaignId === filterCampaign);
+            .filter(d => filterCampaign === 'all' || (d.campaignId !== null && d.campaignId.toString() === filterCampaign));
     }, [contributions, searchTerm, filterCampaign]);
 
     const handleGenerateNote = async (contribution: Contribution) => {
@@ -169,6 +172,9 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
                                     <div className="flex items-center space-x-4">
                                         <button onClick={() => handleGenerateNote(contribution)} className="text-blue-600 hover:text-blue-800 flex items-center" title="Generate Thank You Note">
                                            <SparklesIcon className="w-4 h-4"/>
+                                        </button>
+                                        <button onClick={() => onViewHistory('contributions', contribution.id, `History for ${contribution.donorName}'s contribution`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <HistoryIcon className="w-4 h-4" />
                                         </button>
                                         <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900" title="Edit Contribution">
                                             <EditIcon className="w-4 h-4" />

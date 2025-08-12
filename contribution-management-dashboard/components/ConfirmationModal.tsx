@@ -1,12 +1,14 @@
+
 import React from 'react';
 
 interface ConfirmationModalProps {
     onConfirm: () => void;
     onCancel: () => void;
     message: string;
+    confirmText?: string;
 }
 
-export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ onConfirm, onCancel, message }) => {
+export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ onConfirm, onCancel, message, confirmText = 'Yes, Delete' }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[100]">
             <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md m-4">
@@ -23,7 +25,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ onConfirm,
                         onClick={onConfirm}
                         className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
                     >
-                        Yes, Delete
+                        {confirmText}
                     </button>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Expense, Vendor, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -36,9 +37,9 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
     });
 
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
-    const vendorOptions = useMemo(() => vendors.map(v => ({ value: v.id, label: v.name })), [vendors]);
+    const vendorOptions = useMemo(() => vendors.map(v => ({ value: String(v.id), label: v.name })), [vendors]);
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
-    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id, label: f.name })), [festivals]);
+    const festivalOptions = useMemo(() => festivals.map(f => ({ value: String(f.id), label: f.name })), [festivals]);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -60,10 +61,10 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
     const filteredExpenses = useMemo(() => {
         return expenses.filter(e => {
             if (filters.expenseName && !e.name.toLowerCase().includes(filters.expenseName.toLowerCase())) return false;
-            if (filters.vendorId && e.vendorId !== filters.vendorId) return false;
+            if (filters.vendorId && e.vendorId !== Number(filters.vendorId)) return false;
             if (filters.doneBy && !e.expenseBy.toLowerCase().includes(filters.doneBy.toLowerCase())) return false;
             if (filters.expenseHead && !e.expenseHead.toLowerCase().includes(filters.expenseHead.toLowerCase())) return false;
-            if (filters.festivalId && e.festivalId !== filters.festivalId) return false;
+            if (filters.festivalId && e.festivalId !== Number(filters.festivalId)) return false;
             
             if (filters.costValue) {
                 const cost = parseFloat(filters.costValue);

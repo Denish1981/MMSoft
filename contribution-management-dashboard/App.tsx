@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -25,6 +24,7 @@ import ForbiddenPage from './pages/ForbiddenPage';
 import BulkAddPage from './pages/BulkAddPage';
 import Festivals from './pages/Festivals';
 import Tasks from './pages/Tasks';
+import ArchivePage from './pages/Archive';
 import { ContributionModal } from './components/DonationModal';
 import { SponsorModal } from './components/SponsorModal';
 import { VendorModal } from './components/VendorModal';
@@ -34,7 +34,8 @@ import { BudgetModal } from './components/BudgetModal';
 import { FestivalModal } from './components/FestivalModal';
 import { TaskModal } from './components/TaskModal';
 import { ConfirmationModal } from './components/ConfirmationModal';
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement } from './types';
+import { HistoryModal } from './components/HistoryModal';
+import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem } from './types';
 import { API_URL } from './config';
 import PageViewTracker from './components/PageViewTracker';
 
@@ -77,8 +78,14 @@ const AppContent: React.FC = () => {
     const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
     // State for deletion confirmation
-    const [itemToDelete, setItemToDelete] = useState<{ id: string | number; type: string } | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<{ id: number; type: string } | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+
+    // State for History Modal
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
+    const [historyTitle, setHistoryTitle] = useState('');
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
     const getAuthHeaders = () => ({
         'Authorization': `Bearer ${token}`,
@@ -160,11 +167,11 @@ const AppContent: React.FC = () => {
     const confirmMessage = useMemo(() => {
         if (!itemToDelete) return '';
         const itemType = itemToDelete.type.slice(0, -1);
-        return `Are you sure you want to delete this ${itemType}? This action cannot be undone.`;
+        return `Are you sure you want to archive this ${itemType}? It can be restored later from the Archive page.`;
     }, [itemToDelete]);
     
     // --- Generic CRUD Handlers ---
-    const handleAdd = async <T extends { id: any }>(url: string, body: Omit<T, 'id'>, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal?: () => void) => {
+    const handleAdd = async <T extends { id: any }>(url: string, body: Omit<T, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal?: () => void) => {
         try {
             const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body) });
             if (response.status === 401) { logout(); return; }
@@ -181,7 +188,7 @@ const AppContent: React.FC = () => {
         }
     };
 
-    const handleUpdate = async <T extends {id: string}>(url: string, body: T, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal: () => void) => {
+    const handleUpdate = async <T extends {id: number}>(url: string, body: T, setData: React.Dispatch<React.SetStateAction<T[]>>, closeModal: () => void) => {
         try {
             const response = await fetch(`${url}/${body.id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body) });
             if (response.status === 401) { logout(); return; }
@@ -193,9 +200,9 @@ const AppContent: React.FC = () => {
         }
     };
 
-    const handleDeleteClick = (id: string | number, type: string) => {
+    const handleDeleteClick = (id: number, type: string) => {
         if (!hasPermission('action:delete')) {
-            alert("You don't have permission to delete items.");
+            alert("You don't have permission to archive items.");
             return;
         }
         setItemToDelete({ id, type });
@@ -205,54 +212,73 @@ const AppContent: React.FC = () => {
     const confirmDelete = async () => {
         if (!itemToDelete) return;
         const { id, type } = itemToDelete;
-        const endpointMap: { [key: string]: string } = {
-            contributions: 'contributions', sponsors: 'sponsors', vendors: 'vendors',
-            expenses: 'expenses', quotations: 'quotations', budgets: 'budgets', festivals: 'festivals',
-            tasks: 'tasks',
-        };
-        const endpoint = endpointMap[type];
-        if (!endpoint) {
-            console.warn(`Unhandled delete type: ${type}`);
-            setIsConfirmationModalOpen(false);
-            return;
-        }
+        
         try {
-            const response = await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+            const response = await fetch(`${API_URL}/${type}/${id}`, { 
+                method: 'DELETE', 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            });
             if (response.status === 401) { logout(); return; }
-            if (!response.ok) { throw new Error(`Failed to delete ${type}`); }
-            
-            switch (type) {
-                case 'contributions':
-                    setContributions((prev: Contribution[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'sponsors':
-                    setSponsors((prev: Sponsor[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'vendors':
-                    setVendors((prev: Vendor[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'expenses':
-                    setExpenses((prev: Expense[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'quotations':
-                    setQuotations((prev: Quotation[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'budgets':
-                    setBudgets((prev: BudgetType[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'festivals':
-                    setFestivals((prev: Festival[]) => prev.filter(item => item.id !== id));
-                    break;
-                case 'tasks':
-                    setTasks((prev: Task[]) => prev.filter(item => item.id !== id));
-                    break;
+            if (!response.ok) { 
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to archive ${type}`);
             }
+            
+            await fetchData(); // Re-fetch all data to ensure UI is in sync with the server
+
         } catch (error) {
             console.error(error);
             alert(error instanceof Error ? error.message : "An unknown error occurred.");
         } finally {
             setIsConfirmationModalOpen(false);
             setItemToDelete(null);
+        }
+    };
+
+    const handleRestore = async (recordType: string, recordId: number) => {
+        if (!hasPermission('action:restore')) {
+            alert("You don't have permission to restore items.");
+            return;
+        }
+        try {
+            const response = await fetch(`${API_URL}/${recordType}/${recordId}/restore`, {
+                method: 'POST',
+                headers: getAuthHeaders()
+            });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to restore item`);
+            }
+            await fetchData(); // Refresh data to reflect the restored item
+        } catch (error) {
+            console.error('Failed to restore item:', error);
+            alert(error instanceof Error ? error.message : "An unknown error occurred.");
+        }
+    };
+
+    const handleViewHistory = async (recordType: string, recordId: number, title: string) => {
+        if (!token) return;
+        setHistoryTitle(title);
+        setIsHistoryModalOpen(true);
+        setIsLoadingHistory(true);
+        setHistoryData([]);
+
+        try {
+            const response = await fetch(`${API_URL}/${recordType}/${recordId}/history`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+            if (!response.ok) throw new Error(`Failed to fetch history for ${recordType}`);
+            const data: HistoryItem[] = await response.json();
+            setHistoryData(data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoadingHistory(false);
         }
     };
     
@@ -267,45 +293,47 @@ const AppContent: React.FC = () => {
         setter(true);
     };
 
-    const handleContributionSubmit = (data: Omit<Contribution, 'id'>) => {
-        if (contributionToEdit) handleUpdate(`${API_URL}/contributions`, { ...data, id: contributionToEdit.id }, setContributions, () => setIsContributionModalOpen(false));
+    const handleContributionSubmit = (data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (contributionToEdit) handleUpdate(`${API_URL}/contributions`, { ...data, id: contributionToEdit.id, createdAt: contributionToEdit.createdAt, updatedAt: contributionToEdit.updatedAt }, setContributions, () => setIsContributionModalOpen(false));
         else handleAdd(`${API_URL}/contributions`, data, setContributions, () => setIsContributionModalOpen(false));
     };
 
-    const handleSponsorSubmit = (data: Omit<Sponsor, 'id'>) => {
-        if (sponsorToEdit) handleUpdate(`${API_URL}/sponsors`, { ...data, id: sponsorToEdit.id }, setSponsors, () => setIsSponsorModalOpen(false));
+    const handleSponsorSubmit = (data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (sponsorToEdit) handleUpdate(`${API_URL}/sponsors`, { ...data, id: sponsorToEdit.id, createdAt: sponsorToEdit.createdAt, updatedAt: sponsorToEdit.updatedAt }, setSponsors, () => setIsSponsorModalOpen(false));
         else handleAdd(`${API_URL}/sponsors`, data, setSponsors, () => setIsSponsorModalOpen(false));
     };
 
-    const handleVendorSubmit = (data: Omit<Vendor, 'id'>) => {
-        if (vendorToEdit) handleUpdate(`${API_URL}/vendors`, { ...data, id: vendorToEdit.id }, setVendors, () => setIsVendorModalOpen(false));
+    const handleVendorSubmit = (data: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (vendorToEdit) handleUpdate(`${API_URL}/vendors`, { ...data, id: vendorToEdit.id, createdAt: vendorToEdit.createdAt, updatedAt: vendorToEdit.updatedAt }, setVendors, () => setIsVendorModalOpen(false));
         else handleAdd(`${API_URL}/vendors`, data, setVendors, () => setIsVendorModalOpen(false));
     };
 
-    const handleExpenseSubmit = (data: Omit<Expense, 'id'>) => {
-        if (expenseToEdit) handleUpdate(`${API_URL}/expenses`, { ...data, id: expenseToEdit.id }, setExpenses, () => setIsExpenseModalOpen(false));
+    const handleExpenseSubmit = (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (expenseToEdit) handleUpdate(`${API_URL}/expenses`, { ...data, id: expenseToEdit.id, createdAt: expenseToEdit.createdAt, updatedAt: expenseToEdit.updatedAt }, setExpenses, () => setIsExpenseModalOpen(false));
         else handleAdd(`${API_URL}/expenses`, data, setExpenses, () => setIsExpenseModalOpen(false));
     };
 
-    const handleQuotationSubmit = (data: Omit<Quotation, 'id'>) => {
-        if (quotationToEdit) handleUpdate(`${API_URL}/quotations`, { ...data, id: quotationToEdit.id }, setQuotations, () => setIsQuotationModalOpen(false));
+    const handleQuotationSubmit = (data: Omit<Quotation, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (quotationToEdit) handleUpdate(`${API_URL}/quotations`, { ...data, id: quotationToEdit.id, createdAt: quotationToEdit.createdAt, updatedAt: quotationToEdit.updatedAt }, setQuotations, () => setIsQuotationModalOpen(false));
         else handleAdd(`${API_URL}/quotations`, data, setQuotations, () => setIsQuotationModalOpen(false));
     };
     
-    const handleBudgetSubmit = (data: Omit<BudgetType, 'id'>) => {
-        if (budgetToEdit) handleUpdate(`${API_URL}/budgets`, { ...data, id: budgetToEdit.id }, setBudgets, () => setIsBudgetModalOpen(false));
+    const handleBudgetSubmit = (data: Omit<BudgetType, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (budgetToEdit) handleUpdate(`${API_URL}/budgets`, { ...data, id: budgetToEdit.id, createdAt: budgetToEdit.createdAt, updatedAt: budgetToEdit.updatedAt }, setBudgets, () => setIsBudgetModalOpen(false));
         else handleAdd(`${API_URL}/budgets`, data, setBudgets, () => setIsBudgetModalOpen(false));
     };
 
-    const handleFestivalSubmit = (data: Omit<Festival, 'id'>) => {
-        if (festivalToEdit) handleUpdate(`${API_URL}/festivals`, { ...data, id: festivalToEdit.id }, setFestivals, () => setIsFestivalModalOpen(false));
+    const handleFestivalSubmit = (data: Omit<Festival, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        if (festivalToEdit) handleUpdate(`${API_URL}/festivals`, { ...data, id: festivalToEdit.id, createdAt: festivalToEdit.createdAt, updatedAt: festivalToEdit.updatedAt }, setFestivals, () => setIsFestivalModalOpen(false));
         else handleAdd(`${API_URL}/festivals`, data, setFestivals, () => setIsFestivalModalOpen(false));
     };
 
-    const handleTaskSubmit = (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const handleTaskSubmit = (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
         if (taskToEdit) handleUpdate(`${API_URL}/tasks`, { ...data, id: taskToEdit.id, createdAt: taskToEdit.createdAt, updatedAt: new Date().toISOString() }, setTasks, () => setIsTaskModalOpen(false));
-        else handleAdd(`${API_URL}/tasks`, { ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, setTasks, () => setIsTaskModalOpen(false));
+        else handleAdd(`${API_URL}/tasks`, data, setTasks, () => setIsTaskModalOpen(false));
     };
+
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     if (isLoading) {
         return <div className="flex h-screen items-center justify-center">Loading...</div>;
@@ -337,20 +365,21 @@ const AppContent: React.FC = () => {
                             <Route path="/forbidden" element={<ForbiddenPage />} />
 
                             <Route path="/" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard contributions={contributions} donors={donors} sponsors={sponsors} expenses={expenses} /></ProtectedRoute>} />
-                            <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions contributions={contributions} campaigns={campaigns} onEdit={(item) => openModal(setIsContributionModalOpen, 'action:edit', setContributionToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'contributions')} /></ProtectedRoute>} />
+                            <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions contributions={contributions} campaigns={campaigns} onEdit={(item) => openModal(setIsContributionModalOpen, 'action:edit', setContributionToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'contributions')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                             <Route path="/bulk-add" element={<ProtectedRoute permission="page:bulk-add:view"><BulkAddPage campaigns={campaigns} onBulkSaveSuccess={fetchData} /></ProtectedRoute>} />
                             <Route path="/donors" element={<ProtectedRoute permission="page:donors:view"><Donors donors={donors} /></ProtectedRoute>} />
-                            <Route path="/sponsors" element={<ProtectedRoute permission="page:sponsors:view"><Sponsors sponsors={sponsors} onEdit={(item) => openModal(setIsSponsorModalOpen, 'action:edit', setSponsorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'sponsors')} /></ProtectedRoute>} />
-                            <Route path="/vendors" element={<ProtectedRoute permission="page:vendors:view"><Vendors vendors={vendors} onEdit={(item) => openModal(setIsVendorModalOpen, 'action:edit', setVendorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'vendors')} /></ProtectedRoute>} />
-                            <Route path="/expenses" element={<ProtectedRoute permission="page:expenses:view"><Expenses expenses={expenses} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsExpenseModalOpen, 'action:edit', setExpenseToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'expenses')} /></ProtectedRoute>} />
-                            <Route path="/quotations" element={<ProtectedRoute permission="page:quotations:view"><Quotations quotations={quotations} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsQuotationModalOpen, 'action:edit', setQuotationToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'quotations')} /></ProtectedRoute>} />
-                            <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget budgets={budgets} festivals={festivals} onEdit={(item) => openModal(setIsBudgetModalOpen, 'action:edit', setBudgetToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'budgets')} /></ProtectedRoute>} />
+                            <Route path="/sponsors" element={<ProtectedRoute permission="page:sponsors:view"><Sponsors sponsors={sponsors} onEdit={(item) => openModal(setIsSponsorModalOpen, 'action:edit', setSponsorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'sponsors')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                            <Route path="/vendors" element={<ProtectedRoute permission="page:vendors:view"><Vendors vendors={vendors} onEdit={(item) => openModal(setIsVendorModalOpen, 'action:edit', setVendorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'vendors')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                            <Route path="/expenses" element={<ProtectedRoute permission="page:expenses:view"><Expenses expenses={expenses} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsExpenseModalOpen, 'action:edit', setExpenseToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'expenses')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                            <Route path="/quotations" element={<ProtectedRoute permission="page:quotations:view"><Quotations quotations={quotations} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsQuotationModalOpen, 'action:edit', setQuotationToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'quotations')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                            <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget budgets={budgets} festivals={festivals} onEdit={(item) => openModal(setIsBudgetModalOpen, 'action:edit', setBudgetToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'budgets')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                             <Route path="/campaigns" element={<ProtectedRoute permission="page:campaigns:view"><Campaigns campaigns={campaigns} contributions={contributions}/></ProtectedRoute>} />
-                            <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals festivals={festivals} campaigns={campaigns} onEdit={(item) => openModal(setIsFestivalModalOpen, 'action:edit', setFestivalToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'festivals')} /></ProtectedRoute>} />
-                            <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks tasks={tasks} festivals={festivals} users={users} onEdit={(item) => openModal(setIsTaskModalOpen, 'action:edit', setTaskToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'tasks')} /></ProtectedRoute>} />
-                            <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} festivals={festivals} tasks={tasks} users={users} /></ProtectedRoute>} />
+                            <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals festivals={festivals} campaigns={campaigns} onEdit={(item) => openModal(setIsFestivalModalOpen, 'action:edit', setFestivalToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'festivals')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                            <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks tasks={tasks} festivals={festivals} users={users} onEdit={(item) => openModal(setIsTaskModalOpen, 'action:edit', setTaskToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'tasks')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                            <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} festivals={festivals} tasks={tasks} users={users} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                             <Route path="/ai-insights" element={<ProtectedRoute permission="page:ai-insights:view"><AiInsights /></ProtectedRoute>} />
                             <Route path="/user-management" element={<ProtectedRoute permission="page:user-management:view"><UserManagement /></ProtectedRoute>} />
+                            <Route path="/archive" element={<ProtectedRoute permission="page:archive:view"><ArchivePage onRestore={handleRestore} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                             
                             <Route path="*" element={<Navigate to="/" />} />
                         </Routes>
@@ -364,7 +393,8 @@ const AppContent: React.FC = () => {
                  {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} festivals={festivals} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
                  {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={() => { setIsFestivalModalOpen(false); setFestivalToEdit(null); }} onSubmit={handleFestivalSubmit} />}
                  {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={() => { setIsTaskModalOpen(false); setTaskToEdit(null); }} onSubmit={handleTaskSubmit} />}
-                 {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} />}
+                 {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} confirmText="Yes, Archive" />}
+                 {isHistoryModalOpen && <HistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title={historyTitle} history={historyData} isLoading={isLoadingHistory} festivalMap={festivalMap} />}
             </div>
         </HashRouter>
     );

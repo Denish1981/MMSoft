@@ -1,17 +1,20 @@
 
+
 import React from 'react';
 import type { Sponsor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
 
 interface SponsorsProps {
     sponsors: Sponsor[];
     onEdit: (sponsor: Sponsor) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
-const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete }) => {
+const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete, onViewHistory }) => {
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Our Sponsors</h2>
@@ -44,6 +47,9 @@ const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete }) => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex items-center space-x-4">
+                                        <button onClick={() => onViewHistory('sponsors', sponsor.id, `History for ${sponsor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <HistoryIcon className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => onEdit(sponsor)} className="text-slate-600 hover:text-slate-900" title="Edit Sponsor">
                                             <EditIcon className="w-4 h-4" />
                                         </button>

@@ -14,6 +14,7 @@ import { CalculatorIcon } from './icons/CalculatorIcon';
 import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { CheckSquareIcon } from './icons/CheckSquareIcon';
+import { ArchiveIcon } from './icons/ArchiveIcon';
 
 interface NavItemProps {
     to: string;
@@ -58,6 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         { to: "/reports", permission: 'page:reports:view', icon: <ChartBarIcon className="w-5 h-5" />, label: "Reports" },
         //{ to: "/ai-insights", permission: 'page:ai-insights:view', icon: <SparklesIcon className="w-5 h-5" />, label: "AI Insights" },
         { to: "/user-management", permission: 'page:user-management:view', icon: <UserGroupIcon className="w-5 h-5" />, label: "User Management" },
+        { to: "/archive", permission: 'page:archive:view', icon: <ArchiveIcon className="w-5 h-5" />, label: "Archive" },
     ];
 
     return (

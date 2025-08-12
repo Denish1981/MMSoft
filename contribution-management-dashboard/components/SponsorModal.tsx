@@ -5,7 +5,7 @@ import { CloseIcon } from './icons/CloseIcon';
 interface SponsorModalProps {
     sponsorToEdit: Sponsor | null;
     onClose: () => void;
-    onSubmit: (sponsor: Omit<Sponsor, 'id'>) => void;
+    onSubmit: (sponsor: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClose, onSubmit }) => {

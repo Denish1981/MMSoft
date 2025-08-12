@@ -1,15 +1,18 @@
+
 import React from 'react';
 import type { Vendor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 
 interface VendorsProps {
     vendors: Vendor[];
     onEdit: (vendor: Vendor) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
-const Vendors: React.FC<VendorsProps> = ({ vendors, onEdit, onDelete }) => {
+const Vendors: React.FC<VendorsProps> = ({ vendors, onEdit, onDelete, onViewHistory }) => {
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Our Vendors</h2>
@@ -48,6 +51,9 @@ const Vendors: React.FC<VendorsProps> = ({ vendors, onEdit, onDelete }) => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap align-top text-sm font-medium">
                                     <div className="flex items-center space-x-4">
+                                        <button onClick={() => onViewHistory('vendors', vendor.id, `History for ${vendor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <HistoryIcon className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => onEdit(vendor)} className="text-slate-600 hover:text-slate-900" title="Edit Vendor">
                                             <EditIcon className="w-4 h-4" />
                                         </button>

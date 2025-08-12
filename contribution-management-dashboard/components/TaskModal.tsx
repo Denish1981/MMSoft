@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { Task, Festival, UserForManagement } from '../types';
 import { TaskStatus } from '../types';
@@ -28,7 +29,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ taskToEdit, festivals, use
             setDescription(taskToEdit.description || '');
             setStatus(taskToEdit.status);
             setDueDate(new Date(taskToEdit.dueDate).toISOString().split('T')[0]);
-            setFestivalId(taskToEdit.festivalId);
+            setFestivalId(taskToEdit.festivalId ? String(taskToEdit.festivalId) : null);
             setAssigneeName(taskToEdit.assigneeName);
         }
     }, [taskToEdit]);
@@ -39,7 +40,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ taskToEdit, festivals, use
             alert('Please fill out all required fields: Title, Status, Due Date, and Assignee.');
             return;
         }
-        onSubmit({ title, description, status, dueDate, festivalId, assigneeName });
+        onSubmit({ title, description, status, dueDate, festivalId: festivalId ? Number(festivalId) : null, assigneeName });
     };
 
     return (

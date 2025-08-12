@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -10,7 +11,7 @@ interface ContributionModalProps {
     campaigns: Campaign[];
     contributionToEdit: Contribution | null;
     onClose: () => void;
-    onSubmit: (contribution: Omit<Contribution, 'id'>) => void;
+    onSubmit: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns, contributionToEdit, onClose, onSubmit }) => {
@@ -21,7 +22,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [flatNumber, setFlatNumber] = useState('');
     const [amount, setAmount] = useState('');
     const [numberOfCoupons, setNumberOfCoupons] = useState('');
-    const [campaignId, setCampaignId] = useState(campaigns[0]?.id || '');
+    const [campaignId, setCampaignId] = useState<number | null>(campaigns[0]?.id || null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState<ContributionType>('Online');
     const [image, setImage] = useState<string | undefined>();
@@ -37,7 +38,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setFlatNumber(contributionToEdit.flatNumber);
             setAmount(String(contributionToEdit.amount));
             setNumberOfCoupons(String(contributionToEdit.numberOfCoupons));
-            setCampaignId(contributionToEdit.campaignId || '');
+            setCampaignId(contributionToEdit.campaignId);
             setDate(new Date(contributionToEdit.date).toISOString().split('T')[0]);
             setType(contributionToEdit.type || 'Online');
             setImage(contributionToEdit.image);
@@ -70,7 +71,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             alert('Please fill out all required fields.');
             return;
         }
-        const submissionData: Omit<Contribution, 'id' | 'status'> & { status: ContributionStatus, campaignId: string | null, type: ContributionType | null } = {
+        const submissionData: Omit<Contribution, 'id' | 'status' | 'createdAt' | 'updatedAt'> & { status: ContributionStatus, campaignId: number | null, type: ContributionType | null } = {
             donorName,
             donorEmail,
             mobileNumber,
@@ -150,7 +151,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                         </div>
                         <div>
                             <label htmlFor="campaign" className="block text-sm font-medium text-slate-700">Campaign</label>
-                            <select id="campaign" value={campaignId} onChange={e => setCampaignId(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                            <select id="campaign" value={campaignId || ''} onChange={e => setCampaignId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
                                 <option value="" disabled>Select a campaign</option>
                                 {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>

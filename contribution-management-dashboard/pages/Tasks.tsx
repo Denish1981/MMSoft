@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Task, Festival, UserForManagement } from '../types';
 import { TaskStatus } from '../types';
@@ -6,13 +7,15 @@ import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';
 import { UserIcon } from '../components/icons/UserIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 
 interface TasksProps {
     tasks: Task[];
     festivals: Festival[];
     users: UserForManagement[];
     onEdit: (task: Task) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
 const statusColors: { [key in TaskStatus]: { bg: string; text: string; border: string } } = {
@@ -22,7 +25,7 @@ const statusColors: { [key in TaskStatus]: { bg: string; text: string; border: s
     [TaskStatus.Blocked]: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' },
 };
 
-const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (id: string) => void; festivalName: string | undefined; }> = ({ task, onEdit, onDelete, festivalName }) => {
+const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (id: number) => void; onViewHistory: (recordType: string, recordId: number, title: string) => void; festivalName: string | undefined; }> = ({ task, onEdit, onDelete, onViewHistory, festivalName }) => {
     const dueDate = new Date(task.dueDate);
     const isOverdue = dueDate < new Date() && task.status !== TaskStatus.Done;
 
@@ -31,6 +34,7 @@ const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (
             <div className="flex justify-between items-start">
                 <h4 className="font-bold text-slate-800 pr-2">{task.title}</h4>
                 <div className="flex items-center space-x-2 flex-shrink-0">
+                    <button onClick={() => onViewHistory('tasks', task.id, `History for ${task.title}`)} className="text-slate-500 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>
                     <button onClick={() => onEdit(task)} className="text-slate-500 hover:text-slate-800" title="Edit Task"><EditIcon className="w-4 h-4" /></button>
                     <button onClick={() => onDelete(task.id)} className="text-red-500 hover:text-red-700" title="Delete Task"><DeleteIcon className="w-4 h-4" /></button>
                 </div>
@@ -53,7 +57,7 @@ const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (
     );
 };
 
-const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: Task) => void; onDelete: (id: string) => void; festivalMap: Map<string, string> }> = ({ status, tasks, onEdit, onDelete, festivalMap }) => {
+const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: Task) => void; onDelete: (id: number) => void; onViewHistory: (recordType: string, recordId: number, title: string) => void; festivalMap: Map<number, string> }> = ({ status, tasks, onEdit, onDelete, onViewHistory, festivalMap }) => {
     const colors = statusColors[status];
     return (
         <div className={`flex-1 min-w-[300px] md:min-w-[320px] ${colors.bg} rounded-lg p-3 md:p-4 flex flex-col`}>
@@ -70,6 +74,7 @@ const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: T
                             task={task} 
                             onEdit={onEdit} 
                             onDelete={onDelete}
+                            onViewHistory={onViewHistory}
                             festivalName={task.festivalId ? festivalMap.get(task.festivalId) : undefined}
                         />
                     ))
@@ -83,13 +88,13 @@ const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: T
     );
 };
 
-const Tasks: React.FC<TasksProps> = ({ tasks, festivals, onEdit, onDelete }) => {
+const Tasks: React.FC<TasksProps> = ({ tasks, festivals, onEdit, onDelete, onViewHistory }) => {
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     const filteredTasks = useMemo(() => {
         if (selectedFestivalId === 'all') return tasks;
-        return tasks.filter(task => task.festivalId === selectedFestivalId);
+        return tasks.filter(task => task.festivalId !== null && task.festivalId.toString() === selectedFestivalId);
     }, [tasks, selectedFestivalId]);
 
     const tasksByStatus = useMemo(() => {
@@ -132,6 +137,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, festivals, onEdit, onDelete }) => 
                         tasks={tasksByStatus[status]}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        onViewHistory={onViewHistory}
                         festivalMap={festivalMap}
                     />
                 ))}

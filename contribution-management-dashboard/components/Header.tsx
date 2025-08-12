@@ -72,6 +72,7 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
         if (path.startsWith('/reports')) return { title: 'Reports', button: null };
         if (path.startsWith('/ai-insights')) return { title: 'AI-Powered Insights', button: null };
         if (path.startsWith('/user-management')) return { title: 'User Management', button: null };
+        if (path.startsWith('/archive')) return { title: 'Archive', button: null };
         return { title: 'Dashboard', button: null };
     };
 

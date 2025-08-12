@@ -6,7 +6,7 @@ import { PlusIcon } from './icons/PlusIcon';
 interface VendorModalProps {
     vendorToEdit: Vendor | null;
     onClose: () => void;
-    onSubmit: (vendor: Omit<Vendor, 'id'>) => void;
+    onSubmit: (vendor: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const VendorModal: React.FC<VendorModalProps> = ({ vendorToEdit, onClose, onSubmit }) => {

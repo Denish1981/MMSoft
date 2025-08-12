@@ -1,8 +1,10 @@
 
+
 import React, { useMemo, useState } from 'react';
 import type { Expense, Vendor, Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
 
@@ -11,7 +13,8 @@ interface ExpensesProps {
     vendors: Vendor[];
     festivals: Festival[];
     onEdit: (expense: Expense) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
 const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({ images, onClose }) => {
@@ -65,7 +68,7 @@ const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({
     );
 };
 
-const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdit, onDelete }) => {
+const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdit, onDelete, onViewHistory }) => {
     const [viewingImages, setViewingImages] = useState<string[] | null>(null);
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
@@ -126,6 +129,9 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex items-center space-x-4">
+                                            <button onClick={() => onViewHistory('expenses', expense.id, `History for ${expense.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                                <HistoryIcon className="w-4 h-4" />
+                                            </button>
                                             <button onClick={() => onEdit(expense)} className="text-slate-600 hover:text-slate-900" title="Edit Expense">
                                                 <EditIcon className="w-4 h-4" />
                                             </button>

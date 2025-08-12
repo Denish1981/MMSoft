@@ -10,7 +10,7 @@ interface ExpenseModalProps {
     festivals: Festival[];
     expenseToEdit: Expense | null;
     onClose: () => void;
-    onSubmit: (expense: Omit<Expense, 'id'>) => void;
+    onSubmit: (expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, festivals, expenseToEdit, onClose, onSubmit }) => {
@@ -27,14 +27,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, f
     useEffect(() => {
         if (expenseToEdit) {
             setName(expenseToEdit.name);
-            setVendorId(expenseToEdit.vendorId);
+            setVendorId(String(expenseToEdit.vendorId));
             setCost(String(expenseToEdit.cost));
             setBillDate(new Date(expenseToEdit.billDate).toISOString().split('T')[0]);
             setExpenseHead(expenseToEdit.expenseHead);
             setBillReceipts(expenseToEdit.billReceipts || []);
             setReceiptPreviews(expenseToEdit.billReceipts || []);
             setExpenseBy(expenseToEdit.expenseBy);
-            setFestivalId(expenseToEdit.festivalId || null);
+            setFestivalId(expenseToEdit.festivalId ? String(expenseToEdit.festivalId) : null);
         }
     }, [expenseToEdit]);
 
@@ -78,13 +78,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, f
         }
         onSubmit({
             name,
-            vendorId,
+            vendorId: Number(vendorId),
             cost: parseFloat(cost),
             billDate: new Date(billDate).toISOString(),
             expenseHead,
             billReceipts,
             expenseBy,
-            festivalId,
+            festivalId: festivalId ? Number(festivalId) : null,
         });
     };
     

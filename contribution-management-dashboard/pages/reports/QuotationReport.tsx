@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Quotation, Vendor, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -32,9 +33,9 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
     });
 
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
-    const vendorOptions = useMemo(() => vendors.map(v => ({ value: v.id, label: v.name })), [vendors]);
+    const vendorOptions = useMemo(() => vendors.map(v => ({ value: String(v.id), label: v.name })), [vendors]);
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
-    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id, label: f.name })), [festivals]);
+    const festivalOptions = useMemo(() => festivals.map(f => ({ value: String(f.id), label: f.name })), [festivals]);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -54,8 +55,8 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
     const filteredQuotations = useMemo(() => {
         return quotations.filter(q => {
             if (filters.quotationFor && !q.quotationFor.toLowerCase().includes(filters.quotationFor.toLowerCase())) return false;
-            if (filters.vendorId && q.vendorId !== filters.vendorId) return false;
-            if (filters.festivalId && q.festivalId !== filters.festivalId) return false;
+            if (filters.vendorId && q.vendorId !== Number(filters.vendorId)) return false;
+            if (filters.festivalId && q.festivalId !== Number(filters.festivalId)) return false;
             
             if (filters.costValue) {
                 const cost = parseFloat(filters.costValue);

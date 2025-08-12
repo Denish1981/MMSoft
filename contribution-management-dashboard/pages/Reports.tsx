@@ -1,7 +1,8 @@
 
 
+
 import React, { useState } from 'react';
-import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement } from '../types';
+import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement, HistoryItem } from '../types';
 import ContributionReport from './reports/ContributionReport';
 import VendorReport from './reports/VendorReport';
 import ExpenseReport from './reports/ExpenseReport';
@@ -18,12 +19,13 @@ interface ReportsProps {
     festivals: Festival[];
     tasks: Task[];
     users: UserForManagement[];
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
 type ReportTab = 'contributions' | 'vendors' | 'expenses' | 'quotations' | 'budget' | 'tasks';
 
 const Reports: React.FC<ReportsProps> = ({
-    contributions, vendors, expenses, quotations, budgets, festivals, tasks, users
+    contributions, vendors, expenses, quotations, budgets, festivals, tasks, users, onViewHistory
 }) => {
     const [activeTab, setActiveTab] = useState<ReportTab>('contributions');
 
@@ -40,7 +42,7 @@ const Reports: React.FC<ReportsProps> = ({
             case 'budget':
                 return <BudgetReport budgets={budgets} expenses={expenses} festivals={festivals} />;
             case 'tasks':
-                return <TaskReport tasks={tasks} festivals={festivals} users={users} />;
+                return <TaskReport tasks={tasks} festivals={festivals} users={users} onViewHistory={onViewHistory} />;
             default:
                 return null;
         }

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { Budget, Festival } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -8,7 +9,7 @@ interface BudgetModalProps {
     expenseHeads: string[];
     festivals: Festival[];
     onClose: () => void;
-    onSubmit: (budget: Omit<Budget, 'id'>) => void;
+    onSubmit: (budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseHeads, festivals, onClose, onSubmit }) => {
@@ -22,7 +23,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseH
             setItemName(budgetToEdit.itemName);
             setBudgetedAmount(String(budgetToEdit.budgetedAmount));
             setExpenseHead(budgetToEdit.expenseHead);
-            setFestivalId(budgetToEdit.festivalId || null);
+            setFestivalId(budgetToEdit.festivalId ? String(budgetToEdit.festivalId) : null);
         }
     }, [budgetToEdit]);
 
@@ -36,7 +37,7 @@ export const BudgetModal: React.FC<BudgetModalProps> = ({ budgetToEdit, expenseH
             itemName,
             budgetedAmount: parseFloat(budgetedAmount),
             expenseHead,
-            festivalId,
+            festivalId: festivalId ? Number(festivalId) : null,
         });
     };
 

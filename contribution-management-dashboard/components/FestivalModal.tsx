@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { Festival, Campaign } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -7,7 +8,7 @@ interface FestivalModalProps {
     festivalToEdit: Festival | null;
     campaigns: Campaign[];
     onClose: () => void;
-    onSubmit: (festival: Omit<Festival, 'id'>) => void;
+    onSubmit: (festival: Omit<Festival, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, campaigns, onClose, onSubmit }) => {
@@ -23,9 +24,9 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
             setDescription(festivalToEdit.description || '');
             setStartDate(new Date(festivalToEdit.startDate).toISOString().split('T')[0]);
             setEndDate(new Date(festivalToEdit.endDate).toISOString().split('T')[0]);
-            setCampaignId(festivalToEdit.campaignId);
+            setCampaignId(festivalToEdit.campaignId ? String(festivalToEdit.campaignId) : null);
         } else if (campaigns.length > 0) {
-            setCampaignId(campaigns[0].id);
+            setCampaignId(String(campaigns[0].id));
         }
     }, [festivalToEdit, campaigns]);
 
@@ -44,7 +45,7 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
             description,
             startDate: new Date(startDate).toISOString(),
             endDate: new Date(endDate).toISOString(),
-            campaignId,
+            campaignId: campaignId ? Number(campaignId) : null,
         });
     };
 

@@ -9,7 +9,7 @@ interface QuotationModalProps {
     festivals: Festival[];
     quotationToEdit: Quotation | null;
     onClose: () => void;
-    onSubmit: (quotation: Omit<Quotation, 'id'>) => void;
+    onSubmit: (quotation: Omit<Quotation, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
 export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, festivals, quotationToEdit, onClose, onSubmit }) => {
@@ -24,12 +24,12 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, festiva
     useEffect(() => {
         if (quotationToEdit) {
             setQuotationFor(quotationToEdit.quotationFor);
-            setVendorId(quotationToEdit.vendorId);
+            setVendorId(String(quotationToEdit.vendorId));
             setCost(String(quotationToEdit.cost));
             setDate(new Date(quotationToEdit.date).toISOString().split('T')[0]);
             setQuotationImages(quotationToEdit.quotationImages || []);
             setPreviews(quotationToEdit.quotationImages || []);
-            setFestivalId(quotationToEdit.festivalId || null);
+            setFestivalId(quotationToEdit.festivalId ? String(quotationToEdit.festivalId) : null);
         }
     }, [quotationToEdit]);
 
@@ -71,11 +71,11 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, festiva
         }
         onSubmit({
             quotationFor,
-            vendorId,
+            vendorId: Number(vendorId),
             cost: parseFloat(cost),
             date: new Date(date).toISOString(),
             quotationImages,
-            festivalId,
+            festivalId: festivalId ? Number(festivalId) : null,
         });
     };
     

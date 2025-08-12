@@ -1,9 +1,11 @@
 
 
+
 import React, { useMemo } from 'react';
 import type { Budget, Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
 import ReportContainer from './reports/ReportContainer';
 import { exportToCsv } from '../utils/exportUtils';
@@ -12,10 +14,11 @@ interface BudgetProps {
     budgets: Budget[];
     festivals: Festival[];
     onEdit: (budget: Budget) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
+    onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
-const Budget: React.FC<BudgetProps> = ({ budgets, festivals, onEdit, onDelete }) => {
+const Budget: React.FC<BudgetProps> = ({ budgets, festivals, onEdit, onDelete, onViewHistory }) => {
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
     
     const handleExport = () => {
@@ -51,6 +54,9 @@ const Budget: React.FC<BudgetProps> = ({ budgets, festivals, onEdit, onDelete })
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(budget.budgetedAmount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div className="flex items-center space-x-4">
+                                        <button onClick={() => onViewHistory('budgets', budget.id, `History for ${budget.itemName}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <HistoryIcon className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => onEdit(budget)} className="text-slate-600 hover:text-slate-900" title="Edit Budget">
                                             <EditIcon className="w-4 h-4" />
                                         </button>

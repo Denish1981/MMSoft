@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 import type { Budget, Expense, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -15,15 +16,17 @@ interface BudgetReportProps {
 const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses, festivals }) => {
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('');
 
-    const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id, label: f.name })), [festivals]);
+    const festivalOptions = useMemo(() => festivals.map(f => ({ value: String(f.id), label: f.name })), [festivals]);
 
     const reportData = useMemo(() => {
-        const filteredBudgets = selectedFestivalId
-            ? budgets.filter(b => b.festivalId === selectedFestivalId)
+        const festivalIdNum = selectedFestivalId ? Number(selectedFestivalId) : null;
+        
+        const filteredBudgets = festivalIdNum
+            ? budgets.filter(b => b.festivalId === festivalIdNum)
             : budgets;
         
-        const filteredExpenses = selectedFestivalId
-            ? expenses.filter(e => e.festivalId === selectedFestivalId)
+        const filteredExpenses = festivalIdNum
+            ? expenses.filter(e => e.festivalId === festivalIdNum)
             : expenses;
 
         const dataMap = new Map<string, { budgeted: number; actual: number }>();
@@ -61,7 +64,7 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses, festival
 
     const handleExport = () => {
         const festivalMap = new Map(festivals.map(f => [f.id, f.name]));
-        const festivalName = selectedFestivalId ? (festivalMap.get(selectedFestivalId) || 'UnknownFestival').replace(/\s/g, '_') : 'All_Festivals';
+        const festivalName = selectedFestivalId ? (festivalMap.get(Number(selectedFestivalId)) || 'UnknownFestival').replace(/\s/g, '_') : 'All_Festivals';
         
         const dataToExport = reportData.map(item => ({
             'Expense Head': item.expenseHead,
