@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Contribution, Campaign } from '../types';
 import { ContributionStatus } from '../types';
 import { generateThankYouNote } from '../services/geminiService';
@@ -11,6 +11,8 @@ import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
+import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
+import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 
 interface ContributionsProps {
     contributions: Contribution[];
@@ -79,7 +81,8 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
     const [generatedNote, setGeneratedNote] = useState<string | null>(null);
     const [isLoadingNote, setIsLoadingNote] = useState(false);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
-
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
 
@@ -88,6 +91,16 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
             .filter(d => searchTerm === '' || d.donorName.toLowerCase().includes(searchTerm.toLowerCase()))
             .filter(d => filterCampaign === 'all' || (d.campaignId !== null && d.campaignId.toString() === filterCampaign));
     }, [contributions, searchTerm, filterCampaign]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterCampaign, rowsPerPage]);
+
+    const totalPages = Math.ceil(filteredContributions.length / rowsPerPage);
+    const paginatedContributions = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        return filteredContributions.slice(startIndex, startIndex + rowsPerPage);
+    }, [filteredContributions, currentPage, rowsPerPage]);
 
     const handleGenerateNote = async (contribution: Contribution) => {
         setIsLoadingNote(true);
@@ -100,6 +113,14 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
             setGeneratedNote("Failed to generate note. Please try again.");
         }
         setIsLoadingNote(false);
+    };
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+    };
+
+    const handlePreviousPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
     };
     
     return (
@@ -144,7 +165,7 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {filteredContributions.map(contribution => (
+                        {paginatedContributions.length > 0 ? paginatedContributions.map(contribution => (
                             <tr key={contribution.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
@@ -185,9 +206,52 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        )) : (
+                            <tr>
+                                <td colSpan={9} className="text-center py-10 text-slate-500">
+                                    {contributions.length === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-slate-200 gap-4">
+                <div className="flex items-center space-x-2 text-sm text-slate-600">
+                    <span>Rows per page:</span>
+                    <select
+                        value={rowsPerPage}
+                        onChange={e => setRowsPerPage(Number(e.target.value))}
+                        className="px-2 py-1 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        aria-label="Rows per page"
+                    >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="text-sm text-slate-600" aria-live="polite">
+                    Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({filteredContributions.length} items)
+                </div>
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Previous page"
+                    >
+                        <ChevronLeftIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Next page"
+                    >
+                        <ChevronRightIcon className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
         </div>
     );
