@@ -47,6 +47,7 @@ const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.goo
 // Define ProtectedLayout outside of AppContent to prevent re-mounting on re-renders.
 const ProtectedLayout: React.FC<any> = ({
     isSidebarCollapsed, setIsSidebarCollapsed,
+    isMobileMenuOpen, setIsMobileMenuOpen,
     openModal,
     setIsContributionModalOpen, setContributionToEdit,
     setIsSponsorModalOpen, setSponsorToEdit,
@@ -68,9 +69,22 @@ const ProtectedLayout: React.FC<any> = ({
     isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap
 }) => (
      <div className="flex h-screen bg-slate-100">
-        <Sidebar isCollapsed={isSidebarCollapsed} toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
-        <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
-            <Header 
+        <Sidebar 
+            isCollapsed={isSidebarCollapsed} 
+            toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            isMobileOpen={isMobileMenuOpen}
+            onMobileClose={() => setIsMobileMenuOpen(false)}
+        />
+         {isMobileMenuOpen && (
+            <div 
+                className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-hidden="true"
+            ></div>
+        )}
+        <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+            <Header
+                onMobileMenuClick={() => setIsMobileMenuOpen(true)}
                 onAddContributionClick={() => openModal(setIsContributionModalOpen, 'action:create', setContributionToEdit, null)}
                 onAddSponsorClick={() => openModal(setIsSponsorModalOpen, 'action:create', setSponsorToEdit, null)}
                 onAddVendorClick={() => openModal(setIsVendorModalOpen, 'action:create', setVendorToEdit, null)}
@@ -101,6 +115,7 @@ const ProtectedLayout: React.FC<any> = ({
 const AppContent: React.FC = () => {
     const { isAuthenticated, isLoading, hasPermission, logout, token } = useAuth();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     
     // Data state
     const [contributions, setContributions] = useState<Contribution[]>([]);
@@ -144,6 +159,16 @@ const AppContent: React.FC = () => {
     const [historyTitle, setHistoryTitle] = useState('');
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) { // Tailwind's 'md' breakpoint
+                setIsMobileMenuOpen(false);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const getAuthHeaders = () => ({
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -409,6 +434,7 @@ const AppContent: React.FC = () => {
                 <Route element={isAuthenticated ? 
                     <ProtectedLayout {...{
                         isSidebarCollapsed, setIsSidebarCollapsed,
+                        isMobileMenuOpen, setIsMobileMenuOpen,
                         openModal,
                         setIsContributionModalOpen, setContributionToEdit,
                         setIsSponsorModalOpen, setSponsorToEdit,

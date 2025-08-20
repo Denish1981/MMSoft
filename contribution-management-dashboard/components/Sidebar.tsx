@@ -21,13 +21,15 @@ import { CameraIcon } from './icons/CameraIcon';
 interface NavItemProps {
     to: string;
     isCollapsed: boolean;
+    onClick?: () => void;
     children: React.ReactNode;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ to, isCollapsed, children }) => (
+const NavItem: React.FC<NavItemProps> = ({ to, isCollapsed, onClick, children }) => (
     <NavLink
         to={to}
         end
+        onClick={onClick}
         className={({ isActive }) =>
             `flex items-center py-3 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors duration-200 rounded-md ${
                 isCollapsed ? 'px-3 justify-center' : 'px-4'
@@ -41,9 +43,11 @@ const NavItem: React.FC<NavItemProps> = ({ to, isCollapsed, children }) => (
 interface SidebarProps {
     isCollapsed: boolean;
     toggleSidebar: () => void;
+    isMobileOpen: boolean;
+    onMobileClose: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileOpen, onMobileClose }) => {
     const { hasPermission } = useAuth();
     
     const publicNavItems = [
@@ -68,34 +72,36 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
         { to: "/archive", permission: 'page:archive:view', icon: <ArchiveIcon className="w-5 h-5" />, label: "Archive" },
     ];
 
+    const showCollapsedContent = isCollapsed && !isMobileOpen;
+
     return (
-        <div className={`fixed top-0 left-0 h-full bg-slate-800 text-white flex flex-col transition-all duration-300 ease-in-out z-30 ${isCollapsed ? 'w-20' : 'w-64'}`}>
-            <div className={`flex items-center justify-center py-6 px-4 border-b border-slate-700 ${isCollapsed ? 'h-[65px]' : ''}`}>
-                <h1 className={`font-bold text-white tracking-wider transition-all duration-300 ${isCollapsed ? 'text-lg' : 'text-2xl'}`}>
-                    {isCollapsed ? 'C-OS' : 'Contribution OS'}
+        <div className={`fixed top-0 left-0 h-full bg-slate-800 text-white flex flex-col transition-transform duration-300 ease-in-out z-30 ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-64 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+            <div className={`flex items-center justify-center py-6 px-4 border-b border-slate-700 flex-shrink-0 ${showCollapsedContent ? 'h-[65px]' : ''}`}>
+                <h1 className={`font-bold text-white tracking-wider transition-all duration-300 ${showCollapsedContent ? 'text-lg' : 'text-2xl'}`}>
+                    {showCollapsedContent ? 'C-OS' : 'Contribution OS'}
                 </h1>
             </div>
-            <nav className="flex-1 space-y-2 p-4 pt-4">
+            <nav className="flex-1 space-y-2 p-4 pt-4 overflow-y-auto">
                 {publicNavItems.map(item => (
-                    <NavItem key={item.to} to={item.to} isCollapsed={isCollapsed}>
+                    <NavItem key={item.to} to={item.to} isCollapsed={showCollapsedContent} onClick={onMobileClose}>
                         {item.icon}
-                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                        {!showCollapsedContent && <span className="ml-3">{item.label}</span>}
                     </NavItem>
                 ))}
                 
                 <hr className="border-slate-700 my-2" />
                 
                 {navItems.map(item => hasPermission(item.permission) && (
-                    <NavItem key={item.to} to={item.to} isCollapsed={isCollapsed}>
+                    <NavItem key={item.to} to={item.to} isCollapsed={showCollapsedContent} onClick={onMobileClose}>
                         {item.icon}
-                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                        {!showCollapsedContent && <span className="ml-3">{item.label}</span>}
                     </NavItem>
                 ))}
             </nav>
-            <div className="p-4 border-t border-slate-700">
+            <div className="p-4 border-t border-slate-700 flex-shrink-0">
                 <button 
                     onClick={toggleSidebar}
-                    className="w-full flex items-center justify-center py-2 px-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md transition-colors"
+                    className="w-full hidden md:flex items-center justify-center py-2 px-3 text-slate-300 hover:bg-slate-700 hover:text-white rounded-md transition-colors"
                     aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
                      <ChevronLeftIcon className={`w-6 h-6 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />

@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { PlusIcon } from './icons/PlusIcon';
 import { LogoutIcon } from './icons/LogoutIcon';
 import { DocumentAddIcon } from './icons/DocumentAddIcon';
+import { MenuIcon } from './icons/MenuIcon';
 
 interface HeaderProps {
     onAddContributionClick: () => void;
@@ -16,9 +17,10 @@ interface HeaderProps {
     onAddBudgetClick: () => void;
     onAddFestivalClick: () => void;
     onAddTaskClick: () => void;
+    onMobileMenuClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onAddFestivalClick, onAddTaskClick }) => {
+const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onAddFestivalClick, onAddTaskClick, onMobileMenuClick }) => {
     const location = useLocation();
     const { hasPermission, logout } = useAuth();
 
@@ -83,16 +85,25 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
         <header className="bg-white shadow-sm z-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
-                    <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center">
+                        <button 
+                           onClick={onMobileMenuClick}
+                           className="md:hidden mr-4 text-slate-600 hover:text-slate-900"
+                           aria-label="Open sidebar"
+                        >
+                           <MenuIcon className="w-6 h-6" />
+                       </button>
+                        <h1 className="text-xl md:text-2xl font-semibold text-slate-900">{title}</h1>
+                    </div>
+                    <div className="flex items-center space-x-2 md:space-x-4">
                         {button}
                         <button 
                             onClick={logout}
                             className="flex items-center text-slate-600 hover:text-slate-900 focus:outline-none transition-colors duration-200"
                             aria-label="Logout"
                         >
-                            <LogoutIcon className="w-5 h-5 mr-2"/>
-                            Logout
+                            <LogoutIcon className="w-5 h-5 md:mr-2"/>
+                            <span className="hidden md:inline">Logout</span>
                         </button>
                     </div>
                 </div>
