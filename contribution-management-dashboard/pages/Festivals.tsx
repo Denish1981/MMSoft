@@ -1,10 +1,13 @@
 
 
+
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import type { Festival, Campaign } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
+import { PhotoIcon } from '../components/icons/PhotoIcon';
 
 interface FestivalsProps {
     festivals: Festival[];
@@ -61,6 +64,9 @@ const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onD
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium align-top">
                                     <div className="flex items-center space-x-4">
+                                        <Link to={`/festivals/${festival.id}/photos`} className="text-purple-600 hover:text-purple-900" title="Manage Photos">
+                                            <PhotoIcon className="w-4 h-4" />
+                                        </Link>
                                         <button onClick={() => onViewHistory('festivals', festival.id, `History for ${festival.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                             <HistoryIcon className="w-4 h-4" />
                                         </button>

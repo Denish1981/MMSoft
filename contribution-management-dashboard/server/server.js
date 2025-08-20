@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -95,6 +96,25 @@ const seedDatabase = async () => {
         }
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
         
+        // Ensure image tables have created_at for sorting cover images
+        await client.query(`ALTER TABLE expense_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+        await client.query(`ALTER TABLE quotation_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+        
+        // Create dedicated festival photos table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS festival_photos (
+                id SERIAL PRIMARY KEY,
+                festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+                image_data TEXT NOT NULL,
+                caption VARCHAR(255),
+                uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        `);
+        // Add the column if it doesn't exist for backward compatibility
+        await client.query(`ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`);
+
+
         // History tables
         await createHistoryTable(client, 'contributions_history', 'contributions');
         await createHistoryTable(client, 'sponsors_history', 'sponsors');
@@ -270,6 +290,57 @@ const permissionMiddleware = (permission) => (req, res, next) => {
     }
     next();
 };
+
+// --- PUBLIC API ROUTES (NO AUTH REQUIRED) ---
+app.get('/api/public/albums', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            WITH FestivalImages AS (
+                SELECT 
+                    festival_id, 
+                    image_data,
+                    ROW_NUMBER() OVER(PARTITION BY festival_id ORDER BY created_at DESC) as rn
+                FROM festival_photos
+            )
+            SELECT 
+                f.id, 
+                f.name, 
+                f.description, 
+                fi.image_data as "coverImage"
+            FROM festivals f
+            LEFT JOIN FestivalImages fi ON f.id = fi.festival_id AND fi.rn = 1
+            WHERE f.deleted_at IS NULL
+            ORDER BY f.start_date DESC;
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching public albums:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/public/albums/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const festivalRes = await db.query('SELECT name, description, start_date as "startDate", end_date as "endDate" FROM festivals WHERE id = $1 AND deleted_at IS NULL', [id]);
+        if (festivalRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Album not found' });
+        }
+        
+        const imagesRes = await db.query(`
+            SELECT image_data FROM festival_photos WHERE festival_id = $1 ORDER BY created_at ASC
+        `, [id]);
+
+        res.json({
+            ...festivalRes.rows[0],
+            images: imagesRes.rows.map(r => r.image_data)
+        });
+
+    } catch (err) {
+        console.error(`Error fetching public album ${id}:`, err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 
 // --- API Routes ---
@@ -502,6 +573,19 @@ app.get('/api/festivals', authMiddleware, permissionMiddleware('page:festivals:v
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// Get a single festival's details
+app.get('/api/festivals/:id', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT id, name FROM festivals WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Festival not found' });
+        }
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/api/tasks', authMiddleware, permissionMiddleware('page:tasks:view'), async (req, res) => {
     try {
         const { rows } = await db.query('SELECT id, title, description, status, due_date as "dueDate", festival_id as "festivalId", assignee_name as "assigneeName", created_at as "createdAt", updated_at as "updatedAt" FROM tasks WHERE deleted_at IS NULL ORDER BY due_date ASC');
@@ -511,6 +595,65 @@ app.get('/api/tasks', authMiddleware, permissionMiddleware('page:tasks:view'), a
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// --- Festival Photo Management ---
+app.get('/api/festivals/:id/photos', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                fp.id, 
+                fp.image_data as "imageData",
+                u.username as "uploadedBy"
+            FROM festival_photos fp
+            LEFT JOIN users u ON fp.uploaded_by_user_id = u.id
+            WHERE fp.festival_id = $1 
+            ORDER BY fp.created_at DESC
+        `, [req.params.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch photos' });
+    }
+});
+
+app.post('/api/festivals/:id/photos', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { id } = req.params;
+    const { images } = req.body; // Expect an array of base64 strings
+    const userId = req.user.id; // Get user ID from middleware
+
+    if (!Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ error: 'Images array is required.' });
+    }
+
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        for (const imageData of images) {
+            await client.query('INSERT INTO festival_photos (festival_id, image_data, uploaded_by_user_id) VALUES ($1, $2, $3)', [id, imageData, userId]);
+        }
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Photos uploaded successfully.' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Failed to upload photos:', err);
+        res.status(500).json({ error: 'Failed to upload photos.' });
+    } finally {
+        client.release();
+    }
+});
+
+app.delete('/api/photos/:photoId', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
+    try {
+        const result = await db.query('DELETE FROM festival_photos WHERE id = $1', [req.params.photoId]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Photo not found.' });
+        }
+        res.status(204).send();
+    } catch (err) {
+        console.error('Failed to delete photo:', err);
+        res.status(500).json({ error: 'Failed to delete photo.' });
+    }
+});
+
 
 // --- Archive & Restore Endpoints ---
 app.get('/api/archive', authMiddleware, permissionMiddleware('page:archive:view'), async (req, res) => {

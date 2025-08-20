@@ -311,3 +311,14 @@ CREATE TABLE task_history (
 );
 
 alter table Sponsors add column date_paid DATE;
+
+CREATE TABLE festival_photos (
+    id SERIAL PRIMARY KEY,
+    festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+    image_data TEXT NOT NULL,
+    caption VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE festival_photos
+ADD COLUMN uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;

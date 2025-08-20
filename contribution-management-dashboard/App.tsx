@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { HashRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { HashRouter, Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -38,8 +37,66 @@ import { HistoryModal } from './components/HistoryModal';
 import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem } from './types';
 import { API_URL } from './config';
 import PageViewTracker from './components/PageViewTracker';
+import PublicHomePage from './pages/PublicHome';
+import PhotoAlbumPage from './pages/PhotoAlbumPage';
+import FestivalPhotosPage from './pages/FestivalPhotosPage';
+
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
+
+// Define ProtectedLayout outside of AppContent to prevent re-mounting on re-renders.
+const ProtectedLayout: React.FC<any> = ({
+    isSidebarCollapsed, setIsSidebarCollapsed,
+    openModal,
+    setIsContributionModalOpen, setContributionToEdit,
+    setIsSponsorModalOpen, setSponsorToEdit,
+    setIsVendorModalOpen, setVendorToEdit,
+    setIsExpenseModalOpen, setExpenseToEdit,
+    setIsQuotationModalOpen, setQuotationToEdit,
+    setIsBudgetModalOpen, setBudgetToEdit,
+    setIsFestivalModalOpen, setFestivalToEdit,
+    setIsTaskModalOpen, setTaskToEdit,
+    isContributionModalOpen, campaigns, contributionToEdit, handleContributionSubmit,
+    isSponsorModalOpen, sponsorToEdit, handleSponsorSubmit,
+    isVendorModalOpen, vendorToEdit, handleVendorSubmit,
+    isExpenseModalOpen, vendors, expenses, festivals, expenseToEdit, handleExpenseSubmit,
+    isQuotationModalOpen, quotationToEdit, handleQuotationSubmit,
+    isBudgetModalOpen, expenseHeads, budgetToEdit, handleBudgetSubmit,
+    isFestivalModalOpen, festivalToEdit, handleFestivalSubmit,
+    isTaskModalOpen, users, taskToEdit, handleTaskSubmit,
+    isConfirmationModalOpen, confirmDelete, setIsConfirmationModalOpen, confirmMessage,
+    isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap
+}) => (
+     <div className="flex h-screen bg-slate-100">
+        <Sidebar isCollapsed={isSidebarCollapsed} toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
+        <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
+            <Header 
+                onAddContributionClick={() => openModal(setIsContributionModalOpen, 'action:create', setContributionToEdit, null)}
+                onAddSponsorClick={() => openModal(setIsSponsorModalOpen, 'action:create', setSponsorToEdit, null)}
+                onAddVendorClick={() => openModal(setIsVendorModalOpen, 'action:create', setVendorToEdit, null)}
+                onAddExpenseClick={() => openModal(setIsExpenseModalOpen, 'action:create', setExpenseToEdit, null)}
+                onAddQuotationClick={() => openModal(setIsQuotationModalOpen, 'action:create', setQuotationToEdit, null)}
+                onAddBudgetClick={() => openModal(setIsBudgetModalOpen, 'action:create', setBudgetToEdit, null)}
+                onAddFestivalClick={() => openModal(setIsFestivalModalOpen, 'action:create', setFestivalToEdit, null)}
+                onAddTaskClick={() => openModal(setIsTaskModalOpen, 'action:create', setTaskToEdit, null)}
+            />
+            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-8">
+                <Outlet />
+            </main>
+        </div>
+         {isContributionModalOpen && <ContributionModal campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={() => { setIsContributionModalOpen(false); setContributionToEdit(null); }} onSubmit={handleContributionSubmit} />}
+         {isSponsorModalOpen && <SponsorModal sponsorToEdit={sponsorToEdit} onClose={() => { setIsSponsorModalOpen(false); setSponsorToEdit(null); }} onSubmit={handleSponsorSubmit} />}
+         {isVendorModalOpen && <VendorModal vendorToEdit={vendorToEdit} onClose={() => { setIsVendorModalOpen(false); setVendorToEdit(null); }} onSubmit={handleVendorSubmit} />}
+         {isExpenseModalOpen && <ExpenseModal vendors={vendors} expenses={expenses} festivals={festivals} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
+         {isQuotationModalOpen && <QuotationModal vendors={vendors} festivals={festivals} quotationToEdit={quotationToEdit} onClose={() => { setIsQuotationModalOpen(false); setQuotationToEdit(null); }} onSubmit={handleQuotationSubmit} />}
+         {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} festivals={festivals} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
+         {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={() => { setIsFestivalModalOpen(false); setFestivalToEdit(null); }} onSubmit={handleFestivalSubmit} />}
+         {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={() => { setIsTaskModalOpen(false); setTaskToEdit(null); }} onSubmit={handleTaskSubmit} />}
+         {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} confirmText="Yes, Archive" />}
+         {isHistoryModalOpen && <HistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title={historyTitle} history={historyData} isLoading={isLoadingHistory} festivalMap={festivalMap} />}
+    </div>
+);
+
 
 const AppContent: React.FC = () => {
     const { isAuthenticated, isLoading, hasPermission, logout, token } = useAuth();
@@ -339,63 +396,63 @@ const AppContent: React.FC = () => {
         return <div className="flex h-screen items-center justify-center">Loading...</div>;
     }
 
-    if (!isAuthenticated) {
-        return <LoginPage />;
-    }
-
     return (
         <HashRouter>
             <PageViewTracker />
-            <div className="flex h-screen bg-slate-100">
-                <Sidebar isCollapsed={isSidebarCollapsed} toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} />
-                <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'}`}>
-                    <Header 
-                        onAddContributionClick={() => openModal(setIsContributionModalOpen, 'action:create', setContributionToEdit, null)}
-                        onAddSponsorClick={() => openModal(setIsSponsorModalOpen, 'action:create', setSponsorToEdit, null)}
-                        onAddVendorClick={() => openModal(setIsVendorModalOpen, 'action:create', setVendorToEdit, null)}
-                        onAddExpenseClick={() => openModal(setIsExpenseModalOpen, 'action:create', setExpenseToEdit, null)}
-                        onAddQuotationClick={() => openModal(setIsQuotationModalOpen, 'action:create', setQuotationToEdit, null)}
-                        onAddBudgetClick={() => openModal(setIsBudgetModalOpen, 'action:create', setBudgetToEdit, null)}
-                        onAddFestivalClick={() => openModal(setIsFestivalModalOpen, 'action:create', setFestivalToEdit, null)}
-                        onAddTaskClick={() => openModal(setIsTaskModalOpen, 'action:create', setTaskToEdit, null)}
-                    />
-                    <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-8">
-                        <Routes>
-                            <Route path="/login" element={<Navigate to="/" />} />
-                            <Route path="/forbidden" element={<ForbiddenPage />} />
+            <Routes>
+                 {/* Public Routes */}
+                <Route path="/" element={<PublicHomePage />} />
+                <Route path="/album/:id" element={<PhotoAlbumPage />} />
+                <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+                
+                {/* Protected Routes */}
+                <Route element={isAuthenticated ? 
+                    <ProtectedLayout {...{
+                        isSidebarCollapsed, setIsSidebarCollapsed,
+                        openModal,
+                        setIsContributionModalOpen, setContributionToEdit,
+                        setIsSponsorModalOpen, setSponsorToEdit,
+                        setIsVendorModalOpen, setVendorToEdit,
+                        setIsExpenseModalOpen, setExpenseToEdit,
+                        setIsQuotationModalOpen, setQuotationToEdit,
+                        setIsBudgetModalOpen, setBudgetToEdit,
+                        setIsFestivalModalOpen, setFestivalToEdit,
+                        setIsTaskModalOpen, setTaskToEdit,
+                        isContributionModalOpen, campaigns, contributionToEdit, handleContributionSubmit,
+                        isSponsorModalOpen, sponsorToEdit, handleSponsorSubmit,
+                        isVendorModalOpen, vendorToEdit, handleVendorSubmit,
+                        isExpenseModalOpen, vendors, expenses, festivals, expenseToEdit, handleExpenseSubmit,
+                        isQuotationModalOpen, quotationToEdit, handleQuotationSubmit,
+                        isBudgetModalOpen, expenseHeads, budgetToEdit, handleBudgetSubmit,
+                        isFestivalModalOpen, festivalToEdit, handleFestivalSubmit,
+                        isTaskModalOpen, users, taskToEdit, handleTaskSubmit,
+                        isConfirmationModalOpen, confirmDelete, setIsConfirmationModalOpen, confirmMessage,
+                        isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap
+                    }} /> 
+                    : <Navigate to="/login" />}
+                >
+                    <Route path="/dashboard" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard contributions={contributions} donors={donors} sponsors={sponsors} expenses={expenses} /></ProtectedRoute>} />
+                    <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions contributions={contributions} campaigns={campaigns} onEdit={(item) => openModal(setIsContributionModalOpen, 'action:edit', setContributionToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'contributions')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/bulk-add" element={<ProtectedRoute permission="page:bulk-add:view"><BulkAddPage campaigns={campaigns} onBulkSaveSuccess={fetchData} /></ProtectedRoute>} />
+                    <Route path="/donors" element={<ProtectedRoute permission="page:donors:view"><Donors donors={donors} /></ProtectedRoute>} />
+                    <Route path="/sponsors" element={<ProtectedRoute permission="page:sponsors:view"><Sponsors sponsors={sponsors} onEdit={(item) => openModal(setIsSponsorModalOpen, 'action:edit', setSponsorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'sponsors')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/vendors" element={<ProtectedRoute permission="page:vendors:view"><Vendors vendors={vendors} onEdit={(item) => openModal(setIsVendorModalOpen, 'action:edit', setVendorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'vendors')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/expenses" element={<ProtectedRoute permission="page:expenses:view"><Expenses expenses={expenses} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsExpenseModalOpen, 'action:edit', setExpenseToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'expenses')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/quotations" element={<ProtectedRoute permission="page:quotations:view"><Quotations quotations={quotations} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsQuotationModalOpen, 'action:edit', setQuotationToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'quotations')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget budgets={budgets} festivals={festivals} onEdit={(item) => openModal(setIsBudgetModalOpen, 'action:edit', setBudgetToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'budgets')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/campaigns" element={<ProtectedRoute permission="page:campaigns:view"><Campaigns campaigns={campaigns} contributions={contributions}/></ProtectedRoute>} />
+                    <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals festivals={festivals} campaigns={campaigns} onEdit={(item) => openModal(setIsFestivalModalOpen, 'action:edit', setFestivalToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'festivals')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/festivals/:id/photos" element={<ProtectedRoute permission="page:festivals:view"><FestivalPhotosPage /></ProtectedRoute>} />
+                    <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks tasks={tasks} festivals={festivals} users={users} onEdit={(item) => openModal(setIsTaskModalOpen, 'action:edit', setTaskToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'tasks')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} festivals={festivals} tasks={tasks} users={users} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/ai-insights" element={<ProtectedRoute permission="page:ai-insights:view"><AiInsights /></ProtectedRoute>} />
+                    <Route path="/user-management" element={<ProtectedRoute permission="page:user-management:view"><UserManagement /></ProtectedRoute>} />
+                    <Route path="/archive" element={<ProtectedRoute permission="page:archive:view"><ArchivePage onRestore={handleRestore} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
+                    <Route path="/forbidden" element={<ForbiddenPage />} />
 
-                            <Route path="/" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard contributions={contributions} donors={donors} sponsors={sponsors} expenses={expenses} /></ProtectedRoute>} />
-                            <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions contributions={contributions} campaigns={campaigns} onEdit={(item) => openModal(setIsContributionModalOpen, 'action:edit', setContributionToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'contributions')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/bulk-add" element={<ProtectedRoute permission="page:bulk-add:view"><BulkAddPage campaigns={campaigns} onBulkSaveSuccess={fetchData} /></ProtectedRoute>} />
-                            <Route path="/donors" element={<ProtectedRoute permission="page:donors:view"><Donors donors={donors} /></ProtectedRoute>} />
-                            <Route path="/sponsors" element={<ProtectedRoute permission="page:sponsors:view"><Sponsors sponsors={sponsors} onEdit={(item) => openModal(setIsSponsorModalOpen, 'action:edit', setSponsorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'sponsors')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/vendors" element={<ProtectedRoute permission="page:vendors:view"><Vendors vendors={vendors} onEdit={(item) => openModal(setIsVendorModalOpen, 'action:edit', setVendorToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'vendors')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/expenses" element={<ProtectedRoute permission="page:expenses:view"><Expenses expenses={expenses} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsExpenseModalOpen, 'action:edit', setExpenseToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'expenses')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/quotations" element={<ProtectedRoute permission="page:quotations:view"><Quotations quotations={quotations} vendors={vendors} festivals={festivals} onEdit={(item) => openModal(setIsQuotationModalOpen, 'action:edit', setQuotationToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'quotations')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget budgets={budgets} festivals={festivals} onEdit={(item) => openModal(setIsBudgetModalOpen, 'action:edit', setBudgetToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'budgets')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/campaigns" element={<ProtectedRoute permission="page:campaigns:view"><Campaigns campaigns={campaigns} contributions={contributions}/></ProtectedRoute>} />
-                            <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals festivals={festivals} campaigns={campaigns} onEdit={(item) => openModal(setIsFestivalModalOpen, 'action:edit', setFestivalToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'festivals')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks tasks={tasks} festivals={festivals} users={users} onEdit={(item) => openModal(setIsTaskModalOpen, 'action:edit', setTaskToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'tasks')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} festivals={festivals} tasks={tasks} users={users} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            <Route path="/ai-insights" element={<ProtectedRoute permission="page:ai-insights:view"><AiInsights /></ProtectedRoute>} />
-                            <Route path="/user-management" element={<ProtectedRoute permission="page:user-management:view"><UserManagement /></ProtectedRoute>} />
-                            <Route path="/archive" element={<ProtectedRoute permission="page:archive:view"><ArchivePage onRestore={handleRestore} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
-                            
-                            <Route path="*" element={<Navigate to="/" />} />
-                        </Routes>
-                    </main>
-                </div>
-                 {isContributionModalOpen && <ContributionModal campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={() => { setIsContributionModalOpen(false); setContributionToEdit(null); }} onSubmit={handleContributionSubmit} />}
-                 {isSponsorModalOpen && <SponsorModal sponsorToEdit={sponsorToEdit} onClose={() => { setIsSponsorModalOpen(false); setSponsorToEdit(null); }} onSubmit={handleSponsorSubmit} />}
-                 {isVendorModalOpen && <VendorModal vendorToEdit={vendorToEdit} onClose={() => { setIsVendorModalOpen(false); setVendorToEdit(null); }} onSubmit={handleVendorSubmit} />}
-                 {isExpenseModalOpen && <ExpenseModal vendors={vendors} expenses={expenses} festivals={festivals} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
-                 {isQuotationModalOpen && <QuotationModal vendors={vendors} festivals={festivals} quotationToEdit={quotationToEdit} onClose={() => { setIsQuotationModalOpen(false); setQuotationToEdit(null); }} onSubmit={handleQuotationSubmit} />}
-                 {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} festivals={festivals} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
-                 {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={() => { setIsFestivalModalOpen(false); setFestivalToEdit(null); }} onSubmit={handleFestivalSubmit} />}
-                 {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={() => { setIsTaskModalOpen(false); setTaskToEdit(null); }} onSubmit={handleTaskSubmit} />}
-                 {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} confirmText="Yes, Archive" />}
-                 {isHistoryModalOpen && <HistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title={historyTitle} history={historyData} isLoading={isLoadingHistory} festivalMap={festivalMap} />}
-            </div>
+                    <Route path="*" element={<Navigate to="/dashboard" />} />
+                </Route>
+            </Routes>
         </HashRouter>
     );
 };

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,7 +39,7 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
             ) : null
         );
 
-        if (path === '/') return { title: 'Dashboard', button: null };
+        if (path.startsWith('/dashboard')) return { title: 'Dashboard', button: null };
         if (path.startsWith('/contributions')) {
             const buttons = [];
             if (hasPermission('page:bulk-add:view')) {

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +16,7 @@ import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { CheckSquareIcon } from './icons/CheckSquareIcon';
 import { ArchiveIcon } from './icons/ArchiveIcon';
+import { CameraIcon } from './icons/CameraIcon';
 
 interface NavItemProps {
     to: string;
@@ -44,8 +46,12 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
     const { hasPermission } = useAuth();
     
+    const publicNavItems = [
+        { to: "/", icon: <CameraIcon className="w-5 h-5" />, label: "Photo Albums" },
+    ];
+    
     const navItems = [
-        { to: "/", permission: 'page:dashboard:view', icon: <HomeIcon className="w-5 h-5" />, label: "Dashboard" },
+        { to: "/dashboard", permission: 'page:dashboard:view', icon: <HomeIcon className="w-5 h-5" />, label: "Dashboard" },
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
         { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },
         { to: "/contributions", permission: 'page:contributions:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Contributions" },
@@ -70,6 +76,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar }) => {
                 </h1>
             </div>
             <nav className="flex-1 space-y-2 p-4 pt-4">
+                {publicNavItems.map(item => (
+                    <NavItem key={item.to} to={item.to} isCollapsed={isCollapsed}>
+                        {item.icon}
+                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                    </NavItem>
+                ))}
+                
+                <hr className="border-slate-700 my-2" />
+                
                 {navItems.map(item => hasPermission(item.permission) && (
                     <NavItem key={item.to} to={item.to} isCollapsed={isCollapsed}>
                         {item.icon}

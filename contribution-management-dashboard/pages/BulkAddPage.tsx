@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Campaign, Contribution, ContributionType } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { PlusIcon } from '../components/icons/PlusIcon';
 import { SaveIcon } from '../components/icons/SaveIcon';
@@ -33,6 +34,7 @@ const initialFormState: StagedContribution = {
 };
 
 const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess }) => {
+    const { token, logout } = useAuth();
     const [stagedContributions, setStagedContributions] = useState<StagedContribution[]>([]);
     const [formData, setFormData] = useState<StagedContribution>(initialFormState);
     const [isLoading, setIsLoading] = useState(false);
@@ -111,9 +113,17 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
         try {
             const response = await fetch(`${API_URL}/contributions/bulk`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
                 body: JSON.stringify({ contributions: stagedContributions }),
             });
+
+            if (response.status === 401) {
+                logout();
+                return;
+            }
 
             if (!response.ok) {
                 const errorData = await response.json();
