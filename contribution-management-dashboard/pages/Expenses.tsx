@@ -7,6 +7,7 @@ import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
+import FinanceNavigation from '../components/FinanceNavigation';
 
 interface ExpensesProps {
     expenses: Expense[];
@@ -74,12 +75,12 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     return (
-        <>
+        <div className="space-y-6">
+            <FinanceNavigation />
             {viewingImages && (
                 <ImageViewerModal images={viewingImages} onClose={() => setViewingImages(null)} />
             )}
             <div className="bg-white p-6 rounded-xl shadow-md">
-                <h2 className="text-xl font-semibold text-slate-800 mb-4">All Expenses</h2>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
@@ -146,7 +147,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                     </table>
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 

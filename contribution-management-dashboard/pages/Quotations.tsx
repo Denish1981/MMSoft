@@ -1,6 +1,5 @@
 
 
-
 import React, { useMemo, useState } from 'react';
 import type { Quotation, Vendor, Festival } from '../types';
 import { CloseIcon } from '../components/icons/CloseIcon';
@@ -8,6 +7,7 @@ import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
+import FinanceNavigation from '../components/FinanceNavigation';
 
 interface QuotationsProps {
     quotations: Quotation[];
@@ -75,12 +75,12 @@ const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, festivals,
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     return (
-        <>
+        <div className="space-y-6">
+            <FinanceNavigation />
             {viewingImages && (
                 <ImageViewerModal images={viewingImages} onClose={() => setViewingImages(null)} />
             )}
             <div className="bg-white p-6 rounded-xl shadow-md">
-                <h2 className="text-xl font-semibold text-slate-800 mb-4">All Quotations</h2>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
@@ -143,7 +143,7 @@ const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, festivals,
                     </table>
                 </div>
             </div>
-        </>
+        </div>
     );
 };
 
