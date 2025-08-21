@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -23,6 +25,7 @@ import ForbiddenPage from './pages/ForbiddenPage';
 import BulkAddPage from './pages/BulkAddPage';
 import Festivals from './pages/Festivals';
 import Tasks from './pages/Tasks';
+import Events from './pages/Events';
 import ArchivePage from './pages/Archive';
 import { ContributionModal } from './components/DonationModal';
 import { SponsorModal } from './components/SponsorModal';
@@ -32,9 +35,10 @@ import { QuotationModal } from './components/QuotationModal';
 import { BudgetModal } from './components/BudgetModal';
 import { FestivalModal } from './components/FestivalModal';
 import { TaskModal } from './components/TaskModal';
+import { EventModal } from './components/EventModal';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { HistoryModal } from './components/HistoryModal';
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem } from './types';
+import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem, Event } from './types';
 import { API_URL } from './config';
 import PageViewTracker from './components/PageViewTracker';
 import PublicHomePage from './pages/PublicHome';
@@ -57,6 +61,7 @@ const ProtectedLayout: React.FC<any> = ({
     setIsBudgetModalOpen, setBudgetToEdit,
     setIsFestivalModalOpen, setFestivalToEdit,
     setIsTaskModalOpen, setTaskToEdit,
+    setIsEventModalOpen, setEventToEdit,
     isContributionModalOpen, campaigns, contributionToEdit, handleContributionSubmit,
     isSponsorModalOpen, sponsorToEdit, handleSponsorSubmit,
     isVendorModalOpen, vendorToEdit, handleVendorSubmit,
@@ -65,8 +70,10 @@ const ProtectedLayout: React.FC<any> = ({
     isBudgetModalOpen, expenseHeads, budgetToEdit, handleBudgetSubmit,
     isFestivalModalOpen, festivalToEdit, handleFestivalSubmit,
     isTaskModalOpen, users, taskToEdit, handleTaskSubmit,
+    isEventModalOpen, eventToEdit, handleEventSubmit,
     isConfirmationModalOpen, confirmDelete, setIsConfirmationModalOpen, confirmMessage,
-    isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap
+    isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap,
+    outletContext
 }) => (
      <div className="flex h-screen bg-slate-100">
         <Sidebar 
@@ -93,9 +100,10 @@ const ProtectedLayout: React.FC<any> = ({
                 onAddBudgetClick={() => openModal(setIsBudgetModalOpen, 'action:create', setBudgetToEdit, null)}
                 onAddFestivalClick={() => openModal(setIsFestivalModalOpen, 'action:create', setFestivalToEdit, null)}
                 onAddTaskClick={() => openModal(setIsTaskModalOpen, 'action:create', setTaskToEdit, null)}
+                onAddEventClick={() => openModal(setIsEventModalOpen, 'action:create', setEventToEdit, null)}
             />
             <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6 md:p-8">
-                <Outlet />
+                <Outlet context={outletContext} />
             </main>
         </div>
          {isContributionModalOpen && <ContributionModal campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={() => { setIsContributionModalOpen(false); setContributionToEdit(null); }} onSubmit={handleContributionSubmit} />}
@@ -106,6 +114,7 @@ const ProtectedLayout: React.FC<any> = ({
          {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} festivals={festivals} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
          {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={() => { setIsFestivalModalOpen(false); setFestivalToEdit(null); }} onSubmit={handleFestivalSubmit} />}
          {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={() => { setIsTaskModalOpen(false); setTaskToEdit(null); }} onSubmit={handleTaskSubmit} />}
+         {isEventModalOpen && <EventModal eventToEdit={eventToEdit} onClose={() => { setIsEventModalOpen(false); setEventToEdit(null); }} onSubmit={handleEventSubmit} />}
          {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={() => setIsConfirmationModalOpen(false)} message={confirmMessage} confirmText="Yes, Archive" />}
          {isHistoryModalOpen && <HistoryModal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title={historyTitle} history={historyData} isLoading={isLoadingHistory} festivalMap={festivalMap} />}
     </div>
@@ -138,6 +147,7 @@ const AppContent: React.FC = () => {
     const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
     const [isFestivalModalOpen, setIsFestivalModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isEventModalOpen, setIsEventModalOpen] = useState(false);
 
     // State for editing items
     const [contributionToEdit, setContributionToEdit] = useState<Contribution | null>(null);
@@ -148,6 +158,7 @@ const AppContent: React.FC = () => {
     const [budgetToEdit, setBudgetToEdit] = useState<BudgetType | null>(null);
     const [festivalToEdit, setFestivalToEdit] = useState<Festival | null>(null);
     const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+    const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
     // State for deletion confirmation
     const [itemToDelete, setItemToDelete] = useState<{ id: number; type: string } | null>(null);
@@ -158,6 +169,9 @@ const AppContent: React.FC = () => {
     const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
     const [historyTitle, setHistoryTitle] = useState('');
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // State to trigger refetch on specific pages
+    const [eventDataVersion, setEventDataVersion] = useState(0);
     
     useEffect(() => {
         const handleResize = () => {
@@ -415,6 +429,24 @@ const AppContent: React.FC = () => {
         else handleAdd(`${API_URL}/tasks`, data, setTasks, () => setIsTaskModalOpen(false));
     };
 
+    const handleEventSubmit = async (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
+        const url = eventToEdit ? `${API_URL}/events/${eventToEdit.id}` : `${API_URL}/events`;
+        const method = eventToEdit ? 'PUT' : 'POST';
+        
+        try {
+            const response = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(data) });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) throw new Error('Failed to save event');
+            setIsEventModalOpen(false); // Close modal on success
+            setEventToEdit(null); // Also clear the item being edited
+            setEventDataVersion(v => v + 1); // Trigger a refetch on the events page
+        } catch (error) {
+            console.error('Failed to save event:', error);
+            alert('Failed to save event.');
+        }
+    };
+
+
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     if (isLoading) {
@@ -444,6 +476,7 @@ const AppContent: React.FC = () => {
                         setIsBudgetModalOpen, setBudgetToEdit,
                         setIsFestivalModalOpen, setFestivalToEdit,
                         setIsTaskModalOpen, setTaskToEdit,
+                        setIsEventModalOpen, setEventToEdit,
                         isContributionModalOpen, campaigns, contributionToEdit, handleContributionSubmit,
                         isSponsorModalOpen, sponsorToEdit, handleSponsorSubmit,
                         isVendorModalOpen, vendorToEdit, handleVendorSubmit,
@@ -452,8 +485,10 @@ const AppContent: React.FC = () => {
                         isBudgetModalOpen, expenseHeads, budgetToEdit, handleBudgetSubmit,
                         isFestivalModalOpen, festivalToEdit, handleFestivalSubmit,
                         isTaskModalOpen, users, taskToEdit, handleTaskSubmit,
+                        isEventModalOpen, eventToEdit, handleEventSubmit,
                         isConfirmationModalOpen, confirmDelete, setIsConfirmationModalOpen, confirmMessage,
-                        isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap
+                        isHistoryModalOpen, setIsHistoryModalOpen, historyTitle, historyData, isLoadingHistory, festivalMap,
+                        outletContext: { eventDataVersion }
                     }} /> 
                     : <Navigate to="/login" />}
                 >
@@ -469,6 +504,7 @@ const AppContent: React.FC = () => {
                     <Route path="/campaigns" element={<ProtectedRoute permission="page:campaigns:view"><Campaigns campaigns={campaigns} contributions={contributions}/></ProtectedRoute>} />
                     <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals festivals={festivals} campaigns={campaigns} onEdit={(item) => openModal(setIsFestivalModalOpen, 'action:edit', setFestivalToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'festivals')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                     <Route path="/festivals/:id/photos" element={<ProtectedRoute permission="page:festivals:view"><FestivalPhotosPage /></ProtectedRoute>} />
+                    <Route path="/festivals/:id/events" element={<ProtectedRoute permission="page:events:view"><Events onEdit={(item) => openModal(setIsEventModalOpen, 'action:edit', setEventToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'events')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                     <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks tasks={tasks} festivals={festivals} users={users} onEdit={(item) => openModal(setIsTaskModalOpen, 'action:edit', setTaskToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'tasks')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                     <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports contributions={contributions} vendors={vendors} expenses={expenses} quotations={quotations} budgets={budgets} festivals={festivals} tasks={tasks} users={users} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                     <Route path="/ai-insights" element={<ProtectedRoute permission="page:ai-insights:view"><AiInsights /></ProtectedRoute>} />

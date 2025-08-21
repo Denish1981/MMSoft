@@ -1,4 +1,5 @@
 
+
 export enum ContributionStatus {
   Completed = 'Completed',
   Pending = 'Pending',
@@ -148,6 +149,28 @@ export interface Task {
     createdAt: string; // ISO String
     updatedAt: string; // ISO String
     deletedAt?: string | null;
+}
+
+export interface EventContactPerson {
+  name: string;
+  contactNumber: string;
+  email?: string;
+}
+
+export interface Event {
+  id: number;
+  festivalId: number;
+  name: string;
+  eventDate: string; // ISO String
+  startTime: string; // e.g., "18:00"
+  endTime: string | null; // e.g., "20:00"
+  description?: string;
+  image?: string;
+  venue: string;
+  contactPersons: EventContactPerson[];
+  createdAt: string; // ISO String
+  updatedAt: string; // ISO String
+  deletedAt?: string | null;
 }
 
 export interface HistoryItem {

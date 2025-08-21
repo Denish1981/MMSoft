@@ -322,3 +322,23 @@ CREATE TABLE festival_photos (
 
 ALTER TABLE festival_photos
 ADD COLUMN uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+    festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    event_date DATE NOT NULL,
+    start_time TIME,
+    end_time TIME,
+    description TEXT,
+    image_data TEXT,
+    venue VARCHAR(255)
+);
+
+CREATE TABLE event_contact_persons (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    contact_number VARCHAR(20),
+    email VARCHAR(255)
+);

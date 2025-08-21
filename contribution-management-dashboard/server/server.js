@@ -1,5 +1,6 @@
 
 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -39,6 +40,7 @@ const ALL_PERMISSIONS = [
     { name: 'page:budget:view', description: 'Can view the budget page' },
     { name: 'page:campaigns:view', description: 'Can view the campaigns page' },
     { name: 'page:festivals:view', description: 'Can view the festivals page' },
+    { name: 'page:events:view', description: 'Can view the festival events page' },
     { name: 'page:tasks:view', description: 'Can view the tasks page' },
     { name: 'page:reports:view', description: 'Can view the reports page' },
     { name: 'page:ai-insights:view', description: 'Can view the AI insights page' },
@@ -56,14 +58,14 @@ const ROLES_CONFIG = {
     'Manager': [
         'page:dashboard:view', 'page:contributions:view', 'page:bulk-add:view',
         'page:donors:view', 'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
-        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:events:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
         'page:archive:view',
         'action:create', 'action:edit', 'action:delete', 'action:restore'
     ],
     'Viewer': [
         'page:dashboard:view', 'page:contributions:view', 'page:donors:view',
         'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
-        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view'
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:events:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view'
     ]
 };
 
@@ -88,18 +90,54 @@ const seedDatabase = async () => {
         console.log('Seeding database with roles and permissions...');
 
         // Base table checks...
-        const tablesToTimestamp = ['sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'campaigns', 'tasks', 'contributions'];
+        const tablesToTimestamp = ['sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'campaigns', 'tasks', 'contributions', 'events'];
         for (const table of tablesToTimestamp) {
+             await client.query(`
+                CREATE TABLE IF NOT EXISTS events (
+                    id SERIAL PRIMARY KEY,
+                    festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+                    name VARCHAR(255) NOT NULL,
+                    event_date DATE NOT NULL,
+                    start_time TIME,
+                    end_time TIME,
+                    description TEXT,
+                    image_data TEXT,
+                    venue VARCHAR(255)
+                );
+            `);
+             await client.query(`
+                CREATE TABLE IF NOT EXISTS event_contact_persons (
+                    id SERIAL PRIMARY KEY,
+                    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                    name VARCHAR(255) NOT NULL,
+                    contact_number VARCHAR(20),
+                    email VARCHAR(255)
+                );
+            `);
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
         }
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
         
-        // Ensure image tables have created_at for sorting cover images
-        await client.query(`ALTER TABLE expense_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-        await client.query(`ALTER TABLE quotation_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-        
+        // This is a bit of a hacky migration for events table
+        // try {
+        //     await client.query('ALTER TABLE events RENAME COLUMN event_time TO start_time;');
+        //     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIME;');
+        //     console.log('Migrated events table: renamed event_time to start_time.');
+        // } catch (e) {
+        //     // This will fail if event_time doesn't exist or start_time already exists. That's fine.
+        // }
+
+        try {
+            // Ensure image tables have created_at for sorting cover images
+            await client.query(`ALTER TABLE expense_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+            await client.query(`ALTER TABLE quotation_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+            console.log('Migrated events table: renamed event_time to start_time.');
+        } catch (e) {
+            // This will fail if event_time doesn't exist or start_time already exists. That's fine.
+        }
+
         // Create dedicated festival photos table
         await client.query(`
             CREATE TABLE IF NOT EXISTS festival_photos (
@@ -124,6 +162,7 @@ const seedDatabase = async () => {
         await createHistoryTable(client, 'budgets_history', 'budgets');
         await createHistoryTable(client, 'festivals_history', 'festivals');
         await createHistoryTable(client, 'task_history', 'tasks', 'INTEGER');
+        await createHistoryTable(client, 'events_history', 'events');
 
         const permissionMap = new Map();
         for (const perm of ALL_PERMISSIONS) {
@@ -596,6 +635,28 @@ app.get('/api/tasks', authMiddleware, permissionMiddleware('page:tasks:view'), a
     }
 });
 
+// --- Festival Events ---
+app.get('/api/festivals/:id/events', authMiddleware, permissionMiddleware('page:events:view'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const eventsRes = await db.query(
+            `SELECT id, festival_id as "festivalId", name, event_date as "eventDate", to_char(start_time, 'HH24:MI') as "startTime", to_char(end_time, 'HH24:MI') as "endTime", description, image_data as "image", venue, created_at as "createdAt", updated_at as "updatedAt"
+             FROM events WHERE festival_id = $1 AND deleted_at IS NULL ORDER BY event_date, start_time`, [id]
+        );
+        const events = eventsRes.rows;
+        for (const event of events) {
+            const contactsRes = await db.query(
+                'SELECT name, contact_number as "contactNumber", email FROM event_contact_persons WHERE event_id = $1', [event.id]
+            );
+            event.contactPersons = contactsRes.rows;
+        }
+        res.json(events);
+    } catch (err) {
+        console.error('Error fetching events:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Festival Photo Management ---
 app.get('/api/festivals/:id/photos', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
     try {
@@ -658,11 +719,11 @@ app.delete('/api/photos/:photoId', authMiddleware, permissionMiddleware('action:
 // --- Archive & Restore Endpoints ---
 app.get('/api/archive', authMiddleware, permissionMiddleware('page:archive:view'), async (req, res) => {
     try {
-        const tables = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks'];
+        const tables = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events'];
         const nameColumns = {
             contributions: 'donor_name', sponsors: 'name', vendors: 'name',
             expenses: 'name', quotations: 'quotation_for', budgets: 'item_name',
-            festivals: 'name', tasks: 'title'
+            festivals: 'name', tasks: 'title', events: 'name'
         };
         let archivedItems = [];
 
@@ -688,7 +749,7 @@ app.get('/api/archive', authMiddleware, permissionMiddleware('page:archive:view'
 
 app.post('/api/:recordType/:id/restore', authMiddleware, permissionMiddleware('action:restore'), async (req, res) => {
     const { recordType, id } = req.params;
-    const allowedTypes = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks'];
+    const allowedTypes = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events'];
     
     if (!allowedTypes.includes(recordType)) {
         return res.status(400).json({ error: 'Invalid record type for restoration.' });
@@ -727,6 +788,7 @@ app.get('/api/quotations/:id/history', authMiddleware, createHistoryEndpoint('qu
 app.get('/api/budgets/:id/history', authMiddleware, createHistoryEndpoint('budgets'));
 app.get('/api/festivals/:id/history', authMiddleware, createHistoryEndpoint('festivals'));
 app.get('/api/tasks/:id/history', authMiddleware, createHistoryEndpoint('task'));
+app.get('/api/events/:id/history', authMiddleware, createHistoryEndpoint('events'));
 
 // --- POST (Create) Endpoints ---
 app.post('/api/contributions', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
@@ -920,6 +982,52 @@ app.post('/api/tasks', authMiddleware, permissionMiddleware('action:create'), as
     } catch (err) {
         console.error('Error adding task:', err);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/events', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
+    const { festivalId, name, eventDate, startTime, endTime, description, image, venue, contactPersons } = req.body;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const eventRes = await client.query(
+            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, description, image_data, venue) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [festivalId, name, eventDate, startTime || null, endTime || null, description, image, venue]
+        );
+        const newEvent = eventRes.rows[0];
+        const insertedContacts = [];
+
+        if (contactPersons && contactPersons.length > 0) {
+            for (const contact of contactPersons) {
+                const contactRes = await client.query(
+                    'INSERT INTO event_contact_persons (event_id, name, contact_number, email) VALUES ($1, $2, $3, $4) RETURNING name, contact_number, email',
+                    [newEvent.id, contact.name, contact.contactNumber, contact.email]
+                );
+                insertedContacts.push({ name: contactRes.rows[0].name, contactNumber: contactRes.rows[0].contact_number, email: contactRes.rows[0].email });
+            }
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json({
+            id: newEvent.id,
+            festivalId: newEvent.festival_id,
+            name: newEvent.name,
+            eventDate: newEvent.event_date,
+            startTime: newEvent.start_time ? newEvent.start_time.substring(0, 5) : null,
+            endTime: newEvent.end_time ? newEvent.end_time.substring(0, 5) : null,
+            description: newEvent.description,
+            image: newEvent.image_data,
+            venue: newEvent.venue,
+            contactPersons: insertedContacts,
+            createdAt: newEvent.created_at,
+            updatedAt: newEvent.updated_at,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error creating event:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
     }
 });
 
@@ -1176,6 +1284,63 @@ app.put('/api/tasks/:id', authMiddleware, permissionMiddleware('action:edit'), a
     }
 });
 
+app.put('/api/events/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { id } = req.params;
+    const { name, eventDate, startTime, endTime, description, image, venue, contactPersons } = req.body;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const oldDataRes = await client.query('SELECT * FROM events WHERE id=$1 FOR UPDATE', [id]);
+        if (oldDataRes.rows.length === 0) throw new Error('Event not found');
+
+        const result = await client.query(
+            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, description=$5, image_data=$6, venue=$7, updated_at=NOW() WHERE id=$8 RETURNING *',
+            [name, eventDate, startTime || null, endTime || null, description, image, venue, id]
+        );
+        
+        // Log basic field changes
+        await logChanges(client, {
+            historyTable: 'events_history', recordId: id, changedByUserId: req.user.id,
+            oldData: oldDataRes.rows[0], newData: { name, eventDate, startTime, endTime, description, venue },
+            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', description: 'description', venue: 'venue' }
+        });
+
+        // Handle contacts
+        await client.query('DELETE FROM event_contact_persons WHERE event_id=$1', [id]);
+        const insertedContacts = [];
+        if (contactPersons && contactPersons.length > 0) {
+            for (const contact of contactPersons) {
+                const contactRes = await client.query('INSERT INTO event_contact_persons (event_id, name, contact_number, email) VALUES ($1, $2, $3, $4) RETURNING name, contact_number, email',
+                    [id, contact.name, contact.contactNumber, contact.email]);
+                insertedContacts.push(contactRes.rows[0]);
+            }
+        }
+        
+        await client.query('COMMIT');
+        const updatedEvent = result.rows[0];
+        res.json({
+            id: updatedEvent.id,
+            festivalId: updatedEvent.festival_id,
+            name: updatedEvent.name,
+            eventDate: updatedEvent.event_date,
+            startTime: updatedEvent.start_time ? updatedEvent.start_time.substring(0, 5) : null,
+            endTime: updatedEvent.end_time ? updatedEvent.end_time.substring(0, 5) : null,
+            description: updatedEvent.description,
+            image: updatedEvent.image_data,
+            venue: updatedEvent.venue,
+            contactPersons: insertedContacts,
+            createdAt: updatedEvent.created_at,
+            updatedAt: updatedEvent.updated_at,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error updating event:', err);
+        res.status(500).json({ error: 'Failed to update event' });
+    } finally {
+        client.release();
+    }
+});
+
 
 
 // --- DELETE (Archive) Endpoints ---
@@ -1214,6 +1379,7 @@ app.delete('/api/festivals/:id', authMiddleware, permissionMiddleware('action:de
 app.delete('/api/tasks/:id', authMiddleware, permissionMiddleware('action:delete'), createSoftDeleteEndpoint('tasks'));
 app.delete('/api/expenses/:id', authMiddleware, permissionMiddleware('action:delete'), createSoftDeleteEndpoint('expenses'));
 app.delete('/api/quotations/:id', authMiddleware, permissionMiddleware('action:delete'), createSoftDeleteEndpoint('quotations'));
+app.delete('/api/events/:id', authMiddleware, permissionMiddleware('action:delete'), createSoftDeleteEndpoint('events'));
 
 
 app.delete('/api/vendors/:id', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {

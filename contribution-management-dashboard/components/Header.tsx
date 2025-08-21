@@ -17,10 +17,11 @@ interface HeaderProps {
     onAddBudgetClick: () => void;
     onAddFestivalClick: () => void;
     onAddTaskClick: () => void;
+    onAddEventClick: () => void;
     onMobileMenuClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onAddFestivalClick, onAddTaskClick, onMobileMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onAddFestivalClick, onAddTaskClick, onAddEventClick, onMobileMenuClick }) => {
     const location = useLocation();
     const { hasPermission, logout } = useAuth();
 
@@ -70,6 +71,8 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
         if (path.startsWith('/quotations')) return { title: 'Quotations', button: createButton(onAddQuotationClick, 'Add Quotation') };
         if (path.startsWith('/budget')) return { title: 'Budget', button: createButton(onAddBudgetClick, 'Add Budget Item') };
         if (path.startsWith('/campaigns')) return { title: 'Campaigns', button: null };
+        if (path.match(/^\/festivals\/\d+\/events$/)) return { title: 'Festival Events', button: createButton(onAddEventClick, 'Add Event') };
+        if (path.match(/^\/festivals\/\d+\/photos$/)) return { title: 'Festival Photos', button: null };
         if (path.startsWith('/festivals')) return { title: 'Festivals', button: createButton(onAddFestivalClick, 'Add Festival') };
         if (path.startsWith('/tasks')) return { title: 'Tasks', button: createButton(onAddTaskClick, 'Add Task') };
         if (path.startsWith('/reports')) return { title: 'Reports', button: null };

@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
+import FestivalNavigation from '../components/FestivalNavigation';
 
 interface Festival {
     id: number;
@@ -142,16 +143,8 @@ const FestivalPhotosPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-xl shadow-md">
-                <div className="flex items-center space-x-4">
-                    <Link to="/festivals" className="text-slate-500 hover:text-slate-800"><ChevronLeftIcon className="w-6 h-6" /></Link>
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">Manage Photos</h2>
-                        <p className="text-slate-600">{festival?.name}</p>
-                    </div>
-                </div>
-            </div>
-
+            <FestivalNavigation festivalId={id!} festivalName={festival?.name} />
+            
             {canUpload && (
                 <div className="bg-white p-6 rounded-xl shadow-md">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">Upload New Photos</h3>
