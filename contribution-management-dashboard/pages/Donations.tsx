@@ -13,6 +13,7 @@ import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency } from '../utils/formatting';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
+import ContributionsNavigation from '../components/ContributionsNavigation';
 
 interface ContributionsProps {
     contributions: Contribution[];
@@ -124,133 +125,136 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
     };
     
     return (
-        <div className="bg-white p-6 rounded-xl shadow-md">
-            {isLoadingNote && (
-                <div className="fixed inset-0 bg-white bg-opacity-75 flex flex-col justify-center items-center z-50">
-                    <SparklesIcon className="w-12 h-12 text-blue-500 animate-pulse" />
-                    <p className="mt-4 text-lg text-slate-700">Generating personal note...</p>
-                </div>
-            )}
-            {generatedNote && <ThankYouModal note={generatedNote} onClose={() => setGeneratedNote(null)} />}
-            {viewingImage && <ImageViewerModal imageUrl={viewingImage} onClose={() => setViewingImage(null)} />}
+        <div className="space-y-6">
+            <ContributionsNavigation />
+            <div className="bg-white p-6 rounded-xl shadow-md">
+                {isLoadingNote && (
+                    <div className="fixed inset-0 bg-white bg-opacity-75 flex flex-col justify-center items-center z-50">
+                        <SparklesIcon className="w-12 h-12 text-blue-500 animate-pulse" />
+                        <p className="mt-4 text-lg text-slate-700">Generating personal note...</p>
+                    </div>
+                )}
+                {generatedNote && <ThankYouModal note={generatedNote} onClose={() => setGeneratedNote(null)} />}
+                {viewingImage && <ImageViewerModal imageUrl={viewingImage} onClose={() => setViewingImage(null)} />}
 
-            <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                <input
-                    type="text"
-                    placeholder="Search by donor name..."
-                    className="w-full md:w-1/3 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    onChange={e => setSearchTerm(e.target.value)}
-                />
-                <select
-                    className="w-full md:w-1/3 px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    onChange={e => setFilterCampaign(e.target.value)}
-                >
-                    <option value="all">All Campaigns</option>
-                    {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Donor</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Coupons</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Campaign</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Image</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                        {paginatedContributions.length > 0 ? paginatedContributions.map(contribution => (
-                            <tr key={contribution.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
-                                    <div className="text-sm text-slate-500">{contribution.donorEmail}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(contribution.amount)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(contribution.date).toLocaleDateString()}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    {contribution.image ? (
-                                        <img 
-                                            src={contribution.image} 
-                                            alt="Contribution" 
-                                            className="h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform mx-auto"
-                                            onClick={() => setViewingImage(contribution.image!)}
-                                        />
-                                    ) : (
-                                        <span className="text-slate-400 text-xs">N/A</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={contribution.status} /></td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div className="flex items-center space-x-4">
-                                        <button onClick={() => handleGenerateNote(contribution)} className="text-blue-600 hover:text-blue-800 flex items-center" title="Generate Thank You Note">
-                                           <SparklesIcon className="w-4 h-4"/>
-                                        </button>
-                                        <button onClick={() => onViewHistory('contributions', contribution.id, `History for ${contribution.donorName}'s contribution`)} className="text-slate-500 hover:text-blue-600" title="View History">
-                                            <HistoryIcon className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900" title="Edit Contribution">
-                                            <EditIcon className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900" title="Delete Contribution">
-                                            <DeleteIcon className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )) : (
-                            <tr>
-                                <td colSpan={9} className="text-center py-10 text-slate-500">
-                                    {contributions.length === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            <div className="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-slate-200 gap-4">
-                <div className="flex items-center space-x-2 text-sm text-slate-600">
-                    <span>Rows per page:</span>
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                    <input
+                        type="text"
+                        placeholder="Search by donor name..."
+                        className="w-full md:w-1/3 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
                     <select
-                        value={rowsPerPage}
-                        onChange={e => setRowsPerPage(Number(e.target.value))}
-                        className="px-2 py-1 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        aria-label="Rows per page"
+                        className="w-full md:w-1/3 px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        onChange={e => setFilterCampaign(e.target.value)}
                     >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
+                        <option value="all">All Campaigns</option>
+                        {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
-                <div className="text-sm text-slate-600" aria-live="polite">
-                    Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({filteredContributions.length} items)
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Donor</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Coupons</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Campaign</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Image</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-200">
+                            {paginatedContributions.length > 0 ? paginatedContributions.map(contribution => (
+                                <tr key={contribution.id} className="hover:bg-slate-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
+                                        <div className="text-sm text-slate-500">{contribution.donorEmail}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(contribution.amount)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(contribution.date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        {contribution.image ? (
+                                            <img 
+                                                src={contribution.image} 
+                                                alt="Contribution" 
+                                                className="h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform mx-auto"
+                                                onClick={() => setViewingImage(contribution.image!)}
+                                            />
+                                        ) : (
+                                            <span className="text-slate-400 text-xs">N/A</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={contribution.status} /></td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div className="flex items-center space-x-4">
+                                            <button onClick={() => handleGenerateNote(contribution)} className="text-blue-600 hover:text-blue-800 flex items-center" title="Generate Thank You Note">
+                                               <SparklesIcon className="w-4 h-4"/>
+                                            </button>
+                                            <button onClick={() => onViewHistory('contributions', contribution.id, `History for ${contribution.donorName}'s contribution`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                                <HistoryIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900" title="Edit Contribution">
+                                                <EditIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900" title="Delete Contribution">
+                                                <DeleteIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan={9} className="text-center py-10 text-slate-500">
+                                        {contributions.length === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <button
-                        onClick={handlePreviousPage}
-                        disabled={currentPage === 1}
-                        className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Previous page"
-                    >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={handleNextPage}
-                        disabled={currentPage === totalPages || totalPages === 0}
-                        className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Next page"
-                    >
-                        <ChevronRightIcon className="w-5 h-5" />
-                    </button>
+
+                <div className="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-slate-200 gap-4">
+                    <div className="flex items-center space-x-2 text-sm text-slate-600">
+                        <span>Rows per page:</span>
+                        <select
+                            value={rowsPerPage}
+                            onChange={e => setRowsPerPage(Number(e.target.value))}
+                            className="px-2 py-1 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            aria-label="Rows per page"
+                        >
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                        </select>
+                    </div>
+                    <div className="text-sm text-slate-600" aria-live="polite">
+                        Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({filteredContributions.length} items)
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={handlePreviousPage}
+                            disabled={currentPage === 1}
+                            className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeftIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            aria-label="Next page"
+                        >
+                            <ChevronRightIcon className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

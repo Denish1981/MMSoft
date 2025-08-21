@@ -60,7 +60,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
         { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },
         { to: "/contributions", permission: 'page:contributions:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Contributions" },
         //{ to: "/donors", permission: 'page:donors:view', icon: <UsersIcon className="w-5 h-5" />, label: "Donors" },
-        { to: "/sponsors", permission: 'page:sponsors:view', icon: <BriefcaseIcon className="w-5 h-5" />, label: "Sponsors" },
         { to: "/expenses", permission: 'page:expenses:view', icon: <ReceiptIcon className="w-5 h-5" />, label: "Expenses" },
         //{ to: "/campaigns", permission: 'page:campaigns:view', icon: <CampaignIcon className="w-5 h-5" />, label: "Campaigns" },
         { to: "/reports", permission: 'page:reports:view', icon: <ChartBarIcon className="w-5 h-5" />, label: "Reports" },
