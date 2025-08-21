@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -25,6 +23,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [campaignId, setCampaignId] = useState<number | null>(campaigns[0]?.id || null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState<ContributionType>('Online');
+    const [status, setStatus] = useState<ContributionStatus>(ContributionStatus.Completed);
     const [image, setImage] = useState<string | undefined>();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -41,10 +40,26 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setCampaignId(contributionToEdit.campaignId);
             setDate(new Date(contributionToEdit.date).toISOString().split('T')[0]);
             setType(contributionToEdit.type || 'Online');
+            setStatus(contributionToEdit.status);
             setImage(contributionToEdit.image);
             setImagePreview(contributionToEdit.image || null);
+        } else {
+            // Reset form for new entry to prevent state leakage from a previous edit
+            setDonorName('');
+            setDonorEmail('');
+            setMobileNumber('');
+            setTowerNumber('');
+            setFlatNumber('');
+            setAmount('');
+            setNumberOfCoupons('');
+            setCampaignId(campaigns[0]?.id || null);
+            setDate(new Date().toISOString().split('T')[0]);
+            setType('Online');
+            setStatus(ContributionStatus.Completed);
+            setImage(undefined);
+            setImagePreview(null);
         }
-    }, [contributionToEdit]);
+    }, [contributionToEdit, campaigns]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -71,7 +86,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             alert('Please fill out all required fields.');
             return;
         }
-        const submissionData: Omit<Contribution, 'id' | 'status' | 'createdAt' | 'updatedAt'> & { status: ContributionStatus, campaignId: number | null, type: ContributionType | null } = {
+        const submissionData: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt'> = {
             donorName,
             donorEmail,
             mobileNumber,
@@ -83,7 +98,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             date: new Date(date).toISOString(),
             type,
             image,
-            status: contributionToEdit?.status || ContributionStatus.Completed,
+            status,
         };
         onSubmit(submissionData);
     };
@@ -136,7 +151,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                                 <input type="date" id="contributionDate" value={date} onChange={e => setDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                             </div>
                         </div>
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
                                 <input type="number" id="numberOfCoupons" value={numberOfCoupons} onChange={e => setNumberOfCoupons(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required min="0" />
@@ -146,6 +161,12 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                                 <select id="type" value={type} onChange={e => setType(e.target.value as ContributionType)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
                                     <option value="Online">Online</option>
                                     <option value="Cash">Cash</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="status" className="block text-sm font-medium text-slate-700">Status</label>
+                                <select id="status" value={status} onChange={e => setStatus(e.target.value as ContributionStatus)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                                    {Object.values(ContributionStatus).map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                         </div>

@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import type { Campaign, Contribution, ContributionType } from '../types';
+import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { PlusIcon } from '../components/icons/PlusIcon';
@@ -17,7 +17,7 @@ interface BulkAddPageProps {
     onBulkSaveSuccess: () => void;
 }
 
-type StagedContribution = Omit<Contribution, 'id' | 'status' | 'createdAt' | 'updatedAt'>;
+type StagedContribution = Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 
 const initialFormState: StagedContribution = {
     donorName: '',
@@ -30,8 +30,20 @@ const initialFormState: StagedContribution = {
     campaignId: null,
     date: new Date().toISOString().split('T')[0],
     type: 'Online',
+    status: ContributionStatus.Completed,
     image: undefined,
 };
+
+const StatusBadge: React.FC<{ status: ContributionStatus }> = ({ status }) => {
+    const baseClasses = "px-2 py-1 text-xs font-medium rounded-full";
+    const statusClasses = {
+        [ContributionStatus.Completed]: "bg-green-100 text-green-800",
+        [ContributionStatus.Pending]: "bg-yellow-100 text-yellow-800",
+        [ContributionStatus.Failed]: "bg-red-100 text-red-800",
+    };
+    return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
+};
+
 
 const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess }) => {
     const { token, logout } = useAuth();
@@ -95,6 +107,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
             campaignId: prev.campaignId,
             date: prev.date,
             type: prev.type,
+            status: prev.status,
         }));
         setImagePreview(null);
     };
@@ -194,8 +207,8 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
                             <input type="date" id="date" name="date" value={formData.date} onChange={handleInputChange} className="mt-1 block w-full input-style" required />
                         </div>
                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-1">
                             <label htmlFor="campaignId" className="block text-sm font-medium text-slate-700">Campaign</label>
                             <select id="campaignId" name="campaignId" value={formData.campaignId ?? ''} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
                                 <option value="" disabled>Select a campaign</option>
@@ -207,6 +220,12 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
                             <select id="type" name="type" value={formData.type || 'Online'} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
                                 <option value="Online">Online</option>
                                 <option value="Cash">Cash</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="status" className="block text-sm font-medium text-slate-700">Status</label>
+                             <select id="status" name="status" value={formData.status} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
+                                {Object.values(ContributionStatus).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
                     </div>
@@ -253,6 +272,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Residence</th>
                                 <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                                 <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Coupons</th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                                 <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Image</th>
                                 <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -264,6 +284,9 @@ const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess 
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500">{`T-${c.towerNumber}, F-${c.flatNumber}`}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-800 font-semibold text-right">{formatCurrency(c.amount)}</td>
                                     <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{c.numberOfCoupons}</td>
+                                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm">
+                                        <StatusBadge status={c.status} />
+                                    </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-center">
                                         {c.image ? (
                                             <img src={c.image} alt="Staged thumbnail" className="h-10 w-16 object-cover rounded-md mx-auto" />

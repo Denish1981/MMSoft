@@ -730,8 +730,8 @@ app.get('/api/tasks/:id/history', authMiddleware, createHistoryEndpoint('task'))
 
 // --- POST (Create) Endpoints ---
 app.post('/api/contributions', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image } = req.body;
-    const contributionStatus = 'Completed'; // Default status for new contributions
+    const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image, status } = req.body;
+    const contributionStatus = status || 'Completed';
     const contributionDate = date || new Date().toISOString();
     const dbCampaignId = campaignId || null;
     try {
@@ -758,7 +758,7 @@ app.post('/api/contributions/bulk', authMiddleware, permissionMiddleware('action
     try {
         await client.query('BEGIN');
         for (const c of contributions) {
-            const contributionStatus = 'Completed';
+            const contributionStatus = c.status || 'Completed';
             const contributionDate = c.date || new Date().toISOString();
             const dbCampaignId = c.campaignId || null;
             const result = await client.query(`
