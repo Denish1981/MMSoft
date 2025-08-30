@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import type { Festival, Campaign } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -43,8 +42,8 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
         onSubmit({
             name,
             description,
-            startDate: new Date(startDate).toISOString(),
-            endDate: new Date(endDate).toISOString(),
+            startDate: new Date(startDate + 'T00:00:00.000Z').toISOString(),
+            endDate: new Date(endDate + 'T00:00:00.000Z').toISOString(),
             campaignId: campaignId ? Number(campaignId) : null,
         });
     };

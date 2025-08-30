@@ -1,11 +1,10 @@
 
-
 import React, { useState } from 'react';
 import type { Sponsor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
-import { formatCurrency } from '../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import ContributionsNavigation from '../components/ContributionsNavigation';
 import { CloseIcon } from '../components/icons/CloseIcon';
 
@@ -69,7 +68,7 @@ const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete, onViewH
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{sponsor.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.businessCategory}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(sponsor.sponsorshipAmount)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(sponsor.datePaid).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(sponsor.datePaid)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.sponsorshipType}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-slate-900">{sponsor.contactNumber}</div>

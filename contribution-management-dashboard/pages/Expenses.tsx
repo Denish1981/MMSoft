@@ -4,7 +4,7 @@ import type { Expense, Vendor, Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
-import { formatCurrency } from '../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import FinanceNavigation from '../components/FinanceNavigation';
 import { FilterContainer, TextInput, SelectInput, AmountInput, DateInput } from './reports/FilterControls';
@@ -114,11 +114,12 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
             if (filters.billDate && !e.billDate.startsWith(filters.billDate)) return false;
             
             if (filters.costValue) {
-                const cost = parseFloat(filters.costValue);
-                if (!isNaN(cost)) {
-                    if (filters.costComparator === '>=' && e.cost < cost) return false;
-                    if (filters.costComparator === '<=' && e.cost > cost) return false;
-                    if (filters.costComparator === '==' && e.cost !== cost) return false;
+                const costFilterValue = parseFloat(filters.costValue);
+                const expenseCost = parseFloat(String(e.cost));
+                if (!isNaN(costFilterValue)) {
+                    if (filters.costComparator === '>=' && expenseCost < costFilterValue) return false;
+                    if (filters.costComparator === '<=' && expenseCost > costFilterValue) return false;
+                    if (filters.costComparator === '==' && expenseCost !== costFilterValue) return false;
                 }
             }
             return true;
@@ -171,7 +172,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{expense.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(expense.vendorId) || 'N/A'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(expense.cost)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(expense.billDate).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(expense.billDate)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{expense.expenseHead}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         {expense.billReceipts && expense.billReceipts.length > 0 ? (

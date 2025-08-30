@@ -5,6 +5,7 @@ import { API_URL } from '../config';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
+import { formatUTCDate } from '../utils/formatting';
 
 interface AlbumDetails {
     name: string;
@@ -60,8 +61,6 @@ const PhotoAlbumPage: React.FC = () => {
         }
     };
     
-    const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-
     return (
         <div className="bg-slate-50 min-h-screen">
             <header className="bg-white shadow-sm">
@@ -81,7 +80,7 @@ const PhotoAlbumPage: React.FC = () => {
                     <>
                         <div className="text-center mb-12">
                             <h2 className="text-4xl font-extrabold text-slate-900">{album.name}</h2>
-                            <p className="mt-2 text-lg font-medium text-slate-500">{formatDate(album.startDate)} - {formatDate(album.endDate)}</p>
+                            <p className="mt-2 text-lg font-medium text-slate-500">{formatUTCDate(album.startDate, { day: 'numeric', month: 'long', year: 'numeric' })} - {formatUTCDate(album.endDate, { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                             <p className="mt-4 max-w-3xl mx-auto text-slate-600">{album.description}</p>
                         </div>
                         {album.images.length > 0 ? (

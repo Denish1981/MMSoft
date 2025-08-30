@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Task, Festival, UserForManagement } from '../../types';
 import { TaskStatus } from '../../types';
@@ -5,6 +6,7 @@ import ReportContainer from './ReportContainer';
 import { TextInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { HistoryIcon } from '../../components/icons/HistoryIcon';
+import { formatUTCDate } from '../../utils/formatting';
 
 interface TaskReportProps {
     tasks: Task[];
@@ -119,7 +121,7 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users, onView
                                     <div className="text-sm text-slate-500 truncate max-w-xs" title={task.description}>{task.description}</div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.status}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(task.dueDate).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(task.dueDate)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.assigneeName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(task.festivalId && festivalMap.get(task.festivalId)) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">

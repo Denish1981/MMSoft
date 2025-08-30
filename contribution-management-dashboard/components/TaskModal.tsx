@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import type { Task, Festival, UserForManagement } from '../types';
 import { TaskStatus } from '../types';
@@ -40,7 +39,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({ taskToEdit, festivals, use
             alert('Please fill out all required fields: Title, Status, Due Date, and Assignee.');
             return;
         }
-        onSubmit({ title, description, status, dueDate, festivalId: festivalId ? Number(festivalId) : null, assigneeName });
+        onSubmit({ 
+            title, 
+            description, 
+            status, 
+            dueDate: new Date(dueDate + 'T00:00:00.000Z').toISOString(), 
+            festivalId: festivalId ? Number(festivalId) : null, 
+            assigneeName 
+        });
     };
 
     return (

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Sponsor } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -87,7 +88,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             businessInfo,
             sponsorshipAmount: parseFloat(sponsorshipAmount),
             sponsorshipType,
-            datePaid: new Date(datePaid).toISOString(),
+            datePaid: new Date(datePaid + 'T00:00:00.000Z').toISOString(),
             image,
         });
     };

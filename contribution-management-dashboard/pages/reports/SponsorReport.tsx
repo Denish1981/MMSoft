@@ -4,7 +4,7 @@ import type { Sponsor } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
-import { formatCurrency } from '../../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../../utils/formatting';
 
 interface SponsorReportProps {
     sponsors: Sponsor[];
@@ -51,11 +51,12 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
             if (filters.sponsorshipType && !s.sponsorshipType.toLowerCase().includes(filters.sponsorshipType.toLowerCase())) return false;
 
             if (filters.amountValue) {
-                const amount = parseFloat(filters.amountValue);
-                if (!isNaN(amount)) {
-                    if (filters.amountComparator === '>=' && s.sponsorshipAmount < amount) return false;
-                    if (filters.amountComparator === '<=' && s.sponsorshipAmount > amount) return false;
-                    if (filters.amountComparator === '==' && s.sponsorshipAmount !== amount) return false;
+                const amountFilterValue = parseFloat(filters.amountValue);
+                const sponsorAmount = parseFloat(String(s.sponsorshipAmount));
+                if (!isNaN(amountFilterValue)) {
+                    if (filters.amountComparator === '>=' && sponsorAmount < amountFilterValue) return false;
+                    if (filters.amountComparator === '<=' && sponsorAmount > amountFilterValue) return false;
+                    if (filters.amountComparator === '==' && sponsorAmount !== amountFilterValue) return false;
                 }
             }
 
@@ -120,7 +121,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.businessCategory}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(s.sponsorshipAmount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.sponsorshipType}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(s.datePaid).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(s.datePaid)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.contactNumber}</td>
                             </tr>
                         )) : (

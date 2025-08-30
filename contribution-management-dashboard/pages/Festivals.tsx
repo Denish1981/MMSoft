@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { Festival, Campaign } from '../types';
@@ -8,6 +7,7 @@ import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { PhotoIcon } from '../components/icons/PhotoIcon';
 import { CalendarDaysIcon } from '../components/icons/CalendarDaysIcon';
+import { formatUTCDate } from '../utils/formatting';
 
 interface FestivalsProps {
     festivals: Festival[];
@@ -19,15 +19,6 @@ interface FestivalsProps {
 
 const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onDelete, onViewHistory }) => {
     const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
-
-    const formatDate = (dateString: string) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-        });
-    };
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
@@ -54,10 +45,10 @@ const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onD
                                     {(festival.campaignId && campaignMap.get(festival.campaignId)) || 'N/A'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 align-top">
-                                    {formatDate(festival.startDate)}
+                                    {formatUTCDate(festival.startDate)}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 align-top">
-                                    {formatDate(festival.endDate)}
+                                    {formatUTCDate(festival.endDate)}
                                 </td>
                                  <td className="px-6 py-4 text-sm text-slate-500 align-top max-w-sm">
                                     <p className="truncate" title={festival.description || ''}>{festival.description || 'N/A'}</p>

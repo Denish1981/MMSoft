@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useOutletContext } from 'react-router-dom';
 import type { Event, Festival } from '../types';
@@ -9,6 +8,7 @@ import FestivalNavigation from '../components/FestivalNavigation';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
+import { formatUTCDate } from '../utils/formatting';
 
 interface EventsPageProps {
     onEdit: (event: Event) => void;
@@ -75,7 +75,7 @@ const Events: React.FC<EventsPageProps> = ({ onEdit, onDelete, onViewHistory }) 
                         <div className="p-4 flex flex-col flex-grow">
                             <h3 className="text-lg font-bold text-slate-800">{event.name}</h3>
                             <div className="mt-2 text-sm text-slate-600 flex items-center space-x-4">
-                                <span>🗓️ {new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric'})}</span>
+                                <span>🗓️ {formatUTCDate(event.eventDate, { day: 'numeric', month: 'long', year: 'numeric'})}</span>
                                 {event.startTime && <span>⏰ {formatTime(event.startTime)}{event.endTime ? ` - ${formatTime(event.endTime)}` : ''}</span>}
                             </div>
                             <p className="mt-1 text-sm text-slate-600">📍 {event.venue}</p>

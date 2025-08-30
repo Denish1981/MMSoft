@@ -4,7 +4,7 @@ import type { Contribution, ContributionType } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, FilterContainer, SelectInput } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
-import { formatCurrency } from '../../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../../utils/formatting';
 import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../../components/icons/ChevronRightIcon';
 
@@ -60,11 +60,12 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
             if (filters.type && c.type !== filters.type) return false;
             
             if (filters.amountValue) {
-                const amount = parseFloat(filters.amountValue);
-                if (!isNaN(amount)) {
-                    if (filters.amountComparator === '>=' && c.amount < amount) return false;
-                    if (filters.amountComparator === '<=' && c.amount > amount) return false;
-                    if (filters.amountComparator === '==' && c.amount !== amount) return false;
+                const amountFilterValue = parseFloat(filters.amountValue);
+                const contributionAmount = parseFloat(String(c.amount));
+                if (!isNaN(amountFilterValue)) {
+                    if (filters.amountComparator === '>=' && contributionAmount < amountFilterValue) return false;
+                    if (filters.amountComparator === '<=' && contributionAmount > amountFilterValue) return false;
+                    if (filters.amountComparator === '==' && contributionAmount !== amountFilterValue) return false;
                 }
             }
             return true;
@@ -151,7 +152,7 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{`T-${c.towerNumber}, F-${c.flatNumber}`}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 font-semibold">{formatCurrency(c.amount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{c.type}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(c.date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(c.date)}</td>
                             </tr>
                         )) : (
                              <tr>

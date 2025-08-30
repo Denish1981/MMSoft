@@ -1,12 +1,11 @@
 
-
 import React, { useMemo, useState } from 'react';
 import type { Quotation, Vendor, Festival } from '../types';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
-import { formatCurrency } from '../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import FinanceNavigation from '../components/FinanceNavigation';
 
 interface QuotationsProps {
@@ -101,7 +100,7 @@ const Quotations: React.FC<QuotationsProps> = ({ quotations, vendors, festivals,
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(quote.vendorId) || 'N/A'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(quote.festivalId && festivalMap.get(quote.festivalId)) || 'N/A'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(quote.cost)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(quote.date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(quote.date)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         {quote.quotationImages && quote.quotationImages.length > 0 ? (
                                             <div className="flex items-center justify-center space-x-2">

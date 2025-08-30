@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { Event, EventContactPerson } from '../types';
@@ -97,7 +96,13 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
         }
         const submissionData = {
             festivalId: Number(festivalId),
-            name, eventDate, startTime, endTime, venue, description, image,
+            name, 
+            eventDate: new Date(eventDate + 'T00:00:00.000Z').toISOString(),
+            startTime, 
+            endTime, 
+            venue, 
+            description, 
+            image,
             contactPersons: contactPersons.filter(c => c.name && c.contactNumber) // Filter out empty contacts
         };
         onSubmit(submissionData);

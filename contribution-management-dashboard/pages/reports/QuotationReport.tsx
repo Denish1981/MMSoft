@@ -1,11 +1,10 @@
 
-
 import React, { useState, useMemo } from 'react';
 import type { Quotation, Vendor, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
-import { formatCurrency } from '../../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../../utils/formatting';
 
 interface QuotationReportProps {
     quotations: Quotation[];
@@ -59,11 +58,12 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
             if (filters.festivalId && q.festivalId !== Number(filters.festivalId)) return false;
             
             if (filters.costValue) {
-                const cost = parseFloat(filters.costValue);
-                if (!isNaN(cost)) {
-                    if (filters.costComparator === '>=' && q.cost < cost) return false;
-                    if (filters.costComparator === '<=' && q.cost > cost) return false;
-                    if (filters.costComparator === '==' && q.cost !== cost) return false;
+                const costFilterValue = parseFloat(filters.costValue);
+                const quotationCost = parseFloat(String(q.cost));
+                if (!isNaN(costFilterValue)) {
+                    if (filters.costComparator === '>=' && quotationCost < costFilterValue) return false;
+                    if (filters.costComparator === '<=' && quotationCost > costFilterValue) return false;
+                    if (filters.costComparator === '==' && quotationCost !== costFilterValue) return false;
                 }
             }
             
@@ -125,7 +125,7 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(q.vendorId) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(q.festivalId && festivalMap.get(q.festivalId)) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(q.cost)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(q.date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(q.date)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{q.quotationImages.length}</td>
                             </tr>
                         ))}

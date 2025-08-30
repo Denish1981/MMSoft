@@ -10,7 +10,7 @@ import { SparklesIcon } from '../components/icons/SparklesIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
-import { formatCurrency } from '../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 import ContributionsNavigation from '../components/ContributionsNavigation';
@@ -178,7 +178,7 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(contribution.date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(contribution.date)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         {contribution.image ? (
                                             <img 

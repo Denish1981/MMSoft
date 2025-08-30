@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Expense, Vendor, Festival } from '../types';
 import { CloseIcon } from './icons/CloseIcon';
@@ -80,7 +79,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, f
             name,
             vendorId: Number(vendorId),
             cost: parseFloat(cost),
-            billDate: new Date(billDate).toISOString(),
+            billDate: new Date(billDate + 'T00:00:00.000Z').toISOString(),
             expenseHead,
             billReceipts,
             expenseBy,

@@ -1,11 +1,10 @@
 
-
 import React, { useState, useMemo } from 'react';
 import type { Expense, Vendor, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
-import { formatCurrency } from '../../utils/formatting';
+import { formatCurrency, formatUTCDate } from '../../utils/formatting';
 
 interface ExpenseReportProps {
     expenses: Expense[];
@@ -137,7 +136,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(e.vendorId) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(e.festivalId && festivalMap.get(e.festivalId)) || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(e.cost)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(e.billDate).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(e.billDate)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{e.expenseHead}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{e.expenseBy}</td>
                             </tr>
