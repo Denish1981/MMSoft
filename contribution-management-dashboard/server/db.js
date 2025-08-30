@@ -1,6 +1,11 @@
 
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// Override the pg driver's default date parser to return dates as 'YYYY-MM-DD' strings.
+// This prevents timezone conversions between the database, server, and client.
+// PostgreSQL's DATE type OID is 1082.
+types.setTypeParser(1082, val => val);
 
 const isProduction = process.env.NODE_ENV === 'production';
 

@@ -79,7 +79,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, expenses, f
             name,
             vendorId: Number(vendorId),
             cost: parseFloat(cost),
-            billDate: new Date(billDate + 'T00:00:00.000Z').toISOString(),
+            billDate: billDate,
             expenseHead,
             billReceipts,
             expenseBy,

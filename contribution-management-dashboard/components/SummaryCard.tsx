@@ -1,10 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatting';
 
 interface BreakdownItem {
     label: string;
     value: number;
     color: string;
+    path?: string;
 }
 
 interface SummaryCardProps {
@@ -31,18 +33,38 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ title, totalValue, icon, brea
             </div>
             <div className="mt-4 pt-4 border-t border-slate-100">
                 <p className="text-xs font-semibold text-slate-400 uppercase mb-3">Breakdown</p>
-                <div className="space-y-3">
-                    {breakdown.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                            <div className="flex items-center">
-                                <span className={`w-2.5 h-2.5 rounded-full mr-3 ${item.color}`}></span>
-                                <span className="text-slate-600">{item.label}</span>
+                <div className="space-y-2">
+                    {breakdown.map((item, index) => {
+                        const content = (
+                            <>
+                                <div className="flex items-center">
+                                    <span className={`w-2.5 h-2.5 rounded-full mr-3 ${item.color}`}></span>
+                                    <span className="text-slate-600">{item.label}</span>
+                                </div>
+                                <span className="font-semibold text-slate-800">
+                                    {formatCurrency(item.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                </span>
+                            </>
+                        );
+
+                        if (item.path) {
+                            return (
+                                <Link
+                                    to={item.path}
+                                    key={index}
+                                    className="flex justify-between items-center text-sm p-1.5 -m-1.5 rounded-md hover:bg-slate-100 transition-colors duration-200"
+                                >
+                                    {content}
+                                </Link>
+                            );
+                        }
+
+                        return (
+                            <div key={index} className="flex justify-between items-center text-sm p-1.5 -m-1.5">
+                                {content}
                             </div>
-                            <span className="font-semibold text-slate-800">
-                                {formatCurrency(item.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>

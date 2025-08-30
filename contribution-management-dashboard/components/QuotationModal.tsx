@@ -72,7 +72,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, festiva
             quotationFor,
             vendorId: Number(vendorId),
             cost: parseFloat(cost),
-            date: new Date(date + 'T00:00:00.000Z').toISOString(),
+            date: date,
             quotationImages,
             festivalId: festivalId ? Number(festivalId) : null,
         });

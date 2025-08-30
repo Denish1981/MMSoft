@@ -43,7 +43,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ taskToEdit, festivals, use
             title, 
             description, 
             status, 
-            dueDate: new Date(dueDate + 'T00:00:00.000Z').toISOString(), 
+            dueDate: dueDate, 
             festivalId: festivalId ? Number(festivalId) : null, 
             assigneeName 
         });

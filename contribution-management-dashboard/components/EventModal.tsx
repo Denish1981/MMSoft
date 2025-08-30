@@ -97,7 +97,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
         const submissionData = {
             festivalId: Number(festivalId),
             name, 
-            eventDate: new Date(eventDate + 'T00:00:00.000Z').toISOString(),
+            eventDate: eventDate,
             startTime, 
             endTime, 
             venue, 

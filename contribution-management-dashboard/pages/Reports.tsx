@@ -1,6 +1,7 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement, Sponsor } from '../types';
 import ContributionReport from './reports/ContributionReport';
 import VendorReport from './reports/VendorReport';
@@ -24,11 +25,31 @@ interface ReportsProps {
 }
 
 type ReportTab = 'contributions' | 'sponsors' | 'vendors' | 'expenses' | 'quotations' | 'budget' | 'tasks';
+const VALID_TABS: ReportTab[] = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budget', 'tasks'];
 
 const Reports: React.FC<ReportsProps> = ({
     contributions, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users, onViewHistory
 }) => {
-    const [activeTab, setActiveTab] = useState<ReportTab>('contributions');
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const getActiveTab = (): ReportTab => {
+        const tab = searchParams.get('tab');
+        if (tab && VALID_TABS.includes(tab as ReportTab)) {
+            return tab as ReportTab;
+        }
+        return 'contributions';
+    };
+
+    const [activeTab, setActiveTab] = useState<ReportTab>(getActiveTab());
+    
+    useEffect(() => {
+        setActiveTab(getActiveTab());
+    }, [searchParams]);
+
+    const handleTabClick = (tabName: ReportTab) => {
+        setActiveTab(tabName);
+        setSearchParams({ tab: tabName });
+    };
 
     const renderTabContent = () => {
         switch (activeTab) {
@@ -55,7 +76,7 @@ const Reports: React.FC<ReportsProps> = ({
         const isActive = activeTab === tabName;
         return (
             <button
-                onClick={() => setActiveTab(tabName)}
+                onClick={() => handleTabClick(tabName)}
                 className={`px-4 py-2 font-medium text-sm rounded-md transition-colors duration-200 ${
                     isActive
                         ? 'bg-blue-600 text-white'

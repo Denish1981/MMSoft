@@ -1,5 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Expense, Vendor, Festival } from '../../types';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
@@ -24,15 +24,17 @@ interface ExpenseFilters {
 }
 
 const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festivals }) => {
+    const [searchParams] = useSearchParams();
+    
     const [filters, setFilters] = useState<ExpenseFilters>({
-        expenseName: '',
-        vendorId: '',
-        costComparator: '>=',
-        costValue: '',
-        doneBy: '',
-        expenseHead: '',
-        expenseDate: '',
-        festivalId: '',
+        expenseName: searchParams.get('expenseName') || '',
+        vendorId: searchParams.get('vendorId') || '',
+        costComparator: searchParams.get('costComparator') || '>=',
+        costValue: searchParams.get('costValue') || '',
+        doneBy: searchParams.get('doneBy') || '',
+        expenseHead: searchParams.get('expenseHead') || '',
+        expenseDate: searchParams.get('expenseDate') || '',
+        festivalId: searchParams.get('festivalId') || '',
     });
 
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);

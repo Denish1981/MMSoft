@@ -29,8 +29,8 @@ const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, 
     }, [totalContributions, totalSponsorshipsAmount]);
     
     const fundsBreakdown = [
-        { label: 'Contributions', value: totalContributions, color: 'bg-green-500' },
-        { label: 'Sponsorships', value: totalSponsorshipsAmount, color: 'bg-indigo-500' },
+        { label: 'Contributions', value: totalContributions, color: 'bg-green-500', path: '/reports?tab=contributions' },
+        { label: 'Sponsorships', value: totalSponsorshipsAmount, color: 'bg-indigo-500', path: '/reports?tab=sponsors' },
     ];
 
     const expenseBreakdown = useMemo(() => {
@@ -48,7 +48,8 @@ const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, 
             .map(([label, value], index) => ({
                 label,
                 value,
-                color: colors[index % colors.length]
+                color: colors[index % colors.length],
+                path: `/reports?tab=expenses&expenseHead=${encodeURIComponent(label)}`
             }));
     }, [expenses]);
 

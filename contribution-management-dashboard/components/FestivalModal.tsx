@@ -42,8 +42,8 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
         onSubmit({
             name,
             description,
-            startDate: new Date(startDate + 'T00:00:00.000Z').toISOString(),
-            endDate: new Date(endDate + 'T00:00:00.000Z').toISOString(),
+            startDate: startDate,
+            endDate: endDate,
             campaignId: campaignId ? Number(campaignId) : null,
         });
     };

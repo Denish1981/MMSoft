@@ -88,7 +88,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             businessInfo,
             sponsorshipAmount: parseFloat(sponsorshipAmount),
             sponsorshipType,
-            datePaid: new Date(datePaid + 'T00:00:00.000Z').toISOString(),
+            datePaid: datePaid,
             image,
         });
     };
