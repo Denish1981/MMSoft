@@ -1,17 +1,18 @@
 
 
-
 import React, { useState } from 'react';
-import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement, HistoryItem } from '../types';
+import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement, Sponsor } from '../types';
 import ContributionReport from './reports/ContributionReport';
 import VendorReport from './reports/VendorReport';
 import ExpenseReport from './reports/ExpenseReport';
 import QuotationReport from './reports/QuotationReport';
 import BudgetReport from './reports/BudgetReport';
 import TaskReport from './reports/TaskReport';
+import SponsorReport from './reports/SponsorReport';
 
 interface ReportsProps {
     contributions: Contribution[];
+    sponsors: Sponsor[];
     vendors: Vendor[];
     expenses: Expense[];
     quotations: Quotation[];
@@ -22,10 +23,10 @@ interface ReportsProps {
     onViewHistory: (recordType: string, recordId: number, title: string) => void;
 }
 
-type ReportTab = 'contributions' | 'vendors' | 'expenses' | 'quotations' | 'budget' | 'tasks';
+type ReportTab = 'contributions' | 'sponsors' | 'vendors' | 'expenses' | 'quotations' | 'budget' | 'tasks';
 
 const Reports: React.FC<ReportsProps> = ({
-    contributions, vendors, expenses, quotations, budgets, festivals, tasks, users, onViewHistory
+    contributions, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users, onViewHistory
 }) => {
     const [activeTab, setActiveTab] = useState<ReportTab>('contributions');
 
@@ -33,6 +34,8 @@ const Reports: React.FC<ReportsProps> = ({
         switch (activeTab) {
             case 'contributions':
                 return <ContributionReport contributions={contributions} />;
+            case 'sponsors':
+                return <SponsorReport sponsors={sponsors} />;
             case 'vendors':
                 return <VendorReport vendors={vendors} />;
             case 'expenses':
@@ -69,6 +72,7 @@ const Reports: React.FC<ReportsProps> = ({
             <div className="bg-white p-2 rounded-lg shadow-sm">
                 <div className="flex items-center space-x-2 flex-wrap">
                     <TabButton tabName="contributions" label="Contribution Report" />
+                    <TabButton tabName="sponsors" label="Sponsor Report" />
                     <TabButton tabName="vendors" label="Vendor Report" />
                     <TabButton tabName="expenses" label="Expense Report" />
                     <TabButton tabName="quotations" label="Quotation Report" />

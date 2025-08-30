@@ -342,3 +342,5 @@ CREATE TABLE event_contact_persons (
     contact_number VARCHAR(20),
     email VARCHAR(255)
 );
+
+ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;

@@ -1,0 +1,52 @@
+import React from 'react';
+import { formatCurrency } from '../utils/formatting';
+
+interface BreakdownItem {
+    label: string;
+    value: number;
+    color: string;
+}
+
+interface SummaryCardProps {
+    title: string;
+    totalValue: number;
+    icon: React.ReactNode;
+    breakdown: BreakdownItem[];
+    className?: string;
+}
+
+const SummaryCard: React.FC<SummaryCardProps> = ({ title, totalValue, icon, breakdown, className = '' }) => {
+    return (
+        <div className={`bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 ${className}`}>
+            <div className="flex items-start justify-between">
+                <div>
+                    <p className="text-sm font-medium text-slate-500">{title}</p>
+                    <p className="text-3xl font-bold text-slate-800 mt-1">
+                        {formatCurrency(totalValue, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </p>
+                </div>
+                <div className="bg-blue-100 text-blue-600 p-3 rounded-full">
+                    {icon}
+                </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-400 uppercase mb-3">Breakdown</p>
+                <div className="space-y-3">
+                    {breakdown.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center text-sm">
+                            <div className="flex items-center">
+                                <span className={`w-2.5 h-2.5 rounded-full mr-3 ${item.color}`}></span>
+                                <span className="text-slate-600">{item.label}</span>
+                            </div>
+                            <span className="font-semibold text-slate-800">
+                                {formatCurrency(item.value, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SummaryCard;

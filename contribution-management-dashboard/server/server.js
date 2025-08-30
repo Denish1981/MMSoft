@@ -119,25 +119,21 @@ const seedDatabase = async () => {
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
         }
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
+        await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;`);
         
         // This is a bit of a hacky migration for events table
         // try {
         //     await client.query('ALTER TABLE events RENAME COLUMN event_time TO start_time;');
-        //     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIME;');
         //     console.log('Migrated events table: renamed event_time to start_time.');
         // } catch (e) {
         //     // This will fail if event_time doesn't exist or start_time already exists. That's fine.
         // }
+        // await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIME;');
 
-        try {
-            // Ensure image tables have created_at for sorting cover images
-            await client.query(`ALTER TABLE expense_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-            await client.query(`ALTER TABLE quotation_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-            console.log('Migrated events table: renamed event_time to start_time.');
-        } catch (e) {
-            // This will fail if event_time doesn't exist or start_time already exists. That's fine.
-        }
-
+        // Ensure image tables have created_at for sorting cover images
+        await client.query(`ALTER TABLE expense_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+        await client.query(`ALTER TABLE quotation_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
+        
         // Create dedicated festival photos table
         await client.query(`
             CREATE TABLE IF NOT EXISTS festival_photos (
@@ -588,7 +584,7 @@ app.get('/api/budgets', authMiddleware, permissionMiddleware('page:budget:view')
 
 app.get('/api/sponsors', authMiddleware, permissionMiddleware('page:sponsors:view'), async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType", date_paid as "datePaid", created_at AS "createdAt", updated_at AS "updatedAt" FROM sponsors WHERE deleted_at IS NULL ORDER BY name ASC');
+        const { rows } = await db.query('SELECT id, name, contact_number AS "contactNumber", address, email, business_category AS "businessCategory", business_info AS "businessInfo", sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType", date_paid as "datePaid", image, created_at AS "createdAt", updated_at AS "updatedAt" FROM sponsors WHERE deleted_at IS NULL ORDER BY name ASC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -842,10 +838,10 @@ app.post('/api/contributions/bulk', authMiddleware, permissionMiddleware('action
 });
 
 app.post('/api/sponsors', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid } = req.body;
+    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid, image } = req.body;
     try {
-        const result = await db.query('INSERT INTO sponsors (name, contact_number, address, email, business_category, business_info, sponsorship_amount, sponsorship_type, date_paid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid]);
+        const result = await db.query('INSERT INTO sponsors (name, contact_number, address, email, business_category, business_info, sponsorship_amount, sponsorship_type, date_paid, image) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid, image]);
         const newSponsor = result.rows[0];
         res.status(201).json({
             id: newSponsor.id,
@@ -858,6 +854,7 @@ app.post('/api/sponsors', authMiddleware, permissionMiddleware('action:create'),
             sponsorshipAmount: newSponsor.sponsorship_amount,
             sponsorshipType: newSponsor.sponsorship_type,
             datePaid: newSponsor.date_paid,
+            image: newSponsor.image,
             createdAt: newSponsor.created_at,
             updatedAt: newSponsor.updated_at
         });
@@ -1062,20 +1059,20 @@ app.put('/api/contributions/:id', authMiddleware, permissionMiddleware('action:e
 
 app.put('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid } = req.body;
+    const { name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid, image } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const oldDataRes = await client.query('SELECT * FROM sponsors WHERE id=$1 FOR UPDATE', [id]);
         if (oldDataRes.rows.length === 0) throw new Error('Sponsor not found');
 
-        const result = await client.query('UPDATE sponsors SET name=$1, contact_number=$2, address=$3, email=$4, business_category=$5, business_info=$6, sponsorship_amount=$7, sponsorship_type=$8, date_paid=$9, updated_at=NOW() WHERE id=$10 RETURNING *',
-            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid, id]);
+        const result = await client.query('UPDATE sponsors SET name=$1, contact_number=$2, address=$3, email=$4, business_category=$5, business_info=$6, sponsorship_amount=$7, sponsorship_type=$8, date_paid=$9, image=$10, updated_at=NOW() WHERE id=$11 RETURNING *',
+            [name, contactNumber, address, email, businessCategory, businessInfo, sponsorshipAmount, sponsorshipType, datePaid, image, id]);
         
         await logChanges(client, {
             historyTable: 'sponsors_history', recordId: id, changedByUserId: req.user.id,
             oldData: oldDataRes.rows[0], newData: req.body,
-            fieldMapping: { name: 'name', contactNumber: 'contact_number', address: 'address', email: 'email', businessCategory: 'business_category', businessInfo: 'business_info', sponsorshipAmount: 'sponsorship_amount', sponsorshipType: 'sponsorship_type', datePaid: 'date_paid' }
+            fieldMapping: { name: 'name', contactNumber: 'contact_number', address: 'address', email: 'email', businessCategory: 'business_category', businessInfo: 'business_info', sponsorshipAmount: 'sponsorship_amount', sponsorshipType: 'sponsorship_type', datePaid: 'date_paid', image: 'image' }
         });
 
         await client.query('COMMIT');
@@ -1083,7 +1080,7 @@ app.put('/api/sponsors/:id', authMiddleware, permissionMiddleware('action:edit')
         res.json({
             id: updatedSponsor.id, name: updatedSponsor.name, contactNumber: updatedSponsor.contact_number, address: updatedSponsor.address, email: updatedSponsor.email,
             businessCategory: updatedSponsor.business_category, businessInfo: updatedSponsor.business_info, sponsorshipAmount: updatedSponsor.sponsorship_amount,
-            sponsorshipType: updatedSponsor.sponsorship_type, datePaid: updatedSponsor.date_paid, createdAt: updatedSponsor.created_at, updatedAt: updatedSponsor.updated_at
+            sponsorshipType: updatedSponsor.sponsorship_type, datePaid: updatedSponsor.date_paid, image: updatedSponsor.image, createdAt: updatedSponsor.created_at, updatedAt: updatedSponsor.updated_at
         });
     } catch (err) { 
         await client.query('ROLLBACK');
