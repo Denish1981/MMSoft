@@ -1,5 +1,3 @@
-
-
 export enum ContributionStatus {
   Completed = 'Completed',
   Pending = 'Pending',
@@ -81,20 +79,42 @@ export interface Vendor {
   deletedAt?: string | null;
 }
 
+export type PaymentMethod = 'Cash' | 'Online' | 'Cheque';
+
+export interface Payment {
+  // FIX: Made backend-generated fields optional to allow creation on the client.
+  id?: number;
+  amount: number;
+  paymentDate: string; // ISO String
+  paymentMethod: PaymentMethod;
+  notes?: string;
+  paymentDoneBy?: string;
+  image?: string;
+  expenseId?: number;
+  createdAt?: string; // ISO string
+  updatedAt?: string; // ISO string
+  deletedAt?: string | null;
+}
+
 export interface Expense {
   id: number;
   name: string;
   vendorId: number;
-  cost: number;
+  totalCost: number; // Renamed from cost
   billDate: string; // ISO String
   expenseHead: string;
   billReceipts?: string[];
   expenseBy: string;
   festivalId?: number | null;
+  payments: Payment[]; // Added payments array
+  // FIX: Made backend-calculated fields optional.
+  amountPaid?: number; // Calculated on backend
+  outstandingAmount?: number; // Calculated on backend
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;
 }
+
 
 export interface Quotation {
     id: number;

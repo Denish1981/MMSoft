@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
 import { CloseIcon } from './icons/CloseIcon';

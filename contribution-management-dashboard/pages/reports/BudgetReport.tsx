@@ -43,7 +43,7 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses, festival
         filteredExpenses.forEach(expense => {
             const head = expense.expenseHead;
             const current = dataMap.get(head) || { budgeted: 0, actual: 0 };
-            current.actual += Number(expense.cost) || 0;
+            current.actual += Number(expense.totalCost) || 0;
             dataMap.set(head, current);
         });
 

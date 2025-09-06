@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -65,7 +63,7 @@ const ProtectedLayout: React.FC<any> = ({
     isContributionModalOpen, campaigns, contributionToEdit, handleContributionSubmit,
     isSponsorModalOpen, sponsorToEdit, handleSponsorSubmit,
     isVendorModalOpen, vendorToEdit, handleVendorSubmit,
-    isExpenseModalOpen, vendors, expenses, festivals, expenseToEdit, handleExpenseSubmit,
+    isExpenseModalOpen, vendors, festivals, expenseToEdit, handleExpenseSubmit,
     isQuotationModalOpen, quotationToEdit, handleQuotationSubmit,
     isBudgetModalOpen, expenseHeads, budgetToEdit, handleBudgetSubmit,
     isFestivalModalOpen, festivalToEdit, handleFestivalSubmit,
@@ -109,7 +107,7 @@ const ProtectedLayout: React.FC<any> = ({
          {isContributionModalOpen && <ContributionModal campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={() => { setIsContributionModalOpen(false); setContributionToEdit(null); }} onSubmit={handleContributionSubmit} />}
          {isSponsorModalOpen && <SponsorModal sponsorToEdit={sponsorToEdit} onClose={() => { setIsSponsorModalOpen(false); setSponsorToEdit(null); }} onSubmit={handleSponsorSubmit} />}
          {isVendorModalOpen && <VendorModal vendorToEdit={vendorToEdit} onClose={() => { setIsVendorModalOpen(false); setVendorToEdit(null); }} onSubmit={handleVendorSubmit} />}
-         {isExpenseModalOpen && <ExpenseModal vendors={vendors} expenses={expenses} festivals={festivals} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
+         {isExpenseModalOpen && <ExpenseModal vendors={vendors} festivals={festivals} expenseToEdit={expenseToEdit} onClose={() => { setIsExpenseModalOpen(false); setExpenseToEdit(null); }} onSubmit={handleExpenseSubmit} />}
          {isQuotationModalOpen && <QuotationModal vendors={vendors} festivals={festivals} quotationToEdit={quotationToEdit} onClose={() => { setIsQuotationModalOpen(false); setQuotationToEdit(null); }} onSubmit={handleQuotationSubmit} />}
          {isBudgetModalOpen && <BudgetModal expenseHeads={expenseHeads} festivals={festivals} budgetToEdit={budgetToEdit} onClose={() => { setIsBudgetModalOpen(false); setBudgetToEdit(null); }} onSubmit={handleBudgetSubmit} />}
          {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={() => { setIsFestivalModalOpen(false); setFestivalToEdit(null); }} onSubmit={handleFestivalSubmit} />}
@@ -404,10 +402,22 @@ const AppContent: React.FC = () => {
         else handleAdd(`${API_URL}/vendors`, data, setVendors, () => setIsVendorModalOpen(false));
     };
 
-    const handleExpenseSubmit = (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
-        if (expenseToEdit) handleUpdate(`${API_URL}/expenses`, { ...data, id: expenseToEdit.id, createdAt: expenseToEdit.createdAt, updatedAt: expenseToEdit.updatedAt }, setExpenses, () => setIsExpenseModalOpen(false));
-        else handleAdd(`${API_URL}/expenses`, data, setExpenses, () => setIsExpenseModalOpen(false));
+    const handleExpenseSubmit = (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'amountPaid' | 'outstandingAmount'>) => {
+        if (expenseToEdit) {
+            // FIX: Create a payload for the API that does not include backend-calculated fields
+            // to prevent type inference issues with the generic `handleUpdate` function.
+            const updatedExpense = {
+                ...data,
+                id: expenseToEdit.id,
+                createdAt: expenseToEdit.createdAt,
+                updatedAt: expenseToEdit.updatedAt,
+            };
+            handleUpdate(`${API_URL}/expenses`, updatedExpense, setExpenses, () => setIsExpenseModalOpen(false));
+        } else {
+            handleAdd(`${API_URL}/expenses`, data, setExpenses, () => setIsExpenseModalOpen(false));
+        }
     };
+    
 
     const handleQuotationSubmit = (data: Omit<Quotation, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => {
         if (quotationToEdit) handleUpdate(`${API_URL}/quotations`, { ...data, id: quotationToEdit.id, createdAt: quotationToEdit.createdAt, updatedAt: quotationToEdit.updatedAt }, setQuotations, () => setIsQuotationModalOpen(false));
@@ -480,7 +490,7 @@ const AppContent: React.FC = () => {
                         isContributionModalOpen, campaigns, contributionToEdit, handleContributionSubmit,
                         isSponsorModalOpen, sponsorToEdit, handleSponsorSubmit,
                         isVendorModalOpen, vendorToEdit, handleVendorSubmit,
-                        isExpenseModalOpen, vendors, expenses, festivals, expenseToEdit, handleExpenseSubmit,
+                        isExpenseModalOpen, vendors, festivals, expenseToEdit, handleExpenseSubmit,
                         isQuotationModalOpen, quotationToEdit, handleQuotationSubmit,
                         isBudgetModalOpen, expenseHeads, budgetToEdit, handleBudgetSubmit,
                         isFestivalModalOpen, festivalToEdit, handleFestivalSubmit,
@@ -492,7 +502,7 @@ const AppContent: React.FC = () => {
                     }} /> 
                     : <Navigate to="/login" />}
                 >
-                    <Route path="/dashboard" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard contributions={contributions} donors={donors} sponsors={sponsors} expenses={expenses} /></ProtectedRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard contributions={contributions} donors={donors} sponsors={sponsors} expenses={expenses} vendors={vendors} /></ProtectedRoute>} />
                     <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions contributions={contributions} campaigns={campaigns} onEdit={(item) => openModal(setIsContributionModalOpen, 'action:edit', setContributionToEdit, item)} onDelete={(id) => handleDeleteClick(id, 'contributions')} onViewHistory={handleViewHistory} /></ProtectedRoute>} />
                     <Route path="/bulk-add" element={<ProtectedRoute permission="page:bulk-add:view"><BulkAddPage campaigns={campaigns} onBulkSaveSuccess={fetchData} /></ProtectedRoute>} />
                     <Route path="/donors" element={<ProtectedRoute permission="page:donors:view"><Donors donors={donors} /></ProtectedRoute>} />

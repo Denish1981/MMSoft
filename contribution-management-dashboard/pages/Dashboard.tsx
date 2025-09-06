@@ -1,23 +1,27 @@
 import React, { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import SummaryCard from '../components/SummaryCard';
-import type { Contribution, Donor, Sponsor, Expense } from '../types';
+import type { Contribution, Donor, Sponsor, Expense, Vendor } from '../types';
 import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
+import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
+import { formatCurrency } from '../utils/formatting';
 
 interface DashboardProps {
     contributions: Contribution[];
     donors: Donor[];
     sponsors: Sponsor[];
     expenses: Expense[];
+    vendors: Vendor[];
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, expenses }) => {
+const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, expenses, vendors }) => {
     const totalContributions = useMemo(() => {
         return contributions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
     }, [contributions]);
 
     const totalExpenses = useMemo(() => {
-        return expenses.reduce((acc, e) => acc + (Number(e.cost) || 0), 0);
+        return expenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
     }, [expenses]);
 
     const totalSponsorshipsAmount = useMemo(() => {
@@ -38,7 +42,7 @@ const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, 
         expenses.forEach(expense => {
             const head = expense.expenseHead || 'Uncategorized';
             const currentTotal = expenseMap.get(head) || 0;
-            expenseMap.set(head, currentTotal + (Number(expense.cost) || 0));
+            expenseMap.set(head, currentTotal + (Number(expense.totalCost) || 0));
         });
 
         const colors = ['bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500', 'bg-lime-500', 'bg-cyan-500', 'bg-fuchsia-500'];
@@ -52,6 +56,21 @@ const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, 
                 path: `/reports?tab=expenses&expenseHead=${encodeURIComponent(label)}`
             }));
     }, [expenses]);
+
+    const outstandingPayments = useMemo(() => {
+        const vendorMap = new Map(vendors.map(v => [v.id, v.name]));
+        return expenses
+            .filter(e => e.outstandingAmount && e.outstandingAmount > 0)
+            .map(e => ({
+                ...e,
+                vendorName: vendorMap.get(e.vendorId) || 'Unknown Vendor',
+            }))
+            .sort((a, b) => (b.outstandingAmount || 0) - (a.outstandingAmount || 0));
+    }, [expenses, vendors]);
+
+    const totalOutstanding = useMemo(() => {
+        return outstandingPayments.reduce((acc, payment) => acc + (payment.outstandingAmount || 0), 0);
+    }, [outstandingPayments]);
 
     return (
         <div className="space-y-8">
@@ -68,6 +87,54 @@ const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, 
                     icon={<ReceiptIcon className="w-6 h-6" />}
                     breakdown={expenseBreakdown}
                 />
+            </div>
+
+            {/* Outstanding Payments Gadget */}
+            <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center">
+                        <div className="bg-yellow-100 text-yellow-600 p-3 rounded-full mr-4">
+                            <AlertTriangleIcon className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-800">Outstanding Payments</h3>
+                            <p className="text-sm text-slate-500">
+                                {outstandingPayments.length > 0 ? `${outstandingPayments.length} pending payments` : 'All payments are up to date'}
+                            </p>
+                        </div>
+                    </div>
+                    {outstandingPayments.length > 0 && (
+                        <div className="text-right">
+                            <p className="text-sm font-medium text-slate-500">Total Outstanding</p>
+                            <p className="text-2xl font-bold text-red-600">
+                                {formatCurrency(totalOutstanding)}
+                            </p>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                    {outstandingPayments.length > 0 ? (
+                        outstandingPayments.map(payment => (
+                            <Link to="/expenses" key={payment.id} className="block p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold text-slate-700">{payment.name}</p>
+                                        <p className="text-xs text-slate-500">{payment.vendorName}</p>
+                                    </div>
+                                    <p className="font-bold text-red-600">
+                                        {formatCurrency(payment.outstandingAmount || 0)}
+                                    </p>
+                                </div>
+                            </Link>
+                        ))
+                    ) : (
+                        <div className="text-center py-10 text-slate-500">
+                            <p className="font-semibold">All Clear!</p>
+                            <p className="text-sm">No outstanding expense payments found.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

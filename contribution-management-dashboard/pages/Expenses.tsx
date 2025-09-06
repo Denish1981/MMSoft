@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Expense, Vendor, Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
@@ -115,7 +114,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
             
             if (filters.costValue) {
                 const costFilterValue = parseFloat(filters.costValue);
-                const expenseCost = parseFloat(String(e.cost));
+                const expenseCost = parseFloat(String(e.totalCost));
                 if (!isNaN(costFilterValue)) {
                     if (filters.costComparator === '>=' && expenseCost < costFilterValue) return false;
                     if (filters.costComparator === '<=' && expenseCost > costFilterValue) return false;
@@ -148,7 +147,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                 <FilterContainer onReset={resetFilters}>
                     <TextInput label="Expense Name" value={filters.name} onChange={val => handleFilterChange('name', val)} />
                     <SelectInput label="Vendor" value={filters.vendorId} onChange={val => handleFilterChange('vendorId', val)} options={vendorOptions} placeholder="All Vendors" />
-                    <AmountInput label="Cost" comparator={filters.costComparator} onComparatorChange={val => handleFilterChange('costComparator', val)} value={filters.costValue} onValueChange={val => handleFilterChange('costValue', val)} />
+                    <AmountInput label="Total Cost" comparator={filters.costComparator} onComparatorChange={val => handleFilterChange('costComparator', val)} value={filters.costValue} onValueChange={val => handleFilterChange('costValue', val)} />
                     <DateInput label="Bill Date" value={filters.billDate} onChange={val => handleFilterChange('billDate', val)} />
                     <SelectInput label="Expense Head" value={filters.expenseHead} onChange={val => handleFilterChange('expenseHead', val)} options={expenseHeadOptions} placeholder="All Heads" />
                 </FilterContainer>
@@ -159,9 +158,10 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vendor</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cost</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Total Cost</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Paid</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Outstanding</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense Head</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Receipts</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -171,9 +171,12 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                                 <tr key={expense.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{expense.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(expense.vendorId) || 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(expense.cost)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold text-right">{formatCurrency(expense.totalCost)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 text-right">{formatCurrency(expense.amountPaid || 0)}</td>
+                                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${(expense.outstandingAmount || 0) > 0 ? 'text-red-600' : 'text-slate-500'}`}>
+                                        {formatCurrency(expense.outstandingAmount || 0)}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(expense.billDate)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{expense.expenseHead}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         {expense.billReceipts && expense.billReceipts.length > 0 ? (
                                             <div className="flex items-center justify-center space-x-2">
@@ -213,7 +216,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                             ))}
                               {paginatedExpenses.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-10 text-slate-500">
+                                    <td colSpan={8} className="text-center py-10 text-slate-500">
                                         {expenses.length === 0 ? "No expenses have been added yet." : "No expenses match your current filters."}
                                     </td>
                                 </tr>

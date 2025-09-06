@@ -70,9 +70,9 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
             if (filters.costValue) {
                 const cost = parseFloat(filters.costValue);
                 if (!isNaN(cost)) {
-                    if (filters.costComparator === '>=' && e.cost < cost) return false;
-                    if (filters.costComparator === '<=' && e.cost > cost) return false;
-                    if (filters.costComparator === '==' && e.cost !== cost) return false;
+                    if (filters.costComparator === '>=' && e.totalCost < cost) return false;
+                    if (filters.costComparator === '<=' && e.totalCost > cost) return false;
+                    if (filters.costComparator === '==' && e.totalCost !== cost) return false;
                 }
             }
 
@@ -92,7 +92,9 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
             'Expense Name': e.name,
             'Vendor': vendorMap.get(e.vendorId) || 'N/A',
             'Associated Festival': (e.festivalId && festivalMap.get(e.festivalId)) || 'N/A',
-            'Cost': e.cost,
+            'Total Cost': e.totalCost,
+            'Amount Paid': e.amountPaid || 0,
+            'Outstanding Amount': e.outstandingAmount || 0,
             'Bill Date': new Date(e.billDate).toLocaleDateString(),
             'Expense Head': e.expenseHead,
             'Done By': e.expenseBy,
@@ -107,7 +109,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
                 <SelectInput label="Vendor" value={filters.vendorId} onChange={val => handleFilterChange('vendorId', val)} options={vendorOptions} placeholder="All Vendors" />
                 <SelectInput label="Festival" value={filters.festivalId} onChange={val => handleFilterChange('festivalId', val)} options={festivalOptions} placeholder="All Festivals" />
                 <AmountInput
-                    label="Cost"
+                    label="Total Cost"
                     comparator={filters.costComparator}
                     onComparatorChange={val => handleFilterChange('costComparator', val)}
                     value={filters.costValue}
@@ -124,11 +126,10 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Expense</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Vendor</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Associated Festival</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Cost</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Total Cost</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Amount Paid</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Outstanding</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Bill Date</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Head</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Done By</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
@@ -136,11 +137,10 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
                             <tr key={e.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{e.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(e.vendorId) || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(e.festivalId && festivalMap.get(e.festivalId)) || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(e.cost)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800 text-right">{formatCurrency(e.totalCost)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 text-right">{formatCurrency(e.amountPaid || 0)}</td>
+                                <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${(e.outstandingAmount || 0) > 0 ? 'text-red-600' : 'text-slate-500'}`}>{formatCurrency(e.outstandingAmount || 0)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(e.billDate)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{e.expenseHead}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{e.expenseBy}</td>
                             </tr>
                         ))}
                     </tbody>

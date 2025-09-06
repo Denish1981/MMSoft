@@ -1,6 +1,3 @@
-
-
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -148,6 +145,34 @@ const seedDatabase = async () => {
         // Add the column if it doesn't exist for backward compatibility
         await client.query(`ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`);
 
+        // --- Expense Payment Migration ---
+        const expenseColumns = await client.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'expenses' AND table_schema = 'public' AND column_name = 'cost'
+        `);
+        if (expenseColumns.rows.length > 0) {
+            await client.query('ALTER TABLE expenses RENAME COLUMN cost TO total_cost');
+            console.log("Migrated 'expenses' table: renamed 'cost' to 'total_cost'.");
+        }
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS expense_payments (
+                id SERIAL PRIMARY KEY,
+                expense_id INTEGER NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+                amount NUMERIC(10, 2) NOT NULL,
+                payment_date DATE NOT NULL,
+                payment_method VARCHAR(50) NOT NULL,
+                notes TEXT,
+                image_data TEXT,
+                payment_done_by VARCHAR(255),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                deleted_at TIMESTAMPTZ
+            );
+        `);
+        await client.query('ALTER TABLE expense_payments ADD COLUMN IF NOT EXISTS image_data TEXT;');
+        await client.query('ALTER TABLE expense_payments ADD COLUMN IF NOT EXISTS payment_done_by VARCHAR(255);');
+        // --- End Expense Payment Migration ---
+
 
         // History tables
         await createHistoryTable(client, 'contributions_history', 'contributions');
@@ -159,6 +184,8 @@ const seedDatabase = async () => {
         await createHistoryTable(client, 'festivals_history', 'festivals');
         await createHistoryTable(client, 'task_history', 'tasks', 'INTEGER');
         await createHistoryTable(client, 'events_history', 'events');
+        await createHistoryTable(client, 'expense_payments_history', 'expense_payments');
+
 
         const permissionMap = new Map();
         for (const perm of ALL_PERMISSIONS) {
@@ -591,14 +618,26 @@ app.get('/api/sponsors', authMiddleware, permissionMiddleware('page:sponsors:vie
 
 app.get('/api/expenses', authMiddleware, permissionMiddleware('page:expenses:view'), async (req, res) => {
     try {
-        const expensesResult = await db.query('SELECT id, name, vendor_id AS "vendorId", cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy", festival_id as "festivalId", created_at AS "createdAt", updated_at AS "updatedAt" FROM expenses WHERE deleted_at IS NULL ORDER BY bill_date DESC');
-        const expenses = expensesResult.rows;
+        const expensesResult = await db.query('SELECT id, name, vendor_id AS "vendorId", total_cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy", festival_id as "festivalId", created_at AS "createdAt", updated_at AS "updatedAt" FROM expenses WHERE deleted_at IS NULL ORDER BY bill_date DESC');
+        const expenses = expensesResult.rows.map(e => ({ ...e, totalCost: parseFloat(e.total_cost) }));
+
         for (const expense of expenses) {
+            const paymentsResult = await db.query(
+                'SELECT id, amount, payment_date AS "paymentDate", payment_method AS "paymentMethod", notes, image_data as "image", payment_done_by as "paymentDoneBy", expense_id as "expenseId", created_at as "createdAt", updated_at as "updatedAt" FROM expense_payments WHERE expense_id = $1 AND deleted_at IS NULL ORDER BY payment_date ASC',
+                [expense.id]
+            );
+            expense.payments = paymentsResult.rows.map(p => ({ ...p, amount: parseFloat(p.amount) }));
+            expense.amountPaid = expense.payments.reduce((sum, p) => sum + p.amount, 0);
+            expense.outstandingAmount = expense.totalCost - expense.amountPaid;
+
             const imagesResult = await db.query('SELECT image_data FROM expense_images WHERE expense_id = $1', [expense.id]);
             expense.billReceipts = imagesResult.rows.map(row => row.image_data);
         }
         res.json(expenses);
-    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
+    } catch (err) { 
+        console.error('Error fetching expenses:', err);
+        res.status(500).json({ error: 'Internal server error' }); 
+    }
 });
 
 app.get('/api/festivals', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
@@ -883,13 +922,26 @@ app.post('/api/vendors', authMiddleware, permissionMiddleware('action:create'), 
 });
 
 app.post('/api/expenses', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy, festivalId } = req.body;
+    const { name, vendorId, totalCost, billDate, expenseHead, billReceipts, expenseBy, festivalId, payments = [] } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        const expenseRes = await client.query('INSERT INTO expenses (name, vendor_id, cost, bill_date, expense_head, expense_by, festival_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-            [name, vendorId, cost, billDate, expenseHead, expenseBy, festivalId || null]);
+        const expenseRes = await client.query(
+            'INSERT INTO expenses (name, vendor_id, total_cost, bill_date, expense_head, expense_by, festival_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [name, vendorId, totalCost, billDate, expenseHead, expenseBy, festivalId || null]
+        );
         const newExpense = expenseRes.rows[0];
+        
+        const insertedPayments = [];
+        if (payments && payments.length > 0) {
+            for (const payment of payments) {
+                const paymentRes = await client.query(
+                    'INSERT INTO expense_payments (expense_id, amount, payment_date, payment_method, notes, image_data, payment_done_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, amount, payment_date AS "paymentDate", payment_method AS "paymentMethod", notes, image_data as "image", payment_done_by as "paymentDoneBy", expense_id as "expenseId", created_at as "createdAt", updated_at as "updatedAt"',
+                    [newExpense.id, payment.amount, payment.paymentDate, payment.paymentMethod, payment.notes, payment.image, payment.paymentDoneBy]
+                );
+                insertedPayments.push(paymentRes.rows[0]);
+            }
+        }
         
         const insertedImages = [];
         if (billReceipts && billReceipts.length > 0) {
@@ -899,21 +951,29 @@ app.post('/api/expenses', authMiddleware, permissionMiddleware('action:create'),
             }
         }
         await client.query('COMMIT');
+        
+        const amountPaid = insertedPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        const outstandingAmount = parseFloat(newExpense.total_cost) - amountPaid;
+
         res.status(201).json({
             id: newExpense.id,
             name: newExpense.name,
             vendorId: newExpense.vendor_id,
-            cost: newExpense.cost,
+            totalCost: parseFloat(newExpense.total_cost),
             billDate: newExpense.bill_date,
             expenseHead: newExpense.expense_head,
             expenseBy: newExpense.expense_by,
             festivalId: newExpense.festival_id,
             billReceipts: insertedImages,
             createdAt: newExpense.created_at,
-            updatedAt: newExpense.updated_at
+            updatedAt: newExpense.updated_at,
+            payments: insertedPayments.map(p => ({...p, amount: parseFloat(p.amount)})),
+            amountPaid,
+            outstandingAmount
         });
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error('Error creating expense:', err);
         res.status(500).json({ error: 'Internal server error' });
     } finally { client.release(); }
 });
@@ -1131,37 +1191,64 @@ app.put('/api/vendors/:id', authMiddleware, permissionMiddleware('action:edit'),
 
 app.put('/api/expenses/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, vendorId, cost, billDate, expenseHead, billReceipts, expenseBy, festivalId } = req.body;
+    const { name, vendorId, totalCost, billDate, expenseHead, billReceipts, expenseBy, festivalId, payments = [] } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const oldDataRes = await client.query('SELECT * FROM expenses WHERE id=$1 FOR UPDATE', [id]);
         if (oldDataRes.rows.length === 0) throw new Error('Expense not found');
 
-        const result = await client.query('UPDATE expenses SET name=$1, vendor_id=$2, cost=$3, bill_date=$4, expense_head=$5, expense_by=$6, festival_id=$7, updated_at=NOW() WHERE id=$8 RETURNING *',
-            [name, vendorId, cost, billDate, expenseHead, expenseBy, festivalId || null, id]);
+        const result = await client.query(
+            'UPDATE expenses SET name=$1, vendor_id=$2, total_cost=$3, bill_date=$4, expense_head=$5, expense_by=$6, festival_id=$7, updated_at=NOW() WHERE id=$8 RETURNING *',
+            [name, vendorId, totalCost, billDate, expenseHead, expenseBy, festivalId || null, id]
+        );
         
         await logChanges(client, {
             historyTable: 'expenses_history', recordId: id, changedByUserId: req.user.id,
-            oldData: oldDataRes.rows[0], newData: req.body,
-            fieldMapping: { name: 'name', vendorId: 'vendor_id', cost: 'cost', billDate: 'bill_date', expenseHead: 'expense_head', expenseBy: 'expense_by', festivalId: 'festival_id' }
+            oldData: oldDataRes.rows[0], newData: { name, vendorId, totalCost, billDate, expenseHead, expenseBy, festivalId },
+            fieldMapping: { name: 'name', vendorId: 'vendor_id', totalCost: 'total_cost', billDate: 'bill_date', expenseHead: 'expense_head', expenseBy: 'expense_by', festivalId: 'festival_id' }
         });
 
-        // Handle images
+        // Handle Payments (replace all strategy)
+        await client.query('DELETE FROM expense_payments WHERE expense_id=$1', [id]);
+        const insertedPayments = [];
+        if (payments && payments.length > 0) {
+            for (const payment of payments) {
+                const paymentRes = await client.query(
+                    'INSERT INTO expense_payments (expense_id, amount, payment_date, payment_method, notes, image_data, payment_done_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, amount, payment_date AS "paymentDate", payment_method AS "paymentMethod", notes, image_data as "image", payment_done_by as "paymentDoneBy", expense_id as "expenseId", created_at as "createdAt", updated_at as "updatedAt"',
+                    [id, payment.amount, payment.paymentDate, payment.paymentMethod, payment.notes, payment.image, payment.paymentDoneBy]
+                );
+                insertedPayments.push(paymentRes.rows[0]);
+            }
+        }
+        
         await client.query('DELETE FROM expense_images WHERE expense_id=$1', [id]);
         if (billReceipts && billReceipts.length > 0) {
             for (const image of billReceipts) {
                 await client.query('INSERT INTO expense_images (expense_id, image_data) VALUES ($1, $2)', [id, image]);
             }
         }
+        
         await client.query('COMMIT');
+        
         const updatedExpense = result.rows[0];
+        const amountPaid = insertedPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        const outstandingAmount = parseFloat(updatedExpense.total_cost) - amountPaid;
+
         res.json({
-            id: updatedExpense.id, name: updatedExpense.name, vendorId: updatedExpense.vendor_id, cost: updatedExpense.cost, billDate: updatedExpense.bill_date,
+            id: updatedExpense.id, name: updatedExpense.name, vendorId: updatedExpense.vendor_id, 
+            totalCost: parseFloat(updatedExpense.total_cost), billDate: updatedExpense.bill_date,
             expenseHead: updatedExpense.expense_head, billReceipts, expenseBy: updatedExpense.expense_by, festivalId: updatedExpense.festival_id,
-            createdAt: updatedExpense.created_at, updatedAt: updatedExpense.updated_at
+            createdAt: updatedExpense.created_at, updatedAt: updatedExpense.updated_at,
+            payments: insertedPayments.map(p => ({...p, amount: parseFloat(p.amount)})),
+            amountPaid,
+            outstandingAmount
         });
-    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Failed to update expense' }); }
+    } catch (err) { 
+        await client.query('ROLLBACK');
+        console.error('Error updating expense:', err);
+        res.status(500).json({ error: 'Failed to update expense' }); 
+    }
     finally { client.release(); }
 });
 

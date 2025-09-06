@@ -344,3 +344,25 @@ CREATE TABLE event_contact_persons (
 );
 
 ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;
+
+-- This command renames the column
+ALTER TABLE expenses RENAME COLUMN cost TO total_cost;
+
+CREATE TABLE IF NOT EXISTS expense_payments (
+    id SERIAL PRIMARY KEY,
+    expense_id INTEGER NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+    amount NUMERIC(10, 2) NOT NULL,
+    payment_date DATE NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+ALTER TABLE expense_payments ADD COLUMN image_data TEXT;
+
+ALTER TABLE expense_payments ADD COLUMN payment_done_by VARCHAR(255);
+
+-- Add a boolean flag to the expenses table
+ALTER TABLE expenses ADD COLUMN has_multiple_payments BOOLEAN NOT NULL DEFAULT FALSE;
