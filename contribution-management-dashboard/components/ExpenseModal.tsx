@@ -66,6 +66,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
     const [viewingPaymentImage, setViewingPaymentImage] = useState<string | null>(null);
 
     useEffect(() => {
+        const resetSinglePaymentForm = () => {
+            setSinglePaymentDate(new Date().toISOString().split('T')[0]);
+            setSinglePaymentMethod('Online');
+            setSinglePaymentNotes('');
+            setSinglePaymentImage(undefined);
+            setSinglePaymentImagePreview(null);
+        };
+    
+        const resetMultiPaymentForm = () => {
+            setMultiPayments([]);
+        };
+    
         if (expenseToEdit) {
             setName(expenseToEdit.name);
             setVendorId(String(expenseToEdit.vendorId));
@@ -76,29 +88,35 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
             setReceiptPreviews(expenseToEdit.billReceipts || []);
             setExpenseBy(expenseToEdit.expenseBy);
             setFestivalId(expenseToEdit.festivalId ? String(expenseToEdit.festivalId) : null);
-            setHasMultiplePayments(expenseToEdit.hasMultiplePayments);
-
-            if(expenseToEdit.hasMultiplePayments) {
-                 setMultiPayments(expenseToEdit.payments || []);
-            } else if (expenseToEdit.payments?.length === 1) {
-                const singlePayment = expenseToEdit.payments[0];
-                setSinglePaymentDate(new Date(singlePayment.paymentDate).toISOString().split('T')[0]);
-                setSinglePaymentMethod(singlePayment.paymentMethod);
-                setSinglePaymentNotes(singlePayment.notes || '');
-                setSinglePaymentImage(singlePayment.image);
-                setSinglePaymentImagePreview(singlePayment.image || null);
+            
+            // Robustly check the boolean flag, as it might be a string from some data sources.
+            const isMulti = String(expenseToEdit.hasMultiplePayments) === 'true';
+            setHasMultiplePayments(isMulti);
+    
+            if (isMulti) {
+                setMultiPayments(expenseToEdit.payments || []);
+                resetSinglePaymentForm();
+            } else {
+                resetMultiPaymentForm();
+                if (expenseToEdit.payments?.length === 1) {
+                    const singlePayment = expenseToEdit.payments[0];
+                    setSinglePaymentDate(new Date(singlePayment.paymentDate).toISOString().split('T')[0]);
+                    setSinglePaymentMethod(singlePayment.paymentMethod);
+                    setSinglePaymentNotes(singlePayment.notes || '');
+                    setSinglePaymentImage(singlePayment.image);
+                    setSinglePaymentImagePreview(singlePayment.image || null);
+                } else {
+                    resetSinglePaymentForm();
+                }
             }
         } else {
-            // Reset form
+            // Reset entire form for new entry
             setName(''); setVendorId(''); setTotalCost('');
             setBillDate(new Date().toISOString().split('T')[0]);
             setExpenseHead(''); setBillReceipts([]); setReceiptPreviews([]);
             setExpenseBy(''); setFestivalId(null); setHasMultiplePayments(false);
-            setMultiPayments([]);
-            // Reset single payment fields
-            setSinglePaymentDate(new Date().toISOString().split('T')[0]);
-            setSinglePaymentMethod('Online'); setSinglePaymentNotes('');
-            setSinglePaymentImage(undefined); setSinglePaymentImagePreview(null);
+            resetMultiPaymentForm();
+            resetSinglePaymentForm();
         }
     }, [expenseToEdit]);
 

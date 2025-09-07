@@ -366,3 +366,5 @@ ALTER TABLE expense_payments ADD COLUMN payment_done_by VARCHAR(255);
 
 -- Add a boolean flag to the expenses table
 ALTER TABLE expenses ADD COLUMN has_multiple_payments BOOLEAN NOT NULL DEFAULT FALSE;
+
+alter table expense_payments alter column payment_method SET DEFAULT 'Online';
