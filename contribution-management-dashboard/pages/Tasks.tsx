@@ -1,22 +1,13 @@
-
-
 import React, { useState, useMemo } from 'react';
-import type { Task, Festival, UserForManagement } from '../types';
+import type { Task } from '../types';
 import { TaskStatus } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';
 import { UserIcon } from '../components/icons/UserIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
-
-interface TasksProps {
-    tasks: Task[];
-    festivals: Festival[];
-    users: UserForManagement[];
-    onEdit: (task: Task) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
 const statusColors: { [key in TaskStatus]: { bg: string; text: string; border: string } } = {
     [TaskStatus.ToDo]: { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-300' },
@@ -25,7 +16,7 @@ const statusColors: { [key in TaskStatus]: { bg: string; text: string; border: s
     [TaskStatus.Blocked]: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' },
 };
 
-const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (id: number) => void; onViewHistory: (recordType: string, recordId: number, title: string) => void; festivalName: string | undefined; }> = ({ task, onEdit, onDelete, onViewHistory, festivalName }) => {
+const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (id: number, type: string) => void; onViewHistory: (recordType: string, recordId: number, title: string) => void; festivalName: string | undefined; }> = ({ task, onEdit, onDelete, onViewHistory, festivalName }) => {
     const dueDate = new Date(task.dueDate);
     const isOverdue = dueDate < new Date() && task.status !== TaskStatus.Done;
 
@@ -36,7 +27,7 @@ const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (
                 <div className="flex items-center space-x-2 flex-shrink-0">
                     <button onClick={() => onViewHistory('tasks', task.id, `History for ${task.title}`)} className="text-slate-500 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>
                     <button onClick={() => onEdit(task)} className="text-slate-500 hover:text-slate-800" title="Edit Task"><EditIcon className="w-4 h-4" /></button>
-                    <button onClick={() => onDelete(task.id)} className="text-red-500 hover:text-red-700" title="Delete Task"><DeleteIcon className="w-4 h-4" /></button>
+                    <button onClick={() => onDelete(task.id, 'tasks')} className="text-red-500 hover:text-red-700" title="Delete Task"><DeleteIcon className="w-4 h-4" /></button>
                 </div>
             </div>
             {task.description && <p className="text-sm text-slate-600 break-words">{task.description}</p>}
@@ -57,7 +48,7 @@ const TaskCard: React.FC<{ task: Task; onEdit: (task: Task) => void; onDelete: (
     );
 };
 
-const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: Task) => void; onDelete: (id: number) => void; onViewHistory: (recordType: string, recordId: number, title: string) => void; festivalMap: Map<number, string> }> = ({ status, tasks, onEdit, onDelete, onViewHistory, festivalMap }) => {
+const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: Task) => void; onDelete: (id: number, type: string) => void; onViewHistory: (recordType: string, recordId: number, title: string) => void; festivalMap: Map<number, string> }> = ({ status, tasks, onEdit, onDelete, onViewHistory, festivalMap }) => {
     const colors = statusColors[status];
     return (
         <div className={`flex-1 min-w-[300px] md:min-w-[320px] ${colors.bg} rounded-lg p-3 md:p-4 flex flex-col`}>
@@ -88,7 +79,10 @@ const TaskColumn: React.FC<{ status: TaskStatus; tasks: Task[]; onEdit: (task: T
     );
 };
 
-const Tasks: React.FC<TasksProps> = ({ tasks, festivals, onEdit, onDelete, onViewHistory }) => {
+const Tasks: React.FC = () => {
+    const { tasks, festivals } = useData();
+    const { openTaskModal, openConfirmationModal, openHistoryModal } = useModal();
+    
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
@@ -135,9 +129,9 @@ const Tasks: React.FC<TasksProps> = ({ tasks, festivals, onEdit, onDelete, onVie
                         key={status}
                         status={status}
                         tasks={tasksByStatus[status]}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onViewHistory={onViewHistory}
+                        onEdit={openTaskModal}
+                        onDelete={openConfirmationModal}
+                        onViewHistory={openHistoryModal}
                         festivalMap={festivalMap}
                     />
                 ))}

@@ -1,11 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import type { Contribution, Campaign } from '../types';
 import { generateContributionSummary } from '../services/geminiService';
 import { SparklesIcon } from '../components/icons/SparklesIcon';
 import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 
 const AiInsights: React.FC = () => {
+    const { token, logout } = useAuth();
     const [period, setPeriod] = useState('7');
     const [summary, setSummary] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -15,11 +16,19 @@ const AiInsights: React.FC = () => {
     useEffect(() => {
         // Fetch the data required for this page
         const fetchData = async () => {
+            if (!token) return;
             try {
+                const headers = { 'Authorization': `Bearer ${token}` };
                 const [contributionsRes, campaignsRes] = await Promise.all([
-                    fetch(`${API_URL}/contributions`),
-                    fetch(`${API_URL}/campaigns`)
+                    fetch(`${API_URL}/contributions`, { headers }),
+                    fetch(`${API_URL}/campaigns`, { headers })
                 ]);
+
+                if (contributionsRes.status === 401 || campaignsRes.status === 401) {
+                    logout();
+                    return;
+                }
+
                 setContributions(await contributionsRes.json());
                 setCampaigns(await campaignsRes.json());
             } catch (error) {
@@ -27,7 +36,7 @@ const AiInsights: React.FC = () => {
             }
         };
         fetchData();
-    }, []);
+    }, [token, logout]);
 
     const handleGenerateSummary = async () => {
         setIsLoading(true);
@@ -42,8 +51,12 @@ const AiInsights: React.FC = () => {
             ? contributions 
             : contributions.filter(d => new Date(d.date) >= cutoffDate);
 
-        const result = await generateContributionSummary(filteredContributions, campaigns, periodText);
-        setSummary(result);
+        const result = await generateContributionSummary(filteredContributions, campaigns, periodText, token);
+        if (result.error) {
+            setSummary(result.error);
+        } else {
+            setSummary(result.summary || '');
+        }
         setIsLoading(false);
     };
 
@@ -78,20 +91,18 @@ const AiInsights: React.FC = () => {
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Analyzing...
+                            Generating...
                         </>
-                    ) : (
-                        <>
-                            <SparklesIcon className="w-5 h-5 mr-2" />
-                            Generate Summary
-                        </>
-                    )}
+                    ) : 'Generate Summary'}
                 </button>
             </div>
+            
             {summary && (
-                <div className="mt-8 p-6 bg-slate-50 border border-slate-200 rounded-lg">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-3">Analysis Results</h3>
-                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{summary}</p>
+                <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-2">Analysis Results:</h3>
+                    <div className="bg-slate-50 p-4 rounded-md prose prose-slate max-w-none">
+                       <p className="whitespace-pre-wrap">{summary}</p>
+                    </div>
                 </div>
             )}
         </div>

@@ -88,7 +88,6 @@ export interface Payment {
   paymentDate: string; // ISO String
   paymentMethod: PaymentMethod;
   notes?: string;
-  paymentDoneBy?: string;
   image?: string;
   expenseId?: number;
   createdAt?: string; // ISO string
@@ -106,6 +105,7 @@ export interface Expense {
   billReceipts?: string[];
   expenseBy: string;
   festivalId?: number | null;
+  hasMultiplePayments: boolean;
   payments: Payment[]; // Added payments array
   // FIX: Made backend-calculated fields optional.
   amountPaid?: number; // Calculated on backend

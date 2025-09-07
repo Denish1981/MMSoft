@@ -1,23 +1,19 @@
-
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import type { Festival, Campaign } from '../types';
+import type { Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { PhotoIcon } from '../components/icons/PhotoIcon';
 import { CalendarDaysIcon } from '../components/icons/CalendarDaysIcon';
 import { formatUTCDate } from '../utils/formatting';
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
-interface FestivalsProps {
-    festivals: Festival[];
-    campaigns: Campaign[];
-    onEdit: (festival: Festival) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+const Festivals: React.FC = () => {
+    const { festivals, campaigns } = useData();
+    const { openFestivalModal, openConfirmationModal, openHistoryModal } = useModal();
 
-const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onDelete, onViewHistory }) => {
     const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
 
     return (
@@ -61,13 +57,13 @@ const Festivals: React.FC<FestivalsProps> = ({ festivals, campaigns, onEdit, onD
                                         <Link to={`/festivals/${festival.id}/photos`} className="text-purple-600 hover:text-purple-900" title="Manage Photos">
                                             <PhotoIcon className="w-4 h-4" />
                                         </Link>
-                                        <button onClick={() => onViewHistory('festivals', festival.id, `History for ${festival.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                        <button onClick={() => openHistoryModal('festivals', festival.id, `History for ${festival.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                             <HistoryIcon className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => onEdit(festival)} className="text-slate-600 hover:text-slate-900" title="Edit Festival">
+                                        <button onClick={() => openFestivalModal(festival)} className="text-slate-600 hover:text-slate-900" title="Edit Festival">
                                             <EditIcon className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => onDelete(festival.id)} className="text-red-600 hover:text-red-900" title="Delete Festival">
+                                        <button onClick={() => openConfirmationModal(festival.id, 'festivals')} className="text-red-600 hover:text-red-900" title="Delete Festival">
                                             <DeleteIcon className="w-4 h-4" />
                                         </button>
                                     </div>

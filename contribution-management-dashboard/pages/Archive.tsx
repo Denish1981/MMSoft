@@ -1,15 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import type { ArchivedItem } from '../types';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { ArchiveIcon } from '../components/icons/ArchiveIcon';
-
-interface ArchivePageProps {
-    onRestore: (recordType: string, recordId: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
 const RestoreIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -18,8 +14,10 @@ const RestoreIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   </svg>
 );
 
-const ArchivePage: React.FC<ArchivePageProps> = ({ onRestore, onViewHistory }) => {
+const ArchivePage: React.FC = () => {
     const { token, logout } = useAuth();
+    const { handleRestore } = useData();
+    const { openHistoryModal } = useModal();
     const [archivedItems, setArchivedItems] = useState<ArchivedItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -52,7 +50,7 @@ const ArchivePage: React.FC<ArchivePageProps> = ({ onRestore, onViewHistory }) =
         };
 
         fetchArchivedItems();
-    }, [token, logout]);
+    }, [token, logout, handleRestore]); // Rerun if an item is restored
     
     const formatType = (type: string) => {
         if (!type) return 'Unknown';
@@ -93,14 +91,14 @@ const ArchivePage: React.FC<ArchivePageProps> = ({ onRestore, onViewHistory }) =
                                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                     <div className="flex items-center justify-center space-x-4">
                                         <button 
-                                            onClick={() => onRestore(item.type, item.id)}
+                                            onClick={() => handleRestore(item.type, item.id)}
                                             className="flex items-center text-green-600 hover:text-green-800" 
                                             title="Restore Item"
                                         >
                                             <RestoreIcon className="w-4 h-4 mr-1" /> Restore
                                         </button>
                                         <button 
-                                            onClick={() => onViewHistory(item.type, item.id, `History for ${item.name}`)} 
+                                            onClick={() => openHistoryModal(item.type, item.id, `History for ${item.name}`)} 
                                             className="text-slate-500 hover:text-blue-600" 
                                             title="View History"
                                         >

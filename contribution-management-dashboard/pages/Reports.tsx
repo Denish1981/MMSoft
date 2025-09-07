@@ -1,8 +1,5 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { Contribution, Vendor, Expense, Quotation, Budget, Festival, Task, UserForManagement, Sponsor } from '../types';
 import ContributionReport from './reports/ContributionReport';
 import VendorReport from './reports/VendorReport';
 import ExpenseReport from './reports/ExpenseReport';
@@ -10,26 +7,15 @@ import QuotationReport from './reports/QuotationReport';
 import BudgetReport from './reports/BudgetReport';
 import TaskReport from './reports/TaskReport';
 import SponsorReport from './reports/SponsorReport';
-
-interface ReportsProps {
-    contributions: Contribution[];
-    sponsors: Sponsor[];
-    vendors: Vendor[];
-    expenses: Expense[];
-    quotations: Quotation[];
-    budgets: Budget[];
-    festivals: Festival[];
-    tasks: Task[];
-    users: UserForManagement[];
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
 type ReportTab = 'contributions' | 'sponsors' | 'vendors' | 'expenses' | 'quotations' | 'budget' | 'tasks';
 const VALID_TABS: ReportTab[] = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budget', 'tasks'];
 
-const Reports: React.FC<ReportsProps> = ({
-    contributions, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users, onViewHistory
-}) => {
+const Reports: React.FC = () => {
+    const { contributions, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users } = useData();
+    const { openHistoryModal } = useModal();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const getActiveTab = (): ReportTab => {
@@ -66,7 +52,7 @@ const Reports: React.FC<ReportsProps> = ({
             case 'budget':
                 return <BudgetReport budgets={budgets} expenses={expenses} festivals={festivals} />;
             case 'tasks':
-                return <TaskReport tasks={tasks} festivals={festivals} users={users} onViewHistory={onViewHistory} />;
+                return <TaskReport tasks={tasks} festivals={festivals} users={users} onViewHistory={openHistoryModal} />;
             default:
                 return null;
         }

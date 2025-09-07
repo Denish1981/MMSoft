@@ -1,20 +1,16 @@
-
-
 import React from 'react';
 import type { Vendor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import FinanceNavigation from '../components/FinanceNavigation';
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
-interface VendorsProps {
-    vendors: Vendor[];
-    onEdit: (vendor: Vendor) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
-
-const Vendors: React.FC<VendorsProps> = ({ vendors, onEdit, onDelete, onViewHistory }) => {
+const Vendors: React.FC = () => {
+    const { vendors } = useData();
+    const { openVendorModal, openConfirmationModal, openHistoryModal } = useModal();
+    
     return (
         <div className="space-y-6">
             <FinanceNavigation />
@@ -54,13 +50,13 @@ const Vendors: React.FC<VendorsProps> = ({ vendors, onEdit, onDelete, onViewHist
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap align-top text-sm font-medium">
                                         <div className="flex items-center space-x-4">
-                                            <button onClick={() => onViewHistory('vendors', vendor.id, `History for ${vendor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <button onClick={() => openHistoryModal('vendors', vendor.id, `History for ${vendor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                                 <HistoryIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onEdit(vendor)} className="text-slate-600 hover:text-slate-900" title="Edit Vendor">
+                                            <button onClick={() => openVendorModal(vendor)} className="text-slate-600 hover:text-slate-900" title="Edit Vendor">
                                                 <EditIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onDelete(vendor.id)} className="text-red-600 hover:text-red-900" title="Delete Vendor">
+                                            <button onClick={() => openConfirmationModal(vendor.id, 'vendors')} className="text-red-600 hover:text-red-900" title="Delete Vendor">
                                                 <DeleteIcon className="w-4 h-4" />
                                             </button>
                                         </div>

@@ -1,29 +1,24 @@
-
-
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useModal } from '../contexts/ModalContext';
 import { PlusIcon } from './icons/PlusIcon';
 import { LogoutIcon } from './icons/LogoutIcon';
 import { DocumentAddIcon } from './icons/DocumentAddIcon';
 import { MenuIcon } from './icons/MenuIcon';
 
 interface HeaderProps {
-    onAddContributionClick: () => void;
-    onAddSponsorClick: () => void;
-    onAddVendorClick: () => void;
-    onAddExpenseClick: () => void;
-    onAddQuotationClick: () => void;
-    onAddBudgetClick: () => void;
-    onAddFestivalClick: () => void;
-    onAddTaskClick: () => void;
-    onAddEventClick: () => void;
     onMobileMenuClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorClick, onAddVendorClick, onAddExpenseClick, onAddQuotationClick, onAddBudgetClick, onAddFestivalClick, onAddTaskClick, onAddEventClick, onMobileMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
     const location = useLocation();
     const { hasPermission, logout } = useAuth();
+    const { 
+        openContributionModal, openSponsorModal, openVendorModal, 
+        openExpenseModal, openQuotationModal, openBudgetModal, 
+        openFestivalModal, openTaskModal, openEventModal
+    } = useModal();
 
     const getPageDetails = () => {
         const path = location.pathname;
@@ -57,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
                     </Link>
                 );
             }
-            const addContributionButton = createButton(onAddContributionClick, 'Add Contribution');
+            const addContributionButton = createButton(() => openContributionModal(), 'Add Contribution');
             if (addContributionButton) {
                 buttons.push(addContributionButton);
             }
@@ -65,16 +60,16 @@ const Header: React.FC<HeaderProps> = ({ onAddContributionClick, onAddSponsorCli
         }
         if (path.startsWith('/bulk-add')) return { title: 'Bulk Add Contributions', button: null };
         if (path.startsWith('/donors')) return { title: 'Donors', button: null };
-        if (path.startsWith('/sponsors')) return { title: 'Sponsors', button: createButton(onAddSponsorClick, 'Add Sponsor') };
-        if (path.startsWith('/vendors')) return { title: 'Vendors', button: createButton(onAddVendorClick, 'Add Vendor') };
-        if (path.startsWith('/expenses')) return { title: 'Expenses', button: createButton(onAddExpenseClick, 'Add Expense') };
-        if (path.startsWith('/quotations')) return { title: 'Quotations', button: createButton(onAddQuotationClick, 'Add Quotation') };
-        if (path.startsWith('/budget')) return { title: 'Budget', button: createButton(onAddBudgetClick, 'Add Budget Item') };
+        if (path.startsWith('/sponsors')) return { title: 'Sponsors', button: createButton(() => openSponsorModal(), 'Add Sponsor') };
+        if (path.startsWith('/vendors')) return { title: 'Vendors', button: createButton(() => openVendorModal(), 'Add Vendor') };
+        if (path.startsWith('/expenses')) return { title: 'Expenses', button: createButton(() => openExpenseModal(), 'Add Expense') };
+        if (path.startsWith('/quotations')) return { title: 'Quotations', button: createButton(() => openQuotationModal(), 'Add Quotation') };
+        if (path.startsWith('/budget')) return { title: 'Budget', button: createButton(() => openBudgetModal(), 'Add Budget Item') };
         if (path.startsWith('/campaigns')) return { title: 'Campaigns', button: null };
-        if (path.match(/^\/festivals\/\d+\/events$/)) return { title: 'Festival Events', button: createButton(onAddEventClick, 'Add Event') };
+        if (path.match(/^\/festivals\/\d+\/events$/)) return { title: 'Festival Events', button: createButton(() => openEventModal(), 'Add Event') };
         if (path.match(/^\/festivals\/\d+\/photos$/)) return { title: 'Festival Photos', button: null };
-        if (path.startsWith('/festivals')) return { title: 'Festivals', button: createButton(onAddFestivalClick, 'Add Festival') };
-        if (path.startsWith('/tasks')) return { title: 'Tasks', button: createButton(onAddTaskClick, 'Add Task') };
+        if (path.startsWith('/festivals')) return { title: 'Festivals', button: createButton(() => openFestivalModal(), 'Add Festival') };
+        if (path.startsWith('/tasks')) return { title: 'Tasks', button: createButton(() => openTaskModal(), 'Add Task') };
         if (path.startsWith('/reports')) return { title: 'Reports', button: null };
         if (path.startsWith('/ai-insights')) return { title: 'AI-Powered Insights', button: null };
         if (path.startsWith('/user-management')) return { title: 'User Management', button: null };

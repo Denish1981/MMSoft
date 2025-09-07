@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useOutletContext } from 'react-router-dom';
 import type { Event, Festival } from '../types';
@@ -9,16 +8,12 @@ import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatUTCDate } from '../utils/formatting';
+import { useModal } from '../contexts/ModalContext';
 
-interface EventsPageProps {
-    onEdit: (event: Event) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
-
-const Events: React.FC<EventsPageProps> = ({ onEdit, onDelete, onViewHistory }) => {
+const Events: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { token, logout } = useAuth();
+    const { openEventModal, openConfirmationModal, openHistoryModal } = useModal();
     const outletContext = useOutletContext<{ eventDataVersion: number }>();
     const eventDataVersion = outletContext?.eventDataVersion ?? 0;
 
@@ -88,9 +83,9 @@ const Events: React.FC<EventsPageProps> = ({ onEdit, onDelete, onViewHistory }) 
                                 )}
                             </div>
                             <div className="flex items-center space-x-3">
-                                <button onClick={() => onViewHistory('events', event.id, `History for ${event.name}`)} className="text-slate-400 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>
-                                <button onClick={() => onEdit(event)} className="text-slate-400 hover:text-slate-800" title="Edit Event"><EditIcon className="w-4 h-4" /></button>
-                                <button onClick={() => onDelete(event.id)} className="text-red-400 hover:text-red-600" title="Archive Event"><DeleteIcon className="w-4 h-4" /></button>
+                                <button onClick={() => openHistoryModal('events', event.id, `History for ${event.name}`)} className="text-slate-400 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>
+                                <button onClick={() => openEventModal(event)} className="text-slate-400 hover:text-slate-800" title="Edit Event"><EditIcon className="w-4 h-4" /></button>
+                                <button onClick={() => openConfirmationModal(event.id, 'events')} className="text-red-400 hover:text-red-600" title="Archive Event"><DeleteIcon className="w-4 h-4" /></button>
                             </div>
                         </div>
                     </div>

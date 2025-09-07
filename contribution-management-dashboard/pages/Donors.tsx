@@ -1,13 +1,10 @@
-
 import React from 'react';
 import type { Donor } from '../types';
 import { formatCurrency } from '../utils/formatting';
+import { useData } from '../contexts/DataContext';
 
-interface DonorsProps {
-    donors: Donor[];
-}
-
-const Donors: React.FC<DonorsProps> = ({ donors }) => {
+const Donors: React.FC = () => {
+    const { donors } = useData();
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Our Donors</h2>

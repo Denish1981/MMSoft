@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { Sponsor } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
@@ -7,13 +6,10 @@ import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import ContributionsNavigation from '../components/ContributionsNavigation';
 import { CloseIcon } from '../components/icons/CloseIcon';
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
-interface SponsorsProps {
-    sponsors: Sponsor[];
-    onEdit: (sponsor: Sponsor) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+interface SponsorsProps {}
 
 const ImageViewerModal: React.FC<{ imageUrl: string; onClose: () => void }> = ({ imageUrl, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-[100]" onClick={onClose}>
@@ -27,7 +23,9 @@ const ImageViewerModal: React.FC<{ imageUrl: string; onClose: () => void }> = ({
 );
 
 
-const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete, onViewHistory }) => {
+const Sponsors: React.FC<SponsorsProps> = () => {
+    const { sponsors } = useData();
+    const { openSponsorModal, openConfirmationModal, openHistoryModal } = useModal();
     const [viewingImage, setViewingImage] = useState<string | null>(null);
     
     return (
@@ -79,13 +77,13 @@ const Sponsors: React.FC<SponsorsProps> = ({ sponsors, onEdit, onDelete, onViewH
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex items-center space-x-4">
-                                            <button onClick={() => onViewHistory('sponsors', sponsor.id, `History for ${sponsor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <button onClick={() => openHistoryModal('sponsors', sponsor.id, `History for ${sponsor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                                 <HistoryIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onEdit(sponsor)} className="text-slate-600 hover:text-slate-900" title="Edit Sponsor">
+                                            <button onClick={() => openSponsorModal(sponsor)} className="text-slate-600 hover:text-slate-900" title="Edit Sponsor">
                                                 <EditIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onDelete(sponsor.id)} className="text-red-600 hover:text-red-900" title="Delete Sponsor">
+                                            <button onClick={() => openConfirmationModal(sponsor.id, 'sponsors')} className="text-red-600 hover:text-red-900" title="Delete Sponsor">
                                                 <DeleteIcon className="w-4 h-4" />
                                             </button>
                                         </div>

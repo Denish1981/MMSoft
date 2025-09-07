@@ -9,15 +9,8 @@ import FinanceNavigation from '../components/FinanceNavigation';
 import { FilterContainer, TextInput, SelectInput, AmountInput, DateInput } from './reports/FilterControls';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
-
-interface ExpensesProps {
-    expenses: Expense[];
-    vendors: Vendor[];
-    festivals: Festival[];
-    onEdit: (expense: Expense) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
 interface ExpenseFilters {
     name: string;
@@ -79,7 +72,10 @@ const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({
     );
 };
 
-const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdit, onDelete, onViewHistory }) => {
+const Expenses: React.FC = () => {
+    const { expenses, vendors } = useData();
+    const { openExpenseModal, openConfirmationModal, openHistoryModal } = useModal();
+    
     const [viewingImages, setViewingImages] = useState<string[] | null>(null);
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
     
@@ -201,13 +197,13 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, vendors, festivals, onEdi
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex items-center space-x-4">
-                                            <button onClick={() => onViewHistory('expenses', expense.id, `History for ${expense.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <button onClick={() => openHistoryModal('expenses', expense.id, `History for ${expense.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                                 <HistoryIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onEdit(expense)} className="text-slate-600 hover:text-slate-900" title="Edit Expense">
+                                            <button onClick={() => openExpenseModal(expense)} className="text-slate-600 hover:text-slate-900" title="Edit Expense">
                                                 <EditIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onDelete(expense.id)} className="text-red-600 hover:text-red-900" title="Delete Expense">
+                                            <button onClick={() => openConfirmationModal(expense.id, 'expenses')} className="text-red-600 hover:text-red-900" title="Delete Expense">
                                                 <DeleteIcon className="w-4 h-4" />
                                             </button>
                                         </div>

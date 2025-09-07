@@ -1,15 +1,10 @@
-
-
 import React, { useMemo } from 'react';
 import type { Campaign, Contribution } from '../types';
 import { formatCurrency } from '../utils/formatting';
+import { useData } from '../contexts/DataContext';
 
-interface CampaignsProps {
-    campaigns: Campaign[];
-    contributions: Contribution[];
-}
-
-const Campaigns: React.FC<CampaignsProps> = ({ campaigns, contributions }) => {
+const Campaigns: React.FC = () => {
+    const { campaigns, contributions } = useData();
 
     const campaignProgress = useMemo(() => {
         return campaigns.map(campaign => {

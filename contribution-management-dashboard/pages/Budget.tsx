@@ -1,7 +1,5 @@
-
-
 import React, { useMemo } from 'react';
-import type { Budget, Festival } from '../types';
+import type { Budget } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
@@ -9,17 +7,12 @@ import { formatCurrency } from '../utils/formatting';
 import ReportContainer from './reports/ReportContainer';
 import { exportToCsv } from '../utils/exportUtils';
 import FinanceNavigation from '../components/FinanceNavigation';
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
-interface BudgetProps {
-    budgets: Budget[];
-    festivals: Festival[];
-    onEdit: (budget: Budget) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
-
-const Budget: React.FC<BudgetProps> = ({ budgets, festivals, onEdit, onDelete, onViewHistory }) => {
-    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+const Budget: React.FC = () => {
+    const { budgets, festivalMap } = useData();
+    const { openBudgetModal, openConfirmationModal, openHistoryModal } = useModal();
     
     const handleExport = () => {
         const dataToExport = budgets.map(budget => ({
@@ -56,13 +49,13 @@ const Budget: React.FC<BudgetProps> = ({ budgets, festivals, onEdit, onDelete, o
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(budget.budgetedAmount)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex items-center space-x-4">
-                                            <button onClick={() => onViewHistory('budgets', budget.id, `History for ${budget.itemName}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <button onClick={() => openHistoryModal('budgets', budget.id, `History for ${budget.itemName}`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                                 <HistoryIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onEdit(budget)} className="text-slate-600 hover:text-slate-900" title="Edit Budget">
+                                            <button onClick={() => openBudgetModal(budget)} className="text-slate-600 hover:text-slate-900" title="Edit Budget">
                                                 <EditIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onDelete(budget.id)} className="text-red-600 hover:text-red-900" title="Delete Budget">
+                                            <button onClick={() => openConfirmationModal(budget.id, 'budgets')} className="text-red-600 hover:text-red-900" title="Delete Budget">
                                                 <DeleteIcon className="w-4 h-4" />
                                             </button>
                                         </div>

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,11 +9,9 @@ import { CloseIcon } from '../components/icons/CloseIcon';
 import CameraCapture from '../components/CameraCapture';
 import { formatCurrency } from '../utils/formatting';
 import { API_URL } from '../config';
+import { useData } from '../contexts/DataContext';
 
-interface BulkAddPageProps {
-    campaigns: Campaign[];
-    onBulkSaveSuccess: () => void;
-}
+interface BulkAddPageProps {}
 
 type StagedContribution = Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 
@@ -45,8 +41,9 @@ const StatusBadge: React.FC<{ status: ContributionStatus }> = ({ status }) => {
 };
 
 
-const BulkAddPage: React.FC<BulkAddPageProps> = ({ campaigns, onBulkSaveSuccess }) => {
+const BulkAddPage: React.FC<BulkAddPageProps> = () => {
     const { token, logout } = useAuth();
+    const { campaigns, fetchData: onBulkSaveSuccess } = useData();
     const [stagedContributions, setStagedContributions] = useState<StagedContribution[]>([]);
     const [formData, setFormData] = useState<StagedContribution>(initialFormState);
     const [isLoading, setIsLoading] = useState(false);

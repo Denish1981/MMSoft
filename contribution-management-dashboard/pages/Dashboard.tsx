@@ -6,16 +6,11 @@ import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
 import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 import { formatCurrency } from '../utils/formatting';
+import { useData } from '../contexts/DataContext';
 
-interface DashboardProps {
-    contributions: Contribution[];
-    donors: Donor[];
-    sponsors: Sponsor[];
-    expenses: Expense[];
-    vendors: Vendor[];
-}
-
-const Dashboard: React.FC<DashboardProps> = ({ contributions, donors, sponsors, expenses, vendors }) => {
+const Dashboard: React.FC = () => {
+    const { contributions, donors, sponsors, expenses, vendors } = useData();
+    
     const totalContributions = useMemo(() => {
         return contributions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
     }, [contributions]);

@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Contribution, Campaign } from '../types';
+import type { Contribution } from '../types';
 import { ContributionStatus } from '../types';
 import { generateThankYouNote } from '../services/geminiService';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,14 +13,8 @@ import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 import ContributionsNavigation from '../components/ContributionsNavigation';
-
-interface ContributionsProps {
-    contributions: Contribution[];
-    campaigns: Campaign[];
-    onEdit: (contribution: Contribution) => void;
-    onDelete: (id: number) => void;
-    onViewHistory: (recordType: string, recordId: number, title: string) => void;
-}
+import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
 
 const StatusBadge: React.FC<{ status: ContributionStatus }> = ({ status }) => {
     const baseClasses = "px-2 py-1 text-xs font-medium rounded-full";
@@ -75,8 +68,11 @@ const ImageViewerModal: React.FC<{ imageUrl: string; onClose: () => void }> = ({
 );
 
 
-const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns, onEdit, onDelete, onViewHistory }) => {
+const Contributions: React.FC = () => {
     const { token } = useAuth();
+    const { contributions, campaigns } = useData();
+    const { openContributionModal, openConfirmationModal, openHistoryModal } = useModal();
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('all');
     const [generatedNote, setGeneratedNote] = useState<string | null>(null);
@@ -197,13 +193,13 @@ const Contributions: React.FC<ContributionsProps> = ({ contributions, campaigns,
                                             <button onClick={() => handleGenerateNote(contribution)} className="text-blue-600 hover:text-blue-800 flex items-center" title="Generate Thank You Note">
                                                <SparklesIcon className="w-4 h-4"/>
                                             </button>
-                                            <button onClick={() => onViewHistory('contributions', contribution.id, `History for ${contribution.donorName}'s contribution`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                            <button onClick={() => openHistoryModal('contributions', contribution.id, `History for ${contribution.donorName}'s contribution`)} className="text-slate-500 hover:text-blue-600" title="View History">
                                                 <HistoryIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900" title="Edit Contribution">
+                                            <button onClick={() => openContributionModal(contribution)} className="text-slate-600 hover:text-slate-900" title="Edit Contribution">
                                                 <EditIcon className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900" title="Delete Contribution">
+                                            <button onClick={() => openConfirmationModal(contribution.id, 'contributions')} className="text-red-600 hover:text-red-900" title="Delete Contribution">
                                                 <DeleteIcon className="w-4 h-4" />
                                             </button>
                                         </div>
