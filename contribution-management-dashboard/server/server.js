@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -21,6 +22,7 @@ const festivalRoutes = require('./routes/festivals');
 const taskRoutes = require('./routes/tasks');
 const archiveRoutes = require('./routes/archive');
 const aiRoutes = require('./routes/ai');
+const eventRoutes = require('./routes/events');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -51,6 +53,7 @@ app.use('/api/festivals', festivalRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/archive', archiveRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/events', eventRoutes);
 
 
 // --- Server Start ---

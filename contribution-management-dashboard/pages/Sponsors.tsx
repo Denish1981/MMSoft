@@ -39,12 +39,12 @@ const Sponsors: React.FC<SponsorsProps> = () => {
                             <tr>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Image</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sponsor Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th>
+                                {/* <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th> */}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date Paid</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Business Info</th>
+                                {/* <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Business Info</th> */}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -64,7 +64,7 @@ const Sponsors: React.FC<SponsorsProps> = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{sponsor.name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.businessCategory}</td>
+                                    {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.businessCategory}</td> */}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold">{formatCurrency(sponsor.sponsorshipAmount)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(sponsor.datePaid)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sponsor.sponsorshipType}</td>
@@ -72,9 +72,9 @@ const Sponsors: React.FC<SponsorsProps> = () => {
                                         <div className="text-sm text-slate-900">{sponsor.contactNumber}</div>
                                         <div className="text-sm text-slate-500">{sponsor.email || 'N/A'}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-slate-500">
+                                    {/* <td className="px-6 py-4 text-sm text-slate-500">
                                         <p className="w-48 truncate" title={sponsor.businessInfo}>{sponsor.businessInfo}</p>
-                                    </td>
+                                    </td> */}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div className="flex items-center space-x-4">
                                             <button onClick={() => openHistoryModal('sponsors', sponsor.id, `History for ${sponsor.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">

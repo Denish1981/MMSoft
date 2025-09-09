@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
-import type { Contribution, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, Event, HistoryItem } from '../types';
+import type { Contribution, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, Event, HistoryItem, Campaign } from '../types';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
 import { API_URL } from '../config';
@@ -49,6 +49,11 @@ interface ModalContextType {
     eventToEdit: Event | null;
     openEventModal: (item?: Event) => void;
     closeEventModal: () => void;
+    
+    isCampaignModalOpen: boolean;
+    campaignToEdit: Campaign | null;
+    openCampaignModal: (item?: Campaign) => void;
+    closeCampaignModal: () => void;
 
     isConfirmationModalOpen: boolean;
     confirmMessage: string;
@@ -80,6 +85,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [isFestivalModalOpen, setIsFestivalModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+    const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
 
     // State for editing items
     const [contributionToEdit, setContributionToEdit] = useState<Contribution | null>(null);
@@ -91,6 +97,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [festivalToEdit, setFestivalToEdit] = useState<Festival | null>(null);
     const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
     const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
+    const [campaignToEdit, setCampaignToEdit] = useState<Campaign | null>(null);
 
     // State for deletion confirmation
     const [itemToDelete, setItemToDelete] = useState<{ id: number; type: string } | null>(null);
@@ -146,6 +153,9 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     const openEventModal = (item?: Event) => openModal(setIsEventModalOpen, setEventToEdit, item);
     const closeEventModal = () => { setIsEventModalOpen(false); setEventToEdit(null); };
+    
+    const openCampaignModal = (item?: Campaign) => openModal(setIsCampaignModalOpen, setCampaignToEdit, item);
+    const closeCampaignModal = () => { setIsCampaignModalOpen(false); setCampaignToEdit(null); };
 
     // --- Confirmation and History Modals ---
     const openConfirmationModal = (id: number, type: string) => {
@@ -213,6 +223,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isFestivalModalOpen, festivalToEdit, openFestivalModal, closeFestivalModal,
         isTaskModalOpen, taskToEdit, openTaskModal, closeTaskModal,
         isEventModalOpen, eventToEdit, openEventModal, closeEventModal,
+        isCampaignModalOpen, campaignToEdit, openCampaignModal, closeCampaignModal,
         isConfirmationModalOpen, confirmMessage, openConfirmationModal, closeConfirmationModal, confirmDelete,
         isHistoryModalOpen, historyData, historyTitle, isLoadingHistory, openHistoryModal, closeHistoryModal,
     };

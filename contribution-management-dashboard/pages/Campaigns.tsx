@@ -1,10 +1,15 @@
 import React, { useMemo } from 'react';
-import type { Campaign, Contribution } from '../types';
+import type { Campaign } from '../types';
 import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
+import { useModal } from '../contexts/ModalContext';
+import { EditIcon } from '../components/icons/EditIcon';
+import { DeleteIcon } from '../components/icons/DeleteIcon';
+import { HistoryIcon } from '../components/icons/HistoryIcon';
 
 const Campaigns: React.FC = () => {
     const { campaigns, contributions } = useData();
+    const { openCampaignModal, openConfirmationModal, openHistoryModal } = useModal();
 
     const campaignProgress = useMemo(() => {
         return campaigns.map(campaign => {
@@ -33,11 +38,24 @@ const Campaigns: React.FC = () => {
                             <div className="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full" style={{ width: `${c.progress}%` }}></div>
                         </div>
                     </div>
-                     <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between text-sm text-slate-500">
-                        <span><span className="font-bold text-slate-700">{c.donorCount}</span> unique donors</span>
-                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${c.progress >= 100 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                           {c.progress >= 100 ? 'Goal Reached' : 'In Progress'}
-                        </span>
+                     <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center space-x-2 text-sm text-slate-500">
+                           <span><span className="font-bold text-slate-700">{c.donorCount}</span> unique donors</span>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${c.progress >= 100 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {c.progress >= 100 ? 'Goal Reached' : 'In Progress'}
+                           </span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                            <button onClick={() => openHistoryModal('campaigns', c.id, `History for ${c.name}`)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                <HistoryIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => openCampaignModal(c)} className="text-slate-600 hover:text-slate-900" title="Edit Campaign">
+                                <EditIcon className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => openConfirmationModal(c.id, 'campaigns')} className="text-red-600 hover:text-red-900" title="Delete Campaign">
+                                <DeleteIcon className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             ))}

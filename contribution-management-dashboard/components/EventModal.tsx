@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import type { Event, EventContactPerson } from '../types';
@@ -22,6 +21,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
     const [venue, setVenue] = useState('');
+    const [registrationLink, setRegistrationLink] = useState('');
     const [description, setDescription] = useState('');
     const [image, setImage] = useState<string | undefined>();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -35,6 +35,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setStartTime(eventToEdit.startTime || '');
             setEndTime(eventToEdit.endTime || '');
             setVenue(eventToEdit.venue);
+            setRegistrationLink(eventToEdit.registrationLink || '');
             setDescription(eventToEdit.description || '');
             setImage(eventToEdit.image);
             setImagePreview(eventToEdit.image || null);
@@ -46,6 +47,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setStartTime('');
             setEndTime('');
             setVenue('');
+            setRegistrationLink('');
             setDescription('');
             setImage(undefined);
             setImagePreview(null);
@@ -101,6 +103,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             startTime, 
             endTime, 
             venue, 
+            registrationLink,
             description, 
             image,
             contactPersons: contactPersons.filter(c => c.name && c.contactNumber) // Filter out empty contacts
@@ -140,6 +143,10 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                      <div>
                         <label htmlFor="venue" className="block text-sm font-medium text-slate-700">Venue</label>
                         <input type="text" id="venue" value={venue} onChange={e => setVenue(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" required />
+                    </div>
+                    <div>
+                        <label htmlFor="registrationLink" className="block text-sm font-medium text-slate-700">Registration Link (Optional)</label>
+                        <input type="url" id="registrationLink" value={registrationLink || ''} onChange={e => setRegistrationLink(e.target.value)} placeholder="https://example.com/register" className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
                     </div>
                     <div>
                         <label htmlFor="description" className="block text-sm font-medium text-slate-700">Description (Optional)</label>

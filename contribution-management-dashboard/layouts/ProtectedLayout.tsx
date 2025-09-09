@@ -18,6 +18,7 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 import { HistoryModal } from '../components/HistoryModal';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { CampaignModal } from '../components/CampaignModal';
 
 export const ProtectedLayout: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ export const ProtectedLayout: React.FC = () => {
         isFestivalModalOpen, festivalToEdit, closeFestivalModal,
         isTaskModalOpen, taskToEdit, closeTaskModal,
         isEventModalOpen, eventToEdit, closeEventModal,
+        isCampaignModalOpen, campaignToEdit, closeCampaignModal,
         isConfirmationModalOpen, confirmMessage, closeConfirmationModal, confirmDelete,
         isHistoryModalOpen, historyData, historyTitle, isLoadingHistory, closeHistoryModal,
     } = useModal();
@@ -44,7 +46,7 @@ export const ProtectedLayout: React.FC = () => {
         campaigns, vendors, festivals, expenseHeads, users, festivalMap,
         handleContributionSubmit, handleSponsorSubmit, handleVendorSubmit, handleExpenseSubmit,
         handleQuotationSubmit, handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit,
-        eventDataVersion
+        handleCampaignSubmit, eventDataVersion
     } = useData();
     
     useEffect(() => {
@@ -95,6 +97,7 @@ export const ProtectedLayout: React.FC = () => {
             {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={closeFestivalModal} onSubmit={(data) => { handleFestivalSubmit(data, festivalToEdit); closeFestivalModal(); }} />}
             {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={closeTaskModal} onSubmit={(data) => { handleTaskSubmit(data, taskToEdit); closeTaskModal(); }} />}
             {isEventModalOpen && <EventModal eventToEdit={eventToEdit} onClose={closeEventModal} onSubmit={async (data) => { await handleEventSubmit(data, eventToEdit); closeEventModal(); }} />}
+            {isCampaignModalOpen && <CampaignModal campaignToEdit={campaignToEdit} onClose={closeCampaignModal} onSubmit={(data) => { handleCampaignSubmit(data, campaignToEdit); closeCampaignModal(); }} />}
             {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={closeConfirmationModal} message={confirmMessage} confirmText="Yes, Archive" />}
             {isHistoryModalOpen && <HistoryModal isOpen={isHistoryModalOpen} onClose={closeHistoryModal} title={historyTitle} history={historyData} isLoading={isLoadingHistory} festivalMap={festivalMap} />}
         </div>

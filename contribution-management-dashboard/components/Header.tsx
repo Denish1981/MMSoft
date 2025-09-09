@@ -17,7 +17,8 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
     const { 
         openContributionModal, openSponsorModal, openVendorModal, 
         openExpenseModal, openQuotationModal, openBudgetModal, 
-        openFestivalModal, openTaskModal, openEventModal
+        openFestivalModal, openTaskModal, openEventModal,
+        openCampaignModal
     } = useModal();
 
     const getPageDetails = () => {
@@ -65,7 +66,7 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
         if (path.startsWith('/expenses')) return { title: 'Expenses', button: createButton(() => openExpenseModal(), 'Add Expense') };
         if (path.startsWith('/quotations')) return { title: 'Quotations', button: createButton(() => openQuotationModal(), 'Add Quotation') };
         if (path.startsWith('/budget')) return { title: 'Budget', button: createButton(() => openBudgetModal(), 'Add Budget Item') };
-        if (path.startsWith('/campaigns')) return { title: 'Campaigns', button: null };
+        if (path.startsWith('/campaigns')) return { title: 'Campaigns', button: createButton(() => openCampaignModal(), 'Add Campaign') };
         if (path.match(/^\/festivals\/\d+\/events$/)) return { title: 'Festival Events', button: createButton(() => openEventModal(), 'Add Event') };
         if (path.match(/^\/festivals\/\d+\/photos$/)) return { title: 'Festival Photos', button: null };
         if (path.startsWith('/festivals')) return { title: 'Festivals', button: createButton(() => openFestivalModal(), 'Add Festival') };

@@ -188,6 +188,7 @@ export interface Event {
   description?: string;
   image?: string;
   venue: string;
+  registrationLink?: string | null;
   contactPersons: EventContactPerson[];
   createdAt: string; // ISO String
   updatedAt: string; // ISO String

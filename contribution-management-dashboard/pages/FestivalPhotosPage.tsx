@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_URL } from '../config';
@@ -123,7 +122,7 @@ const FestivalPhotosPage: React.FC = () => {
     const handleDelete = async () => {
         if (!photoToDelete) return;
         try {
-            const response = await fetch(`${API_URL}/photos/${photoToDelete.id}`, {
+            const response = await fetch(`${API_URL}/festivals/photos/${photoToDelete.id}`, {
                 method: 'DELETE',
                 headers: getAuthHeaders()
             });

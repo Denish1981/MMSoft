@@ -77,10 +77,17 @@ const Events: React.FC = () => {
                             <p className="mt-3 text-sm text-slate-500 flex-grow">{event.description}</p>
                         </div>
                         <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-                            <div className="text-xs text-slate-500">
-                                {event.contactPersons.length > 0 && (
-                                    <span>Contact: {event.contactPersons[0].name}</span>
+                            <div className="flex items-center gap-4">
+                                {event.registrationLink && (
+                                    <a href={event.registrationLink} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full hover:bg-green-700 transition-colors">
+                                        Register
+                                    </a>
                                 )}
+                                <div className="text-xs text-slate-500">
+                                    {event.contactPersons.length > 0 && (
+                                        <span>Contact: {event.contactPersons[0].name}</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex items-center space-x-3">
                                 <button onClick={() => openHistoryModal('events', event.id, `History for ${event.name}`)} className="text-slate-400 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>

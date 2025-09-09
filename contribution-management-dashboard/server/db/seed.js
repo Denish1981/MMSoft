@@ -91,6 +91,7 @@ const seedDatabase = async () => {
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
         }
+        await client.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_link VARCHAR(2048);`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;`);
         
@@ -150,6 +151,7 @@ const seedDatabase = async () => {
         await createHistoryTable(client, 'task_history', 'tasks', 'INTEGER');
         await createHistoryTable(client, 'events_history', 'events');
         await createHistoryTable(client, 'expense_payments_history', 'expense_payments');
+        await createHistoryTable(client, 'campaigns_history', 'campaigns');
 
 
         const permissionMap = new Map();

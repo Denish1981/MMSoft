@@ -68,7 +68,7 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
     const { id } = req.params;
     try {
         const eventsRes = await db.query(
-            `SELECT id, festival_id as "festivalId", name, event_date as "eventDate", to_char(start_time, 'HH24:MI') as "startTime", to_char(end_time, 'HH24:MI') as "endTime", description, image_data as "image", venue, created_at as "createdAt", updated_at as "updatedAt"
+            `SELECT id, festival_id as "festivalId", name, event_date as "eventDate", to_char(start_time, 'HH24:MI') as "startTime", to_char(end_time, 'HH24:MI') as "endTime", description, image_data as "image", venue, registration_link as "registrationLink", created_at as "createdAt", updated_at as "updatedAt"
              FROM events WHERE festival_id = $1 AND deleted_at IS NULL ORDER BY event_date, start_time`, [id]
         );
         const events = eventsRes.rows;
@@ -100,10 +100,6 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
 // I'll stick to the original file's logic. All event routes will go into a separate file for clarity, and I'll adjust the main server file to mount it at `/api/events`. The GET route will also be moved there and changed.
 // No, the user wants me to split the file. The frontend expects GET /api/festivals/:id/events.
 // And DELETE /api/events/:id. This is a design flaw in the original app.
-// I will keep the GET here, and create `events.js` for the others.
-// This is confusing. Let's group all logic related to an entity in one file.
-// So, event logic goes into `events.js`. The `GET` route should probably be moved there and changed to `/api/events?festivalId=:id`.
-// But that would require a frontend change, which is out of scope.
 // I will keep the original routing structure.
 // So, `GET /festivals/:id/events` stays here in `festivals.js`.
 // The other event routes (POST, PUT, DELETE, history) will be in a new `events.js` file.

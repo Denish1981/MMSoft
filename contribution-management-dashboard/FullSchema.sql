@@ -368,3 +368,6 @@ ALTER TABLE expense_payments ADD COLUMN payment_done_by VARCHAR(255);
 ALTER TABLE expenses ADD COLUMN has_multiple_payments BOOLEAN NOT NULL DEFAULT FALSE;
 
 alter table expense_payments alter column payment_method SET DEFAULT 'Online';
+
+    
+ALTER TABLE events ADD COLUMN registration_link VARCHAR(2048);

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SummaryCard from '../components/SummaryCard';
 import type { Contribution, Donor, Sponsor, Expense, Vendor } from '../types';
@@ -9,15 +9,12 @@ import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 
 const Dashboard: React.FC = () => {
-    const { contributions, donors, sponsors, expenses, vendors } = useData();
+    const { contributions, donors, sponsors, expenses, vendors, festivals } = useData();
+    const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
     
     const totalContributions = useMemo(() => {
         return contributions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
     }, [contributions]);
-
-    const totalExpenses = useMemo(() => {
-        return expenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
-    }, [expenses]);
 
     const totalSponsorshipsAmount = useMemo(() => {
         return sponsors.reduce((acc, s) => acc + (Number(s.sponsorshipAmount) || 0), 0);
@@ -32,9 +29,22 @@ const Dashboard: React.FC = () => {
         { label: 'Sponsorships', value: totalSponsorshipsAmount, color: 'bg-indigo-500', path: '/reports?tab=sponsors' },
     ];
 
+    const filteredExpenses = useMemo(() => {
+        if (selectedFestivalId === 'all') {
+            return expenses;
+        }
+        const festivalId = Number(selectedFestivalId);
+        return expenses.filter(e => e.festivalId === festivalId);
+    }, [expenses, selectedFestivalId]);
+
+    const totalExpenses = useMemo(() => {
+        return filteredExpenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
+    }, [filteredExpenses]);
+
+
     const expenseBreakdown = useMemo(() => {
         const expenseMap = new Map<string, number>();
-        expenses.forEach(expense => {
+        filteredExpenses.forEach(expense => {
             const head = expense.expenseHead || 'Uncategorized';
             const currentTotal = expenseMap.get(head) || 0;
             expenseMap.set(head, currentTotal + (Number(expense.totalCost) || 0));
@@ -50,7 +60,7 @@ const Dashboard: React.FC = () => {
                 color: colors[index % colors.length],
                 path: `/reports?tab=expenses&expenseHead=${encodeURIComponent(label)}`
             }));
-    }, [expenses]);
+    }, [filteredExpenses]);
 
     const outstandingPayments = useMemo(() => {
         const vendorMap = new Map(vendors.map(v => [v.id, v.name]));
@@ -67,6 +77,21 @@ const Dashboard: React.FC = () => {
         return outstandingPayments.reduce((acc, payment) => acc + (payment.outstandingAmount || 0), 0);
     }, [outstandingPayments]);
 
+    const expenseFilterDropdown = (
+        <select
+            value={selectedFestivalId}
+            onChange={(e) => setSelectedFestivalId(e.target.value)}
+            className="text-xs p-1 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Filter expenses by festival"
+        >
+            <option value="all">All Festivals</option>
+            {festivals.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+        </select>
+    );
+
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -81,6 +106,7 @@ const Dashboard: React.FC = () => {
                     totalValue={totalExpenses}
                     icon={<ReceiptIcon className="w-6 h-6" />}
                     breakdown={expenseBreakdown}
+                    headerControls={expenseFilterDropdown}
                 />
             </div>
 

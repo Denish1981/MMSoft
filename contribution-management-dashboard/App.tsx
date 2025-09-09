@@ -30,6 +30,7 @@ import PageViewTracker from './components/PageViewTracker';
 import PublicHomePage from './pages/PublicHome';
 import PhotoAlbumPage from './pages/PhotoAlbum';
 import FestivalPhotosPage from './pages/FestivalPhotosPage';
+import PhotoAlbumsListPage from './pages/PhotoAlbumsListPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
                             <Routes>
                                 {/* Public Routes */}
                                 <Route path="/" element={<PublicHomePage />} />
+                                <Route path="/photos" element={<PhotoAlbumsListPage />} />
                                 <Route path="/album/:id" element={<PhotoAlbumPage />} />
                                 <Route path="/login" element={<LoginPage />} />
                                 

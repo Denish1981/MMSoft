@@ -1,44 +1,89 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { CameraIcon } from '../components/icons/CameraIcon';
+import { API_URL } from '../config';
+import { formatUTCDate } from '../utils/formatting';
 
-interface Album {
-    id: number;
+interface PublicEvent {
     name: string;
     description: string;
-    coverImage: string | null;
+    eventDate: string;
+    startTime: string;
+    endTime: string | null;
+    venue: string;
+    registrationLink: string | null;
 }
 
+const EventCard: React.FC<{ event: PublicEvent }> = ({ event }) => {
+    const formatTime = (timeStr: string | null) => {
+        if (!timeStr) return '';
+        const [hours, minutes] = timeStr.split(':');
+        const date = new Date();
+        date.setHours(Number(hours), Number(minutes));
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    };
+
+    return (
+        <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+            <div className="p-6 flex flex-col flex-grow">
+                <h3 className="text-xl font-bold text-slate-800">{event.name}</h3>
+                <div className="mt-2 text-sm text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span>🗓️ {formatUTCDate(event.eventDate, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    {event.startTime && <span>⏰ {formatTime(event.startTime)}{event.endTime ? ` - ${formatTime(event.endTime)}` : ''}</span>}
+                </div>
+                <p className="mt-1 text-sm text-slate-600">📍 {event.venue}</p>
+                <p className="mt-4 text-sm text-slate-500 flex-grow">{event.description}</p>
+                 {event.registrationLink && (
+                    <div className="mt-6 pt-4 border-t border-slate-100">
+                        <a 
+                            href={event.registrationLink} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="inline-block w-full text-center px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors"
+                        >
+                            Register Now
+                        </a>
+                    </div>
+                 )}
+            </div>
+        </div>
+    );
+};
+
 const PublicHomePage: React.FC = () => {
-    const [albums, setAlbums] = useState<Album[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const { isAuthenticated } = useAuth();
+    const [events, setEvents] = useState<PublicEvent[]>([]);
+    const [isLoadingEvents, setIsLoadingEvents] = useState(true);
 
     useEffect(() => {
-        const fetchAlbums = async () => {
+        const fetchEvents = async () => {
             try {
-                const response = await fetch(`${API_URL}/public/albums`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch albums');
+                const response = await fetch(`${API_URL}/public/events`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setEvents(data);
                 }
-                const data = await response.json();
-                setAlbums(data);
             } catch (error) {
-                console.error(error);
+                console.error("Failed to fetch public events:", error);
             } finally {
-                setIsLoading(false);
+                setIsLoadingEvents(false);
             }
         };
-        fetchAlbums();
+        fetchEvents();
     }, []);
 
     return (
         <div className="bg-slate-50 min-h-screen">
             <header className="bg-white shadow-sm">
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-slate-800 tracking-wider">Contribution OS</h1>
+                    <div className="flex items-center space-x-8">
+                        <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">Contribution OS</Link>
+                        <div className="hidden md:flex items-center space-x-6">
+                            <Link to="/" className="text-base font-medium text-blue-600 border-b-2 border-blue-600 pb-1">Home</Link>
+                            <Link to="/photos" className="text-base font-medium text-slate-600 hover:text-blue-600">Photo Albums</Link>
+                        </div>
+                    </div>
                     <Link
                         to={isAuthenticated ? "/dashboard" : "/login"}
                         className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
@@ -48,39 +93,41 @@ const PublicHomePage: React.FC = () => {
                 </nav>
             </header>
             <main className="container mx-auto px-6 py-12">
-                <div className="text-center mb-12">
-                    <h2 className="text-4xl font-extrabold text-slate-900">Photo Albums</h2>
-                    <p className="mt-4 text-lg text-slate-600">Explore memories from our past events and festivals.</p>
-                </div>
-
-                {isLoading ? (
-                    <div className="text-center">Loading albums...</div>
-                ) : albums.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {albums.map(album => (
-                            <Link to={`/album/${album.id}`} key={album.id} className="group block bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
-                                <div className="relative h-56">
-                                    {album.coverImage ? (
-                                        <img src={album.coverImage} alt={album.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                    ) : (
-                                        <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                                            <span className="text-slate-500">No Image</span>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                                </div>
-                                <div className="p-6">
-                                    <h3 className="text-xl font-bold text-slate-800">{album.name}</h3>
-                                    <p className="mt-2 text-sm text-slate-600 line-clamp-2">{album.description}</p>
-                                </div>
-                            </Link>
-                        ))}
+                <section className="text-center">
+                    <h2 className="text-5xl font-extrabold text-slate-900">Welcome to Contribution OS</h2>
+                    <p className="mt-4 text-xl text-slate-600 max-w-2xl mx-auto">
+                        An intelligent dashboard for managing, tracking, and analyzing charitable contributions for our community events.
+                    </p>
+                    <div className="mt-10">
+                        <Link
+                            to="/photos"
+                            className="inline-flex items-center justify-center bg-blue-600 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105"
+                        >
+                            <CameraIcon className="w-6 h-6 mr-3" />
+                            Explore Our Photo Albums
+                        </Link>
                     </div>
-                ) : (
-                    <div className="text-center text-slate-500">No albums found.</div>
-                )}
+                </section>
+
+                <section className="mt-20">
+                    <div className="text-center mb-12">
+                        <h2 className="text-4xl font-extrabold text-slate-900">Upcoming Events</h2>
+                        <p className="mt-4 text-lg text-slate-600">Join us for our next community gathering.</p>
+                    </div>
+                    {isLoadingEvents ? (
+                        <p className="text-center text-slate-500">Loading events...</p>
+                    ) : events.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {events.map((event, index) => (
+                                <EventCard key={index} event={event} />
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-center text-slate-500 py-8">No upcoming events scheduled at this time. Please check back soon!</p>
+                    )}
+                </section>
             </main>
-             <footer className="text-center py-6 text-sm text-slate-400">
+             <footer className="text-center py-6 text-sm text-slate-400 mt-12">
                 © {new Date().getFullYear()} Contribution OS. All rights reserved.
             </footer>
         </div>

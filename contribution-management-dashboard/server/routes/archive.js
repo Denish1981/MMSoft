@@ -6,11 +6,11 @@ const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:archive:view'), async (req, res) => {
     try {
-        const tables = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events'];
+        const tables = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events', 'campaigns'];
         const nameColumns = {
             contributions: 'donor_name', sponsors: 'name', vendors: 'name',
             expenses: 'name', quotations: 'quotation_for', budgets: 'item_name',
-            festivals: 'name', tasks: 'title', events: 'name'
+            festivals: 'name', tasks: 'title', events: 'name', campaigns: 'name'
         };
         let archivedItems = [];
 
@@ -36,7 +36,7 @@ router.get('/', authMiddleware, permissionMiddleware('page:archive:view'), async
 
 router.post('/:recordType/:id/restore', authMiddleware, permissionMiddleware('action:restore'), async (req, res) => {
     const { recordType, id } = req.params;
-    const allowedTypes = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events'];
+    const allowedTypes = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events', 'campaigns'];
     
     if (!allowedTypes.includes(recordType)) {
         return res.status(400).json({ error: 'Invalid record type for restoration.' });

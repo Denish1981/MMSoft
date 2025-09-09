@@ -17,6 +17,9 @@ import { CalendarIcon } from './icons/CalendarIcon';
 import { CheckSquareIcon } from './icons/CheckSquareIcon';
 import { ArchiveIcon } from './icons/ArchiveIcon';
 import { CameraIcon } from './icons/CameraIcon';
+import { UsersIcon } from './icons/UsersIcon';
+import { CampaignIcon } from './icons/CampaignIcon';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 interface NavItemProps {
     to: string;
@@ -59,11 +62,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
         { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },
         { to: "/contributions", permission: 'page:contributions:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Contributions" },
-        //{ to: "/donors", permission: 'page:donors:view', icon: <UsersIcon className="w-5 h-5" />, label: "Donors" },
+        // { to: "/donors", permission: 'page:donors:view', icon: <UsersIcon className="w-5 h-5" />, label: "Donors" },
         { to: "/expenses", permission: 'page:expenses:view', icon: <ReceiptIcon className="w-5 h-5" />, label: "Expenses" },
-        //{ to: "/campaigns", permission: 'page:campaigns:view', icon: <CampaignIcon className="w-5 h-5" />, label: "Campaigns" },
+        { to: "/campaigns", permission: 'page:campaigns:view', icon: <CampaignIcon className="w-5 h-5" />, label: "Campaigns" },
         { to: "/reports", permission: 'page:reports:view', icon: <ChartBarIcon className="w-5 h-5" />, label: "Reports" },
-        //{ to: "/ai-insights", permission: 'page:ai-insights:view', icon: <SparklesIcon className="w-5 h-5" />, label: "AI Insights" },
+        // { to: "/ai-insights", permission: 'page:ai-insights:view', icon: <SparklesIcon className="w-5 h-5" />, label: "AI Insights" },
         { to: "/user-management", permission: 'page:user-management:view', icon: <UserGroupIcon className="w-5 h-5" />, label: "User Management" },
         { to: "/archive", permission: 'page:archive:view', icon: <ArchiveIcon className="w-5 h-5" />, label: "Archive" },
     ];

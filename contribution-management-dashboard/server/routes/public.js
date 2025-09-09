@@ -52,4 +52,30 @@ router.get('/public/albums/:id', async (req, res) => {
     }
 });
 
+router.get('/public/events', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                e.name,
+                e.description,
+                e.event_date AS "eventDate",
+                to_char(e.start_time, 'HH24:MI') AS "startTime",
+                to_char(e.end_time, 'HH24:MI') AS "endTime",
+                e.venue,
+                e.registration_link AS "registrationLink"
+            FROM events e
+            JOIN festivals f ON e.festival_id = f.id
+            WHERE e.deleted_at IS NULL
+              AND f.deleted_at IS NULL
+              AND e.event_date >= CURRENT_DATE
+              AND f.end_date >= CURRENT_DATE
+            ORDER BY e.event_date ASC, e.start_time ASC;
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching public events:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;

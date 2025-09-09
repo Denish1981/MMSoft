@@ -27,6 +27,7 @@ interface DataContextType {
     handleFestivalSubmit: (data: Omit<Festival, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Festival | null) => void;
     handleTaskSubmit: (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Task | null) => void;
     handleEventSubmit: (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => Promise<void>;
+    handleCampaignSubmit: (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Campaign | null) => void;
     handleDeleteClick: (id: number, type: string) => void;
     handleRestore: (recordType: string, recordId: number) => Promise<void>;
     eventDataVersion: number;
@@ -218,6 +219,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (itemToEdit) handleUpdate(`${API_URL}/tasks`, { ...itemToEdit, ...data }, setTasks);
         else handleAdd(`${API_URL}/tasks`, data, setTasks);
     };
+    const handleCampaignSubmit = (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Campaign | null) => {
+        if (itemToEdit) handleUpdate(`${API_URL}/campaigns`, { ...itemToEdit, ...data }, setCampaigns);
+        else handleAdd(`${API_URL}/campaigns`, data, setCampaigns);
+    };
 
     const handleEventSubmit = async (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => {
         const url = itemToEdit ? `${API_URL}/events/${itemToEdit.id}` : `${API_URL}/events`;
@@ -238,7 +243,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         donors, expenseHeads, festivalMap,
         fetchData,
         handleContributionSubmit, handleSponsorSubmit, handleVendorSubmit, handleExpenseSubmit, handleQuotationSubmit,
-        handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit,
+        handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit, handleCampaignSubmit,
         handleDeleteClick, handleRestore,
         eventDataVersion
     };
