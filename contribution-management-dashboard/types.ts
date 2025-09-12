@@ -57,6 +57,7 @@ export interface Sponsor {
   sponsorshipAmount: number;
   sponsorshipType: string;
   datePaid: string; // ISO string
+  paymentReceivedBy: string;
   image?: string;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string

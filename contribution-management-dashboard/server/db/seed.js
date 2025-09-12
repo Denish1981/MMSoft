@@ -93,6 +93,7 @@ const seedDatabase = async () => {
         }
         await client.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_link VARCHAR(2048);`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
+        await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS payment_received_by VARCHAR(255);`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;`);
         
         // Ensure image tables have created_at for sorting cover images

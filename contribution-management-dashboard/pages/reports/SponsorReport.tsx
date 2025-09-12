@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { Sponsor } from '../../types';
 import ReportContainer from './ReportContainer';
@@ -82,6 +83,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
             'Sponsorship Amount': s.sponsorshipAmount,
             'Sponsorship Type': s.sponsorshipType,
             'Date Paid': new Date(s.datePaid).toLocaleDateString(),
+            'Payment Received By': s.paymentReceivedBy,
         }));
         exportToCsv(dataToExport, 'sponsor_report');
     };
@@ -111,6 +113,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date Paid</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Received By</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
                         </tr>
                     </thead>
@@ -122,11 +125,12 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(s.sponsorshipAmount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.sponsorshipType}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(s.datePaid)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.paymentReceivedBy}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.contactNumber}</td>
                             </tr>
                         )) : (
                              <tr>
-                                <td colSpan={6} className="text-center py-10 text-slate-500">
+                                <td colSpan={7} className="text-center py-10 text-slate-500">
                                     {sponsors.length === 0 ? "No sponsors have been added yet." : "No sponsors match your current filters."}
                                 </td>
                             </tr>
