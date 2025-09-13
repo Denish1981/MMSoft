@@ -17,6 +17,8 @@ interface EventModalProps {
 const defaultFormSchema: RegistrationFormField[] = [
     { name: 'name', label: 'Full Name', type: 'text', required: true },
     { name: 'phone_number', label: 'Phone Number', type: 'tel', required: true },
+    { name: 'tower_number', label: 'Tower Number', type: 'text', required: true },
+    { name: 'flat_number', label: 'Flat Number', type: 'text', required: true },
 ];
 
 const labelToName = (label: string) => {
@@ -208,7 +210,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                         <h3 className="text-lg font-semibold text-slate-800 mb-4">Custom Registration Form</h3>
                         <div className="space-y-4">
                             {formSchema.map((field, index) => {
-                                const isDefault = index < 2;
+                                const isDefault = index < 4;
                                 return (
                                 <div key={index} className="p-4 border border-slate-200 rounded-lg bg-slate-50 relative">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

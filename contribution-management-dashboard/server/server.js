@@ -24,6 +24,7 @@ const archiveRoutes = require('./routes/archive');
 const aiRoutes = require('./routes/ai');
 const eventRoutes = require('./routes/events');
 const participantRoutes = require('./routes/participants');
+const eventRegistrationRoutes = require('./routes/eventRegistrations');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -56,6 +57,7 @@ app.use('/api/archive', archiveRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/participants', participantRoutes);
+app.use('/api/event-registrations', eventRegistrationRoutes);
 
 
 // --- Server Start ---

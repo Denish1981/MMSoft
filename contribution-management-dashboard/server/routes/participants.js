@@ -4,24 +4,35 @@ const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
 const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:participants:view'), async (req, res) => {
+    const { festivalId } = req.query;
     try {
-        const { rows } = await db.query(`
+        const params = festivalId ? [festivalId] : [];
+        const festivalFilter = festivalId ? `AND e1.festival_id = $1` : '';
+        const countFestivalFilter = festivalId ? `AND e2.festival_id = $1` : '';
+
+        const query = `
             SELECT
-                DISTINCT ON (LOWER(name), form_data->>'phone_number')
-                name,
-                email,
-                form_data->>'phone_number' as "phoneNumber",
+                DISTINCT ON (LOWER(r1.name), r1.form_data->>'phone_number')
+                r1.name,
+                r1.email,
+                r1.form_data->>'phone_number' as "phoneNumber",
                 (
-                    SELECT COUNT(DISTINCT event_id) 
-                    FROM event_registrations r2 
-                    WHERE LOWER(r2.name) = LOWER(r1.name) 
+                    SELECT COUNT(DISTINCT r2.event_id)
+                    FROM event_registrations r2
+                    JOIN events e2 ON r2.event_id = e2.id
+                    WHERE LOWER(r2.name) = LOWER(r1.name)
                     AND r2.form_data->>'phone_number' = r1.form_data->>'phone_number'
+                    ${countFestivalFilter}
                 ) as "registrationCount",
-                submitted_at as "lastRegisteredAt"
+                r1.submitted_at as "lastRegisteredAt"
             FROM event_registrations r1
-            WHERE form_data->>'phone_number' IS NOT NULL
-            ORDER BY LOWER(name), form_data->>'phone_number', submitted_at DESC;
-        `);
+            JOIN events e1 ON r1.event_id = e1.id
+            WHERE r1.form_data->>'phone_number' IS NOT NULL
+            ${festivalFilter}
+            ORDER BY LOWER(r1.name), r1.form_data->>'phone_number', r1.submitted_at DESC;
+        `;
+        
+        const { rows } = await db.query(query, params);
         res.json(rows);
     } catch (err) {
         console.error('Error fetching unique participants:', err);

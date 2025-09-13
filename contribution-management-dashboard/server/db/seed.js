@@ -126,6 +126,7 @@ const seedDatabase = async () => {
                 submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
         `);
+        await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS payment_proof_image TEXT;`);
         await client.query(`ALTER TABLE event_registrations DROP COLUMN IF EXISTS phone_number;`);
         await client.query(`ALTER TABLE event_registrations ALTER COLUMN email DROP NOT NULL;`);
 
@@ -146,6 +147,16 @@ const seedDatabase = async () => {
                 -- Only update rows that actually have an 'email' field in their schema.
                 registration_form_schema @> '[{"name":"email"}]';
         `);
+        
+        // --- FIX: Ensure all events have tower and flat number fields for contribution check ---
+        await client.query(`
+            UPDATE events
+            SET registration_form_schema = registration_form_schema || 
+                CASE WHEN NOT registration_form_schema @> '[{"name":"tower_number"}]' THEN '[{"name": "tower_number", "label": "Tower Number", "type": "text", "required": true}]'::jsonb ELSE '[]'::jsonb END ||
+                CASE WHEN NOT registration_form_schema @> '[{"name":"flat_number"}]' THEN '[{"name": "flat_number", "label": "Flat Number", "type": "text", "required": true}]'::jsonb ELSE '[]'::jsonb END
+            WHERE deleted_at IS NULL;
+        `);
+        console.log("Ensured event registration forms include Tower and Flat Number fields.");
 
 
         // --- Expense Payment Migration ---

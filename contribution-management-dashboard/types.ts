@@ -214,6 +214,7 @@ export interface EventRegistration {
   email?: string;
   formData: Record<string, any>;
   submittedAt: string; // ISO String
+  paymentProofImage?: string;
 }
 
 

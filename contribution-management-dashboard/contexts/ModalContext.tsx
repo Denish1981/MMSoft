@@ -57,7 +57,7 @@ interface ModalContextType {
 
     isConfirmationModalOpen: boolean;
     confirmMessage: string;
-    openConfirmationModal: (id: number, type: string) => void;
+    openConfirmationModal: (id: number, type: string, onDeleteSuccess?: () => void) => void;
     closeConfirmationModal: () => void;
     confirmDelete: () => Promise<void>;
 
@@ -102,9 +102,13 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // State for deletion confirmation
     const [itemToDelete, setItemToDelete] = useState<{ id: number; type: string } | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+    const [onDeleteSuccessCallback, setOnDeleteSuccessCallback] = useState<(() => void) | null>(null);
     // FIX: Import and use `useMemo` to prevent recalculating the message on every render.
     const confirmMessage = useMemo(() => {
         if (!itemToDelete) return '';
+        if (itemToDelete.type === 'event-registrations') {
+            return 'Are you sure you want to permanently delete this registration? This action cannot be undone.';
+        }
         const itemType = itemToDelete.type.slice(0, -1);
         return `Are you sure you want to archive this ${itemType}? It can be restored later from the Archive page.`;
     }, [itemToDelete]);
@@ -158,30 +162,43 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const closeCampaignModal = () => { setIsCampaignModalOpen(false); setCampaignToEdit(null); };
 
     // --- Confirmation and History Modals ---
-    const openConfirmationModal = (id: number, type: string) => {
-        if (!hasPermission('action:delete')) {
-            alert("You don't have permission to archive items.");
+    const openConfirmationModal = (id: number, type: string, onDeleteSuccess?: () => void) => {
+        const permission = type === 'event-registrations' ? 'action:delete' : 'action:delete'; // Could be different permissions later
+        if (!hasPermission(permission)) {
+            alert("You don't have permission to perform this action.");
             return;
         }
         setItemToDelete({ id, type });
+        setOnDeleteSuccessCallback(onDeleteSuccess ? () => onDeleteSuccess : null);
         setIsConfirmationModalOpen(true);
     };
-    const closeConfirmationModal = () => setIsConfirmationModalOpen(false);
+    const closeConfirmationModal = () => {
+        setIsConfirmationModalOpen(false);
+        setOnDeleteSuccessCallback(null);
+    };
 
     const confirmDelete = async () => {
         if (!itemToDelete) return;
         const { id, type } = itemToDelete;
+        
+        // Use a different URL for deleting registrations
+        const url = type === 'event-registrations'
+            ? `${API_URL}/event-registrations/${id}`
+            : `${API_URL}/${type}/${id}`;
+        
         try {
-            const response = await fetch(`${API_URL}/${type}/${id}`, { 
+            const response = await fetch(url, { 
                 method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } 
             });
             if (response.status === 401) { logout(); return; }
             if (!response.ok) { 
                 const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to archive ${type}`);
+                throw new Error(errorData.error || `Failed to process request for ${type}`);
             }
             
-            if (type === 'events') {
+            if (onDeleteSuccessCallback) {
+                onDeleteSuccessCallback();
+            } else if (type === 'events') {
                 triggerEventRefetch();
             } else {
                 await fetchData();
@@ -193,6 +210,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } finally {
             setIsConfirmationModalOpen(false);
             setItemToDelete(null);
+            setOnDeleteSuccessCallback(null);
         }
     };
 

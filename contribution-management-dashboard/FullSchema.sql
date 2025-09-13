@@ -390,3 +390,4 @@ CREATE TABLE event_registrations (
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS payment_proof_image TEXT;

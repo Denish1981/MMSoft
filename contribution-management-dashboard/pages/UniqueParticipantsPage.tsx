@@ -7,6 +7,7 @@ import { formatUTCDate } from '../utils/formatting';
 import type { UniqueParticipant } from '../types';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
+import { useData } from '../contexts/DataContext';
 
 const ExportIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -18,10 +19,12 @@ const ExportIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 
 const UniqueParticipantsPage: React.FC = () => {
     const { token, logout } = useAuth();
+    const { festivals } = useData();
     const [participants, setParticipants] = useState<UniqueParticipant[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -31,7 +34,13 @@ const UniqueParticipantsPage: React.FC = () => {
         setIsLoading(true);
         try {
             const headers = { 'Authorization': `Bearer ${token}` };
-            const response = await fetch(`${API_URL}/participants`, { headers });
+            
+            const url = new URL(`${API_URL}/participants`);
+            if (selectedFestivalId !== 'all') {
+                url.searchParams.append('festivalId', selectedFestivalId);
+            }
+
+            const response = await fetch(url.toString(), { headers });
             if (response.status === 401) { logout(); return; }
             if (!response.ok) throw new Error('Failed to fetch participant data');
             const data = await response.json();
@@ -41,7 +50,7 @@ const UniqueParticipantsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [token, logout]);
+    }, [token, logout, selectedFestivalId]);
 
     useEffect(() => {
         fetchParticipants();
@@ -57,7 +66,7 @@ const UniqueParticipantsPage: React.FC = () => {
     
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, rowsPerPage]);
+    }, [searchTerm, rowsPerPage, selectedFestivalId]);
 
     const totalPages = Math.ceil(filteredParticipants.length / rowsPerPage);
     const paginatedParticipants = useMemo(() => {
@@ -99,13 +108,24 @@ const UniqueParticipantsPage: React.FC = () => {
                 </button>
             </div>
             
-            <div className="mb-4">
+            <div className="mb-4 flex flex-col md:flex-row gap-4">
                  <input
                     type="text"
                     placeholder="Search by name, email, or phone..."
-                    className="w-full md:w-1/3 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     onChange={e => setSearchTerm(e.target.value)}
                 />
+                 <select
+                    value={selectedFestivalId}
+                    onChange={e => setSelectedFestivalId(e.target.value)}
+                    className="w-full md:w-1/2 px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    aria-label="Filter by festival"
+                >
+                    <option value="all">All Festivals</option>
+                    {festivals.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                </select>
             </div>
 
             <div className="overflow-x-auto">

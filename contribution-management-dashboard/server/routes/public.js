@@ -81,7 +81,7 @@ router.get('/public/events', async (req, res) => {
 
 router.post('/public/events/:id/register', async (req, res) => {
     const { id } = req.params;
-    const { formData } = req.body;
+    const { formData, paymentProofImage } = req.body;
 
     if (!formData || typeof formData !== 'object') {
         return res.status(400).json({ error: 'Registration form data is required.' });
@@ -102,11 +102,27 @@ router.post('/public/events/:id/register', async (req, res) => {
             }
         }
         
-        const name = formData.name || 'Unnamed';
-        const email = 'dummyemail';//formData.email;
-        if (!email) {
-            return res.status(400).json({ error: "Email is a required field." });
+        // --- Contribution Check ---
+        const towerNumber = formData.tower_number;
+        const flatNumber = formData.flat_number;
+
+        if (!towerNumber || !flatNumber) {
+            return res.status(400).json({ error: 'Tower Number and Flat Number are required for registration.' });
         }
+
+        const contributionCheck = await db.query(
+            'SELECT 1 FROM contributions WHERE tower_number ILIKE $1 AND flat_number ILIKE $2 AND deleted_at IS NULL LIMIT 1',
+            [String(towerNumber).trim(), String(flatNumber).trim()]
+        );
+        
+        if (contributionCheck.rows.length === 0) {
+            if (!paymentProofImage) {
+                return res.status(403).json({ error: 'Registration is for contributing members. If you have already contributed, please upload proof of payment to proceed.' });
+            }
+        }
+        
+        const name = formData.name || 'Unnamed';
+        const email = formData.email || null;
         
         // Remove name and email from formData if they exist to avoid duplication
         const customData = { ...formData };
@@ -114,8 +130,8 @@ router.post('/public/events/:id/register', async (req, res) => {
         delete customData.email;
 
         await db.query(
-            'INSERT INTO event_registrations (event_id, name, email, form_data) VALUES ($1, $2, $3, $4)',
-            [id, name, email, JSON.stringify(customData)]
+            'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image) VALUES ($1, $2, $3, $4, $5)',
+            [id, name, email, JSON.stringify(customData), paymentProofImage || null]
         );
         res.status(201).json({ message: 'Registration successful.' });
     } catch (err) {

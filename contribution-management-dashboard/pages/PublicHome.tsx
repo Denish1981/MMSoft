@@ -6,6 +6,7 @@ import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import type { RegistrationFormField } from '../types';
+import CameraCapture from '../components/CameraCapture';
 
 interface PublicEvent {
     id: number;
@@ -23,9 +24,32 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [isSuccess, setIsSuccess] = useState(false);
+    const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>();
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+
 
     const handleInputChange = (name: string, value: string | boolean) => {
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result as string;
+                setPaymentProofImage(base64String);
+                setImagePreview(base64String);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleCaptureComplete = (imageDataUrl: string) => {
+        setPaymentProofImage(imageDataUrl);
+        setImagePreview(imageDataUrl);
+        setIsCameraOpen(false);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +61,7 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
             const response = await fetch(`${API_URL}/public/events/${event.id}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ formData }),
+                body: JSON.stringify({ formData, paymentProofImage }),
             });
             if (!response.ok) {
                 const data = await response.json();
@@ -75,6 +99,8 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
     };
 
     return (
+        <>
+        {isCameraOpen && <CameraCapture onCapture={handleCaptureComplete} onClose={() => setIsCameraOpen(false)} />}
         <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4" onClick={onClose}>
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center p-4 border-b border-slate-200">
@@ -99,7 +125,32 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
                             </div>
                         ))}
 
-                        {error && <p className="text-sm text-red-600">{error}</p>}
+                        <div className="pt-2">
+                            <label className="block text-sm font-medium text-slate-700">Proof of Contribution (Optional)</label>
+                            <p className="text-xs text-slate-500 mb-2">If your contribution isn't recorded, please upload a payment screenshot to complete registration.</p>
+                             <div className="mt-2 grid grid-cols-2 gap-4">
+                                <label htmlFor="imageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
+                                    Upload File
+                                    <input id="imageUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
+                                </label>
+                                <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
+                                    <CameraIcon className="w-5 h-5 mr-2" />
+                                    Capture Image
+                                </button>
+                            </div>
+                            {imagePreview && (
+                                <div className="mt-4">
+                                    <div className="relative w-fit">
+                                        <img src={imagePreview} alt="Contribution preview" className="max-h-28 rounded-md border border-slate-200 p-1" />
+                                         <button type="button" onClick={() => { setPaymentProofImage(undefined); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
+                                            <CloseIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {error && <p className="text-sm text-red-600 pt-2">{error}</p>}
                         <div className="pt-2">
                             <button type="submit" disabled={isLoading} className="w-full px-4 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:bg-slate-400">
                                 {isLoading ? 'Submitting...' : 'Submit Registration'}
@@ -110,6 +161,7 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
                  <style>{`.input-style { padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); } .input-style:focus { outline: none; box-shadow: 0 0 0 2px #3b82f6; border-color: #2563eb; }`}</style>
             </div>
         </div>
+        </>
     );
 };
 

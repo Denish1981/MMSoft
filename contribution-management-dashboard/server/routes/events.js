@@ -32,7 +32,7 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
         }
         
         const registrationsRes = await db.query(
-            `SELECT id, event_id as "eventId", name, email, form_data as "formData", submitted_at as "submittedAt"
+            `SELECT id, event_id as "eventId", name, email, form_data as "formData", submitted_at as "submittedAt", payment_proof_image as "paymentProofImage"
              FROM event_registrations 
              WHERE event_id = $1 
              ORDER BY submitted_at DESC`,
