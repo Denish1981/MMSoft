@@ -1,5 +1,7 @@
 import React from 'react';
-import { useLocation, Link } from 'react-router-dom';
+// FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
+import { useLocation } from 'react-router';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useModal } from '../contexts/ModalContext';
 import { PlusIcon } from './icons/PlusIcon';
@@ -70,6 +72,8 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
         if (path.match(/^\/festivals\/\d+\/events$/)) return { title: 'Festival Events', button: createButton(() => openEventModal(), 'Add Event') };
         if (path.match(/^\/festivals\/\d+\/photos$/)) return { title: 'Festival Photos', button: null };
         if (path.startsWith('/festivals')) return { title: 'Festivals', button: createButton(() => openFestivalModal(), 'Add Festival') };
+        if (path.match(/^\/participants\/.+\/.+$/)) return { title: 'Registration History', button: null };
+        if (path.startsWith('/participants')) return { title: 'Unique Participants', button: null };
         if (path.startsWith('/tasks')) return { title: 'Tasks', button: createButton(() => openTaskModal(), 'Add Task') };
         if (path.startsWith('/reports')) return { title: 'Reports', button: null };
         if (path.startsWith('/ai-insights')) return { title: 'AI-Powered Insights', button: null };

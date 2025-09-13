@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useOutletContext } from 'react-router-dom';
+// FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
+import { useParams, useOutletContext } from 'react-router';
+import { Link } from 'react-router-dom';
 import type { Event, Festival } from '../types';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +9,7 @@ import FestivalNavigation from '../components/FestivalNavigation';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
+import { UsersIcon } from '../components/icons/UsersIcon';
 import { formatUTCDate } from '../utils/formatting';
 import { useModal } from '../contexts/ModalContext';
 
@@ -78,16 +81,13 @@ const Events: React.FC = () => {
                         </div>
                         <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                             <div className="flex items-center gap-4">
-                                {event.registrationLink && (
-                                    <a href={event.registrationLink} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full hover:bg-green-700 transition-colors">
-                                        Register
-                                    </a>
-                                )}
-                                <div className="text-xs text-slate-500">
-                                    {event.contactPersons.length > 0 && (
-                                        <span>Contact: {event.contactPersons[0].name}</span>
-                                    )}
-                                </div>
+                                <Link
+                                    to={`/events/${event.id}/registrations`}
+                                    className="flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full hover:bg-blue-200 transition-colors"
+                                >
+                                    <UsersIcon className="w-4 h-4 mr-1.5" />
+                                    {event.registrationCount ?? 0} Registrations
+                                </Link>
                             </div>
                             <div className="flex items-center space-x-3">
                                 <button onClick={() => openHistoryModal('events', event.id, `History for ${event.name}`)} className="text-slate-400 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>

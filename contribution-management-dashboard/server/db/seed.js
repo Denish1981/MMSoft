@@ -14,6 +14,7 @@ const ALL_PERMISSIONS = [
     { name: 'page:campaigns:view', description: 'Can view the campaigns page' },
     { name: 'page:festivals:view', description: 'Can view the festivals page' },
     { name: 'page:events:view', description: 'Can view the festival events page' },
+    { name: 'page:participants:view', description: 'Can view the unique participants page' },
     { name: 'page:tasks:view', description: 'Can view the tasks page' },
     { name: 'page:reports:view', description: 'Can view the reports page' },
     { name: 'page:ai-insights:view', description: 'Can view the AI insights page' },
@@ -31,14 +32,14 @@ const ROLES_CONFIG = {
     'Manager': [
         'page:dashboard:view', 'page:contributions:view', 'page:bulk-add:view',
         'page:donors:view', 'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
-        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:events:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:events:view', 'page:participants:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
         'page:archive:view',
         'action:create', 'action:edit', 'action:delete', 'action:restore'
     ],
     'Viewer': [
         'page:dashboard:view', 'page:contributions:view', 'page:donors:view',
         'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
-        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:events:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view'
+        'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:events:view', 'page:participants:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view'
     ]
 };
 
@@ -91,7 +92,8 @@ const seedDatabase = async () => {
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
             await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
         }
-        await client.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_link VARCHAR(2048);`);
+        await client.query(`ALTER TABLE events DROP COLUMN IF EXISTS registration_link;`);
+        await client.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_form_schema JSONB DEFAULT '[]'::jsonb;`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS payment_received_by VARCHAR(255);`);
         await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;`);
@@ -112,6 +114,39 @@ const seedDatabase = async () => {
             );
         `);
         await client.query(`ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`);
+
+        // --- Event Registrations Table ---
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS event_registrations (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255),
+                form_data JSONB,
+                submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+        `);
+        await client.query(`ALTER TABLE event_registrations DROP COLUMN IF EXISTS phone_number;`);
+        await client.query(`ALTER TABLE event_registrations ALTER COLUMN email DROP NOT NULL;`);
+
+        // --- FIX: Retroactively remove the 'email' field from all existing event registration forms.
+        // This ensures all events, new and old, align with the policy of not having an email field by default.
+        await client.query(`
+            UPDATE events
+            SET 
+                registration_form_schema = COALESCE(
+                    (
+                        SELECT jsonb_agg(elem)
+                        FROM jsonb_array_elements(registration_form_schema) AS elem
+                        WHERE elem->>'name' <> 'email'
+                    ),
+                    '[]'::jsonb
+                )
+            WHERE 
+                -- Only update rows that actually have an 'email' field in their schema.
+                registration_form_schema @> '[{"name":"email"}]';
+        `);
+
 
         // --- Expense Payment Migration ---
         const expenseColumns = await client.query(`
@@ -161,19 +196,26 @@ const seedDatabase = async () => {
             permissionMap.set(res.rows[0].name, res.rows[0].id);
         }
 
+        // FIX: Make the role permission seeding idempotent.
+        // This ensures that on every start, the permissions for each role are synced with the config.
         for (const roleName in ROLES_CONFIG) {
-            const roleRes = await client.query('INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING id', [roleName]);
-            if (roleRes.rows.length > 0) {
-                const roleId = roleRes.rows[0].id;
-                const permissionsForRole = ROLES_CONFIG[roleName];
-                for (const permName of permissionsForRole) {
-                    const permId = permissionMap.get(permName);
-                    if (permId) {
-                         await client.query('INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [roleId, permId]);
-                    }
+            const roleRes = await client.query(
+                'INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
+                [roleName]
+            );
+            const roleId = roleRes.rows[0].id;
+
+            // Sync permissions: first delete existing, then add from config.
+            await client.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
+
+            const permissionsForRole = ROLES_CONFIG[roleName];
+            for (const permName of permissionsForRole) {
+                const permId = permissionMap.get(permName);
+                if (permId) {
+                    await client.query('INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [roleId, permId]);
                 }
-                 console.log(`Role '${roleName}' created or already exists.`);
             }
+            console.log(`Permissions for role '${roleName}' have been synced.`);
         }
         
         const adminEmail = process.env.ADMIN_EMAIL;

@@ -31,6 +31,7 @@ interface DataContextType {
     handleDeleteClick: (id: number, type: string) => void;
     handleRestore: (recordType: string, recordId: number) => Promise<void>;
     eventDataVersion: number;
+    triggerEventRefetch: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -237,6 +238,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             alert('Failed to save event.');
         }
     };
+    
+    const triggerEventRefetch = useCallback(() => {
+        setEventDataVersion(v => v + 1);
+    }, []);
 
     const value = {
         contributions, campaigns, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users,
@@ -245,7 +250,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleContributionSubmit, handleSponsorSubmit, handleVendorSubmit, handleExpenseSubmit, handleQuotationSubmit,
         handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit, handleCampaignSubmit,
         handleDeleteClick, handleRestore,
-        eventDataVersion
+        eventDataVersion,
+        triggerEventRefetch
     };
 
     return (

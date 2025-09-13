@@ -1,5 +1,7 @@
 import React from 'react';
-import { HashRouter, Route, Routes, Navigate } from 'react-router-dom';
+// FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
+import { Route, Routes, Navigate } from 'react-router';
+import { HashRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
@@ -25,12 +27,15 @@ import BulkAddPage from './pages/BulkAddPage';
 import Festivals from './pages/Festivals';
 import Tasks from './pages/Tasks';
 import Events from './pages/Events';
+import EventRegistrationsPage from './pages/EventRegistrationsPage';
 import ArchivePage from './pages/Archive';
 import PageViewTracker from './components/PageViewTracker';
 import PublicHomePage from './pages/PublicHome';
 import PhotoAlbumPage from './pages/PhotoAlbum';
 import FestivalPhotosPage from './pages/FestivalPhotosPage';
 import PhotoAlbumsListPage from './pages/PhotoAlbumsListPage';
+import UniqueParticipantsPage from './pages/UniqueParticipantsPage';
+import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -65,6 +70,9 @@ const App: React.FC = () => {
                                     <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals /></ProtectedRoute>} />
                                     <Route path="/festivals/:id/photos" element={<ProtectedRoute permission="page:festivals:view"><FestivalPhotosPage /></ProtectedRoute>} />
                                     <Route path="/festivals/:id/events" element={<ProtectedRoute permission="page:events:view"><Events /></ProtectedRoute>} />
+                                    <Route path="/events/:eventId/registrations" element={<ProtectedRoute permission="page:events:view"><EventRegistrationsPage /></ProtectedRoute>} />
+                                    <Route path="/participants" element={<ProtectedRoute permission="page:participants:view"><UniqueParticipantsPage /></ProtectedRoute>} />
+                                    <Route path="/participants/:name/:phone" element={<ProtectedRoute permission="page:participants:view"><ParticipantDetailsPage /></ProtectedRoute>} />
                                     <Route path="/tasks" element={<ProtectedRoute permission="page:tasks:view"><Tasks /></ProtectedRoute>} />
                                     <Route path="/reports" element={<ProtectedRoute permission="page:reports:view"><Reports /></ProtectedRoute>} />
                                     <Route path="/ai-insights" element={<ProtectedRoute permission="page:ai-insights:view"><AiInsights /></ProtectedRoute>} />

@@ -5,51 +5,115 @@ import { CameraIcon } from '../components/icons/CameraIcon';
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
+import type { RegistrationFormField } from '../types';
 
 interface PublicEvent {
+    id: number;
     name: string;
     description: string;
     eventDate: string;
     startTime: string;
     endTime: string | null;
     venue: string;
-    registrationLink: string | null;
+    registrationFormSchema: RegistrationFormField[];
 }
 
-const RegistrationModal: React.FC<{ registrationLink: string; onClose: () => void }> = ({ registrationLink, onClose }) => {
-    // Google forms can be embedded by appending `?embedded=true` to the URL.
-    const embedUrl = registrationLink.includes('?') 
-        ? `${registrationLink}&embedded=true` 
-        : `${registrationLink}?embedded=true`;
+const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> = ({ event, onClose }) => {
+    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [isSuccess, setIsSuccess] = useState(false);
+
+    const handleInputChange = (name: string, value: string | boolean) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch(`${API_URL}/public/events/${event.id}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ formData }),
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Registration failed. Please try again.');
+            }
+            setIsSuccess(true);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const renderField = (field: RegistrationFormField) => {
+        switch (field.type) {
+            case 'textarea':
+                return <textarea id={field.name} value={formData[field.name] || ''} onChange={e => handleInputChange(field.name, e.target.value)} required={field.required} className="mt-1 block w-full input-style" rows={3}></textarea>;
+            case 'select':
+                return (
+                    <select id={field.name} value={formData[field.name] || ''} onChange={e => handleInputChange(field.name, e.target.value)} required={field.required} className="mt-1 block w-full input-style bg-white">
+                        <option value="" disabled>Select an option</option>
+                        {field.options?.split(',').map(opt => <option key={opt.trim()} value={opt.trim()}>{opt.trim()}</option>)}
+                    </select>
+                );
+            case 'checkbox':
+                return (
+                    <label className="flex items-center space-x-2 mt-2">
+                        <input type="checkbox" id={field.name} checked={!!formData[field.name]} onChange={e => handleInputChange(field.name, e.target.checked)} required={field.required} className="h-4 w-4 text-blue-600 border-slate-300 rounded" />
+                        <span className="text-sm text-slate-600">{field.label} {field.required && '*'}</span>
+                    </label>
+                );
+            default:
+                return <input type={field.type} id={field.name} value={formData[field.name] || ''} onChange={e => handleInputChange(field.name, e.target.value)} required={field.required} className="mt-1 block w-full input-style" />;
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b border-slate-200 flex-shrink-0">
-                    <h2 className="text-xl font-bold text-slate-800">Event Registration</h2>
-                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800">
-                        <CloseIcon className="w-6 h-6" />
-                    </button>
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b border-slate-200">
+                    <h2 className="text-xl font-bold text-slate-800">Register for {event.name}</h2>
+                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><CloseIcon className="w-6 h-6" /></button>
                 </div>
-                <div className="flex-grow overflow-hidden">
-                    <iframe
-                        src={embedUrl}
-                        width="100%"
-                        height="100%"
-                        frameBorder="0"
-                        marginHeight={0}
-                        marginWidth={0}
-                        title="Event Registration Form"
-                    >
-                        Loading…
-                    </iframe>
-                </div>
+
+                {isSuccess ? (
+                    <div className="p-8 text-center">
+                        <h3 className="text-2xl font-bold text-green-600">Registration Confirmed!</h3>
+                        <p className="mt-2 text-slate-600">Thank you for registering. We look forward to seeing you at the event.</p>
+                        <button onClick={onClose} className="mt-6 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors">Close</button>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                        {(event.registrationFormSchema || []).map(field => (
+                            <div key={field.name}>
+                                {field.type !== 'checkbox' && (
+                                    <label htmlFor={field.name} className="block text-sm font-medium text-slate-700">{field.label} {field.required && '*'}</label>
+                                )}
+                                {renderField(field)}
+                            </div>
+                        ))}
+
+                        {error && <p className="text-sm text-red-600">{error}</p>}
+                        <div className="pt-2">
+                            <button type="submit" disabled={isLoading} className="w-full px-4 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:bg-slate-400">
+                                {isLoading ? 'Submitting...' : 'Submit Registration'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+                 <style>{`.input-style { padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); } .input-style:focus { outline: none; box-shadow: 0 0 0 2px #3b82f6; border-color: #2563eb; }`}</style>
             </div>
         </div>
     );
 };
 
-const EventCard: React.FC<{ event: PublicEvent; onRegisterClick: (link: string) => void }> = ({ event, onRegisterClick }) => {
+const EventCard: React.FC<{ event: PublicEvent; onRegisterClick: (event: PublicEvent) => void }> = ({ event, onRegisterClick }) => {
     const formatTime = (timeStr: string | null) => {
         if (!timeStr) return '';
         const [hours, minutes] = timeStr.split(':');
@@ -68,16 +132,14 @@ const EventCard: React.FC<{ event: PublicEvent; onRegisterClick: (link: string) 
                 </div>
                 <p className="mt-1 text-sm text-slate-600">📍 {event.venue}</p>
                 <p className="mt-4 text-sm text-slate-500 flex-grow">{event.description}</p>
-                 {event.registrationLink && (
-                    <div className="mt-6 pt-4 border-t border-slate-100">
-                        <button 
-                            onClick={() => onRegisterClick(event.registrationLink!)}
-                            className="inline-block w-full text-center px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors"
-                        >
-                            Register Now
-                        </button>
-                    </div>
-                 )}
+                <div className="mt-6 pt-4 border-t border-slate-100">
+                    <button 
+                        onClick={() => onRegisterClick(event)}
+                        className="inline-block w-full text-center px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors"
+                    >
+                        Register Now
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -87,7 +149,7 @@ const PublicHomePage: React.FC = () => {
     const { isAuthenticated } = useAuth();
     const [events, setEvents] = useState<PublicEvent[]>([]);
     const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-    const [registrationModalLink, setRegistrationModalLink] = useState<string | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -106,12 +168,12 @@ const PublicHomePage: React.FC = () => {
         fetchEvents();
     }, []);
 
-    const handleRegisterClick = (link: string) => {
-        setRegistrationModalLink(link);
+    const handleRegisterClick = (event: PublicEvent) => {
+        setSelectedEvent(event);
     };
 
     const handleCloseModal = () => {
-        setRegistrationModalLink(null);
+        setSelectedEvent(null);
     };
 
     return (
@@ -159,8 +221,8 @@ const PublicHomePage: React.FC = () => {
                         <p className="text-center text-slate-500">Loading events...</p>
                     ) : events.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {events.map((event, index) => (
-                                <EventCard key={index} event={event} onRegisterClick={handleRegisterClick} />
+                            {events.map((event) => (
+                                <EventCard key={event.id} event={event} onRegisterClick={handleRegisterClick} />
                             ))}
                         </div>
                     ) : (
@@ -171,8 +233,8 @@ const PublicHomePage: React.FC = () => {
              <footer className="text-center py-6 text-sm text-slate-400 mt-12">
                 © {new Date().getFullYear()} Contribution OS. All rights reserved.
             </footer>
-            {registrationModalLink && (
-                <RegistrationModal registrationLink={registrationModalLink} onClose={handleCloseModal} />
+            {selectedEvent && (
+                <RegistrationModal event={selectedEvent} onClose={handleCloseModal} />
             )}
         </div>
     );

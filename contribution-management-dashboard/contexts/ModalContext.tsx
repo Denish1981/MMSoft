@@ -73,7 +73,7 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 
 export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { hasPermission, token, logout } = useAuth();
-    const { fetchData } = useData();
+    const { fetchData, triggerEventRefetch } = useData();
 
     // Modal visibility state
     const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
@@ -180,7 +180,13 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const errorData = await response.json();
                 throw new Error(errorData.error || `Failed to archive ${type}`);
             }
-            await fetchData();
+            
+            if (type === 'events') {
+                triggerEventRefetch();
+            } else {
+                await fetchData();
+            }
+
         } catch (error) {
             console.error(error);
             alert(error instanceof Error ? error.message : "An unknown error occurred.");

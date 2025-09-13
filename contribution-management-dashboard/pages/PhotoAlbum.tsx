@@ -1,6 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+// FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
+import { useParams } from 'react-router';
+import { Link } from 'react-router-dom';
 import { API_URL } from '../config';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';

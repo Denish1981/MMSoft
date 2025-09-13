@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+// FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
+import { Outlet, useLocation, Navigate } from 'react-router';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import { useModal } from '../contexts/ModalContext';
@@ -17,7 +18,6 @@ import { EventModal } from '../components/EventModal';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { HistoryModal } from '../components/HistoryModal';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
 import { CampaignModal } from '../components/CampaignModal';
 
 export const ProtectedLayout: React.FC = () => {

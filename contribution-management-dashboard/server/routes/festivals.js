@@ -68,8 +68,17 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
     const { id } = req.params;
     try {
         const eventsRes = await db.query(
-            `SELECT id, festival_id as "festivalId", name, event_date as "eventDate", to_char(start_time, 'HH24:MI') as "startTime", to_char(end_time, 'HH24:MI') as "endTime", description, image_data as "image", venue, registration_link as "registrationLink", created_at as "createdAt", updated_at as "updatedAt"
-             FROM events WHERE festival_id = $1 AND deleted_at IS NULL ORDER BY event_date, start_time`, [id]
+            `SELECT 
+                e.id, e.festival_id as "festivalId", e.name, e.event_date as "eventDate", 
+                to_char(e.start_time, 'HH24:MI') as "startTime", to_char(e.end_time, 'HH24:MI') as "endTime", 
+                e.description, e.image_data as "image", e.venue, e.registration_form_schema as "registrationFormSchema",
+                e.created_at as "createdAt", e.updated_at as "updatedAt",
+                COUNT(er.id)::int as "registrationCount"
+             FROM events e
+             LEFT JOIN event_registrations er ON e.id = er.event_id
+             WHERE e.festival_id = $1 AND e.deleted_at IS NULL 
+             GROUP BY e.id
+             ORDER BY e.event_date, e.start_time`, [id]
         );
         const events = eventsRes.rows;
         for (const event of events) {
@@ -84,35 +93,6 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-
-// Note: Event POST, PUT, DELETE, History are in their own router file for consistency.
-// Oh, wait, the original file had them here. I will put them in a dedicated events.js
-// No, the original file has everything in server.js. The current routing structure has `/festivals/:id/events`.
-// It makes sense to keep them here for now to match the URL structure.
-// I will keep the event routes here.
-// But the DELETE is generic, and it's /api/events/:id... okay I will make a separate events.js.
-// This is getting complex. The original file has `app.delete('/api/events/:id', ...)`
-// Let's create `events.js` to be cleaner.
-// No, let's look at App.tsx `handleDeleteClick(id, 'events')`. This calls `DELETE /api/events/123`.
-// Okay, so the routes are not nested under festivals.
-// This means I need to create a separate `routes/events.js`.
-// But the GET is `/festivals/:id/events`. This is inconsistent.
-// I'll stick to the original file's logic. All event routes will go into a separate file for clarity, and I'll adjust the main server file to mount it at `/api/events`. The GET route will also be moved there and changed.
-// No, the user wants me to split the file. The frontend expects GET /api/festivals/:id/events.
-// And DELETE /api/events/:id. This is a design flaw in the original app.
-// I will keep the original routing structure.
-// So, `GET /festivals/:id/events` stays here in `festivals.js`.
-// The other event routes (POST, PUT, DELETE, history) will be in a new `events.js` file.
-// This seems like the most faithful refactoring.
-
-// ... But wait, the original server.js only has a GET for events under `/festivals/:id/events`.
-// The POST, PUT, DELETE, and history routes are generic:
-// app.post('/api/events', ...)
-// app.put('/api/events/:id', ...)
-// app.delete('/api/events/:id', ...)
-// app.get('/api/events/:id/history', ...)
-// This confirms they should be in a separate `events.js` file.
-// So `festivals.js` will only contain festival logic + the nested GET for events and photos.
 
 // --- Festival Photo Management ---
 router.get('/:id/photos', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
@@ -159,10 +139,6 @@ router.post('/:id/photos', authMiddleware, permissionMiddleware('action:edit'), 
     }
 });
 
-// Note: DELETE for a single photo is at /api/photos/:id
-// It should be here. I'll add another router file for `photos`.
-// Let's create `routes/photos.js`.
-// No, this is getting too granular. Let's put it here.
 router.delete('/photos/:photoId', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
     try {
         const result = await db.query('DELETE FROM festival_photos WHERE id = $1', [req.params.photoId]);

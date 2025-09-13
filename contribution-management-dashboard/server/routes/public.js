@@ -56,13 +56,14 @@ router.get('/public/events', async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT 
+                e.id,
                 e.name,
                 e.description,
                 e.event_date AS "eventDate",
                 to_char(e.start_time, 'HH24:MI') AS "startTime",
                 to_char(e.end_time, 'HH24:MI') AS "endTime",
                 e.venue,
-                e.registration_link AS "registrationLink"
+                e.registration_form_schema as "registrationFormSchema"
             FROM events e
             JOIN festivals f ON e.festival_id = f.id
             WHERE e.deleted_at IS NULL
@@ -77,5 +78,51 @@ router.get('/public/events', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+router.post('/public/events/:id/register', async (req, res) => {
+    const { id } = req.params;
+    const { formData } = req.body;
+
+    if (!formData || typeof formData !== 'object') {
+        return res.status(400).json({ error: 'Registration form data is required.' });
+    }
+    
+    try {
+        const eventRes = await db.query('SELECT registration_form_schema FROM events WHERE id = $1', [id]);
+        if (eventRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Event not found.' });
+        }
+        
+        const schema = eventRes.rows[0].registration_form_schema;
+        
+        // --- Server-side Validation ---
+        for (const field of schema) {
+            if (field.required && !formData[field.name]) {
+                return res.status(400).json({ error: `Field '${field.label}' is required.` });
+            }
+        }
+        
+        const name = formData.name || 'Unnamed';
+        const email = 'dummyemail';//formData.email;
+        if (!email) {
+            return res.status(400).json({ error: "Email is a required field." });
+        }
+        
+        // Remove name and email from formData if they exist to avoid duplication
+        const customData = { ...formData };
+        delete customData.name;
+        delete customData.email;
+
+        await db.query(
+            'INSERT INTO event_registrations (event_id, name, email, form_data) VALUES ($1, $2, $3, $4)',
+            [id, name, email, JSON.stringify(customData)]
+        );
+        res.status(201).json({ message: 'Registration successful.' });
+    } catch (err) {
+        console.error(`Error saving registration for event ${id}:`, err);
+        res.status(500).json({ error: 'Could not process your registration at this time.' });
+    }
+});
+
 
 module.exports = router;

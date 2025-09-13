@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+// FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
+import { useParams } from 'react-router';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { CloseIcon } from '../components/icons/CloseIcon';

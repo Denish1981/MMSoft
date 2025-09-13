@@ -371,3 +371,22 @@ alter table expense_payments alter column payment_method SET DEFAULT 'Online';
 
     
 ALTER TABLE events ADD COLUMN registration_link VARCHAR(2048);
+
+ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS payment_received_by VARCHAR(255);
+
+-- Remove the old, unused registration link column from the events table.
+ALTER TABLE events DROP COLUMN IF EXISTS registration_link;
+
+-- Add a new JSONB column to store the unique form structure for each event.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_form_schema JSONB DEFAULT '[]'::jsonb;
+
+-- Create a new table to store registration submissions with a flexible data structure.
+CREATE TABLE event_registrations (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    form_data JSONB,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+

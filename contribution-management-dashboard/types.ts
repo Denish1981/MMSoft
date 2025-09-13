@@ -179,6 +179,16 @@ export interface EventContactPerson {
   email?: string;
 }
 
+export type RegistrationFormFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox';
+
+export interface RegistrationFormField {
+  name: string; // a unique machine-readable name, e.g., 't_shirt_size'
+  label: string; // a human-readable label, e.g., 'T-Shirt Size'
+  type: RegistrationFormFieldType;
+  required: boolean;
+  options?: string; // Comma-separated for select type
+}
+
 export interface Event {
   id: number;
   festivalId: number;
@@ -189,12 +199,23 @@ export interface Event {
   description?: string;
   image?: string;
   venue: string;
-  registrationLink?: string | null;
   contactPersons: EventContactPerson[];
+  registrationCount?: number;
+  registrationFormSchema?: RegistrationFormField[];
   createdAt: string; // ISO String
   updatedAt: string; // ISO String
   deletedAt?: string | null;
 }
+
+export interface EventRegistration {
+  id: number;
+  eventId: number;
+  name: string;
+  email?: string;
+  formData: Record<string, any>;
+  submittedAt: string; // ISO String
+}
+
 
 export interface HistoryItem {
   id: number;
@@ -203,6 +224,29 @@ export interface HistoryItem {
   newValue: string | null;
   changedByUser: string;
   changedAt: string; // ISO String
+}
+
+export interface UniqueParticipant {
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  registrationCount: number;
+  lastRegisteredAt: string; // ISO String
+}
+
+export interface ParticipantDetails {
+    eventName: string;
+    eventDate: string; // ISO String
+    submittedAt: string; // ISO String
+}
+
+export interface ParticipantRegistrationHistory {
+    participant: {
+        name: string;
+        email?: string;
+        phoneNumber?: string;
+    };
+    registrations: ParticipantDetails[];
 }
 
 

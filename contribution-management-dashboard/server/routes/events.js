@@ -16,21 +16,53 @@ const formatEventResponse = (event, contacts) => {
         description: event.description,
         image: event.image_data,
         venue: event.venue,
-        registrationLink: event.registration_link,
+        registrationFormSchema: event.registration_form_schema,
         contactPersons: contacts,
         createdAt: event.created_at,
         updatedAt: event.updated_at,
     };
 };
 
+router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:events:view'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const eventRes = await db.query('SELECT name, festival_id, registration_form_schema FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
+        if (eventRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        
+        const registrationsRes = await db.query(
+            `SELECT id, event_id as "eventId", name, email, form_data as "formData", submitted_at as "submittedAt"
+             FROM event_registrations 
+             WHERE event_id = $1 
+             ORDER BY submitted_at DESC`,
+            [id]
+        );
+        
+        res.json({
+            event: { 
+                name: eventRes.rows[0].name, 
+                festivalId: eventRes.rows[0].festival_id,
+                registrationFormSchema: eventRes.rows[0].registration_form_schema
+            },
+            registrations: registrationsRes.rows
+        });
+
+    } catch (err) {
+        console.error(`Error fetching registrations for event ${id}:`, err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { festivalId, name, eventDate, startTime, endTime, venue, description, image, contactPersons = [], registrationLink } = req.body;
+    const { festivalId, name, eventDate, startTime, endTime, venue, description, image, contactPersons = [], registrationFormSchema = [] } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const eventRes = await client.query(
-            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, image_data, registration_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, image, registrationLink]
+            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, image_data, registration_form_schema) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, image, JSON.stringify(registrationFormSchema)]
         );
         const newEvent = eventRes.rows[0];
 
@@ -55,7 +87,7 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
 
 router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, eventDate, startTime, endTime, venue, description, image, contactPersons = [], registrationLink } = req.body;
+    const { name, eventDate, startTime, endTime, venue, description, image, contactPersons = [], registrationFormSchema = [] } = req.body;
     const client = await db.getPool().connect();
 
     try {
@@ -65,14 +97,14 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
         const oldEventData = oldDataRes.rows[0];
         
         const eventRes = await client.query(
-            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, image_data=$7, registration_link=$8, updated_at=NOW() WHERE id=$9 RETURNING *',
-            [name, eventDate, startTime || null, endTime || null, venue, description, image, registrationLink, id]
+            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, image_data=$7, registration_form_schema=$8, updated_at=NOW() WHERE id=$9 RETURNING *',
+            [name, eventDate, startTime || null, endTime || null, venue, description, image, JSON.stringify(registrationFormSchema), id]
         );
 
         await logChanges(client, {
             historyTable: 'events_history', recordId: id, changedByUserId: req.user.id,
-            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, image, registrationLink },
-            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', image: 'image_data', registrationLink: 'registration_link' }
+            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, image, registrationFormSchema: JSON.stringify(registrationFormSchema) },
+            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', image: 'image_data', registrationFormSchema: 'registration_form_schema' }
         });
         
         // Log changes to contacts as a single text entry for simplicity

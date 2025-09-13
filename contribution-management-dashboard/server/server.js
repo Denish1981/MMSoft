@@ -23,6 +23,7 @@ const taskRoutes = require('./routes/tasks');
 const archiveRoutes = require('./routes/archive');
 const aiRoutes = require('./routes/ai');
 const eventRoutes = require('./routes/events');
+const participantRoutes = require('./routes/participants');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -54,6 +55,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/archive', archiveRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/participants', participantRoutes);
 
 
 // --- Server Start ---
