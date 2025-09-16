@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Festival } from '../types';
 import { EditIcon } from '../components/icons/EditIcon';
@@ -13,12 +13,35 @@ import { useModal } from '../contexts/ModalContext';
 const Festivals: React.FC = () => {
     const { festivals, campaigns } = useData();
     const { openFestivalModal, openConfirmationModal, openHistoryModal } = useModal();
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
 
     const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
+
+    const filteredFestivals = useMemo(() => {
+        if (selectedCampaignId === 'all') {
+            return festivals;
+        }
+        const campaignId = Number(selectedCampaignId);
+        return festivals.filter(f => f.campaignId === campaignId);
+    }, [festivals, selectedCampaignId]);
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
             <h2 className="text-xl font-semibold text-slate-800 mb-4">Festivals Management</h2>
+            
+            <div className="mb-6">
+                <label htmlFor="campaign-filter" className="block text-sm font-medium text-slate-700">Filter by Campaign</label>
+                <select
+                    id="campaign-filter"
+                    value={selectedCampaignId}
+                    onChange={e => setSelectedCampaignId(e.target.value)}
+                    className="mt-1 block w-full md:w-1/3 px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="all">All Campaigns</option>
+                    {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+            </div>
+            
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
@@ -32,7 +55,7 @@ const Festivals: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {festivals.map(festival => (
+                        {filteredFestivals.map(festival => (
                             <tr key={festival.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap align-top">
                                     <div className="text-sm font-medium text-slate-900">{festival.name}</div>
@@ -72,10 +95,10 @@ const Festivals: React.FC = () => {
                         ))}
                     </tbody>
                 </table>
-                 {festivals.length === 0 && (
+                 {filteredFestivals.length === 0 && (
                     <div className="text-center py-12 text-slate-500">
-                        <p>No festivals found.</p>
-                        <p className="text-sm">Click "Add Festival" to get started.</p>
+                        <p>{festivals.length === 0 ? "No festivals found." : "No festivals match your current filter."}</p>
+                        {festivals.length === 0 && <p className="text-sm">Click "Add Festival" to get started.</p>}
                     </div>
                 )}
             </div>
