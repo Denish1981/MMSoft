@@ -52,6 +52,27 @@ router.get('/public/albums/:id', async (req, res) => {
     }
 });
 
+router.get('/public/check-contribution', async (req, res) => {
+    const { towerNumber, flatNumber } = req.query;
+
+    if (!towerNumber || !flatNumber) {
+        return res.status(400).json({ error: 'Tower Number and Flat Number are required.' });
+    }
+
+    try {
+        const contributionCheck = await db.query(
+            'SELECT 1 FROM contributions WHERE tower_number ILIKE $1 AND flat_number ILIKE $2 AND deleted_at IS NULL LIMIT 1',
+            [String(towerNumber).trim(), String(flatNumber).trim()]
+        );
+        
+        res.json({ contributionExists: contributionCheck.rows.length > 0 });
+
+    } catch (err) {
+        console.error('Error checking contribution:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.get('/public/events', async (req, res) => {
     try {
         const { rows } = await db.query(`
