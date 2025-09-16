@@ -28,41 +28,7 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     
-    const [contributionCheckStatus, setContributionCheckStatus] = useState<'idle' | 'checking' | 'found' | 'not_found'>('idle');
-    
-    const towerNumber = formData['tower_number'];
-    const flatNumber = formData['flat_number'];
-
-    useEffect(() => {
-        const checkContribution = async () => {
-            if (towerNumber && flatNumber) {
-                setContributionCheckStatus('checking');
-                try {
-                    const response = await fetch(`${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(towerNumber)}&flatNumber=${encodeURIComponent(flatNumber)}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        setContributionCheckStatus(data.contributionExists ? 'found' : 'not_found');
-                    } else {
-                        setContributionCheckStatus('not_found'); // On error, default to allowing upload
-                    }
-                } catch (error) {
-                    console.error("Failed to check contribution status", error);
-                    setContributionCheckStatus('not_found'); // On error, default to allowing upload
-                }
-            } else {
-                setContributionCheckStatus('idle');
-            }
-        };
-        
-        const handler = setTimeout(() => {
-            checkContribution();
-        }, 500);
-
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [towerNumber, flatNumber]);
-
+    const [showProofUpload, setShowProofUpload] = useState(false);
 
     const handleInputChange = (name: string, value: string | boolean) => {
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -92,11 +58,42 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
         setIsLoading(true);
         setError('');
 
+        const towerNumber = formData['tower_number'];
+        const flatNumber = formData['flat_number'];
+        
+        let contributionExists = false;
+        // Only check if tower/flat numbers are provided.
+        if (towerNumber && flatNumber) {
+            try {
+                const response = await fetch(`${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(towerNumber)}&flatNumber=${encodeURIComponent(flatNumber)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    contributionExists = data.contributionExists;
+                }
+            } catch (error) {
+                console.error("Failed to check contribution status", error);
+            }
+        }
+
+        if (!contributionExists && !paymentProofImage) {
+            // Contribution doesn't exist, and no proof provided.
+            // Show the upload field and stop submission.
+            setShowProofUpload(true);
+            setError("We couldn't find a contribution record for your residence. Please upload a payment screenshot to complete registration.");
+            setIsLoading(false);
+            return;
+        }
+        
+        // If we reach here, we are ready to submit.
         try {
+            const submissionBody = {
+                formData,
+                paymentProofImage: contributionExists ? undefined : paymentProofImage,
+            };
             const response = await fetch(`${API_URL}/public/events/${event.id}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ formData, paymentProofImage }),
+                body: JSON.stringify(submissionBody),
             });
             if (!response.ok) {
                 const data = await response.json();
@@ -160,40 +157,31 @@ const RegistrationModal: React.FC<{ event: PublicEvent; onClose: () => void }> =
                             </div>
                         ))}
 
-                        <div className="pt-2">
-                            {contributionCheckStatus === 'checking' && (
-                                <p className="text-sm text-slate-500 animate-pulse">Checking for contribution record...</p>
-                            )}
-                            {contributionCheckStatus === 'found' && (
-                                <p className="text-sm text-green-600 font-semibold">✔️ Contribution record found. Thank you!</p>
-                            )}
-                            {contributionCheckStatus === 'not_found' && (
-                                <>
-                                    <label className="block text-sm font-medium text-slate-700">Proof of Contribution</label>
-                                    <p className="text-xs text-slate-500 mb-2">We couldn't find a contribution record for your residence. Please upload a payment screenshot to complete registration.</p>
-                                     <div className="mt-2 grid grid-cols-2 gap-4">
-                                        <label htmlFor="imageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
-                                            Upload File
-                                            <input id="imageUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
-                                        </label>
-                                        <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
-                                            <CameraIcon className="w-5 h-5 mr-2" />
-                                            Capture Image
-                                        </button>
-                                    </div>
-                                    {imagePreview && (
-                                        <div className="mt-4">
-                                            <div className="relative w-fit">
-                                                <img src={imagePreview} alt="Contribution preview" className="max-h-28 rounded-md border border-slate-200 p-1" />
-                                                 <button type="button" onClick={() => { setPaymentProofImage(undefined); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
-                                                    <CloseIcon className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                        {showProofUpload && (
+                             <div className="pt-2">
+                                <label className="block text-sm font-medium text-slate-700">Proof of Contribution</label>
+                                 <div className="mt-2 grid grid-cols-2 gap-4">
+                                    <label htmlFor="imageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
+                                        Upload File
+                                        <input id="imageUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
+                                    </label>
+                                    <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
+                                        <CameraIcon className="w-5 h-5 mr-2" />
+                                        Capture Image
+                                    </button>
+                                </div>
+                                {imagePreview && (
+                                    <div className="mt-4">
+                                        <div className="relative w-fit">
+                                            <img src={imagePreview} alt="Contribution preview" className="max-h-28 rounded-md border border-slate-200 p-1" />
+                                             <button type="button" onClick={() => { setPaymentProofImage(undefined); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
+                                                <CloseIcon className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {error && <p className="text-sm text-red-600 pt-2">{error}</p>}
                         <div className="pt-2">
