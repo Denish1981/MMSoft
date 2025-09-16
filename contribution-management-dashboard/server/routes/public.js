@@ -162,4 +162,73 @@ router.post('/public/events/:id/register', async (req, res) => {
 });
 
 
+// --- Stall Registrations ---
+
+router.get('/public/festivals', async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                id, name, description, start_date as "startDate", end_date as "endDate",
+                stall_start_date as "stallStartDate", stall_end_date as "stallEndDate",
+                stall_price_per_table_per_day as "stallPricePerTablePerDay",
+                stall_electricity_cost_per_day as "stallElectricityCostPerDay"
+            FROM festivals
+            WHERE deleted_at IS NULL AND stall_registration_open = TRUE AND stall_end_date >= CURRENT_DATE
+            ORDER BY start_date ASC;
+        `);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching public festivals for stall registration:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.post('/public/festivals/:id/register-stall', async (req, res) => {
+    const { id } = req.params;
+    const { registrantName, contactNumber, stallDates, products, needsElectricity, numberOfTables, paymentScreenshot } = req.body;
+    
+    // Validation
+    if (!registrantName || !contactNumber || !stallDates || !Array.isArray(stallDates) || stallDates.length === 0 || !products || !numberOfTables || !paymentScreenshot) {
+        return res.status(400).json({ error: 'Missing required fields for stall registration.'});
+    }
+
+    try {
+        const festivalRes = await db.query(
+            'SELECT stall_price_per_table_per_day, stall_electricity_cost_per_day, stall_start_date, stall_end_date FROM festivals WHERE id = $1 AND stall_registration_open = TRUE', [id]
+        );
+        if (festivalRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Stall registration for this festival is not available.' });
+        }
+        const config = festivalRes.rows[0];
+
+        // Validate selected dates are within the allowed range
+        const festivalStartDate = new Date(config.stall_start_date);
+        const festivalEndDate = new Date(config.stall_end_date);
+        for (const dateStr of stallDates) {
+            const d = new Date(dateStr);
+            if (d < festivalStartDate || d > festivalEndDate) {
+                return res.status(400).json({ error: `Date ${dateStr} is outside the allowed booking range.` });
+            }
+        }
+
+        // Server-side cost calculation
+        const numberOfDays = stallDates.length;
+        const tableCost = numberOfDays * Number(numberOfTables) * parseFloat(config.stall_price_per_table_per_day);
+        const electricityCost = needsElectricity ? (numberOfDays * parseFloat(config.stall_electricity_cost_per_day || '0')) : 0;
+        const totalPayment = tableCost + electricityCost;
+
+        await db.query(
+            `INSERT INTO stall_registrations (festival_id, registrant_name, contact_number, stall_dates, products, needs_electricity, number_of_tables, total_payment, payment_screenshot)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [id, registrantName, contactNumber, stallDates, JSON.stringify(products), needsElectricity, numberOfTables, totalPayment, paymentScreenshot]
+        );
+        
+        res.status(201).json({ message: 'Stall registration successful.' });
+
+    } catch (err) {
+        console.error(`Error saving stall registration for festival ${id}:`, err);
+        res.status(500).json({ error: 'Could not process your registration at this time.' });
+    }
+});
+
 module.exports = router;
