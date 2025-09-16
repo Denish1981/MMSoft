@@ -148,6 +148,11 @@ export interface Festival {
   startDate: string; // ISO String
   endDate: string; // ISO String
   campaignId: number | null;
+  stallRegistrationOpen?: boolean;
+  stallStartDate?: string; // ISO String
+  stallEndDate?: string; // ISO String
+  stallPricePerTablePerDay?: number;
+  stallElectricityCostPerDay?: number;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;
@@ -215,6 +220,25 @@ export interface EventRegistration {
   formData: Record<string, any>;
   submittedAt: string; // ISO String
   paymentProofImage?: string;
+}
+
+export interface StallRegistrationProduct {
+    productName: string;
+    price: number;
+}
+
+export interface StallRegistration {
+    id: number;
+    festivalId: number;
+    registrantName: string;
+    contactNumber: string;
+    stallDates: string[]; // ISO String array
+    products: StallRegistrationProduct[];
+    needsElectricity: boolean;
+    numberOfTables: number;
+    totalPayment: number;
+    paymentScreenshot: string;
+    submittedAt: string; // ISO String
 }
 
 

@@ -7,7 +7,7 @@ const router = express.Router();
 // --- Festivals ---
 router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", created_at AS "createdAt", updated_at AS "updatedAt" FROM festivals WHERE deleted_at IS NULL ORDER BY start_date DESC');
+        const { rows } = await db.query('SELECT id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", stall_registration_open as "stallRegistrationOpen", stall_start_date as "stallStartDate", stall_end_date as "stallEndDate", stall_price_per_table_per_day as "stallPricePerTablePerDay", stall_electricity_cost_per_day as "stallElectricityCostPerDay", created_at AS "createdAt", updated_at AS "updatedAt" FROM festivals WHERE deleted_at IS NULL ORDER BY start_date DESC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
@@ -25,31 +25,36 @@ router.get('/:id', authMiddleware, permissionMiddleware('page:festivals:view'), 
 });
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { name, description, startDate, endDate, campaignId } = req.body;
+    const { name, description, startDate, endDate, campaignId, stallRegistrationOpen, stallStartDate, stallEndDate, stallPricePerTablePerDay, stallElectricityCostPerDay } = req.body;
     const dbCampaignId = campaignId || null;
     try {
-        const result = await db.query('INSERT INTO festivals (name, description, start_date, end_date, campaign_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", created_at as "createdAt", updated_at as "updatedAt"',
-            [name, description, startDate, endDate, dbCampaignId]);
+        const result = await db.query(`INSERT INTO festivals (name, description, start_date, end_date, campaign_id, stall_registration_open, stall_start_date, stall_end_date, stall_price_per_table_per_day, stall_electricity_cost_per_day) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+            RETURNING id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", stall_registration_open as "stallRegistrationOpen", stall_start_date as "stallStartDate", stall_end_date as "stallEndDate", stall_price_per_table_per_day as "stallPricePerTablePerDay", stall_electricity_cost_per_day as "stallElectricityCostPerDay", created_at as "createdAt", updated_at as "updatedAt"`,
+            [name, description, startDate, endDate, dbCampaignId, stallRegistrationOpen, stallStartDate, stallEndDate, stallPricePerTablePerDay, stallElectricityCostPerDay]);
         res.status(201).json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, description, startDate, endDate, campaignId } = req.body;
+    const { name, description, startDate, endDate, campaignId, stallRegistrationOpen, stallStartDate, stallEndDate, stallPricePerTablePerDay, stallElectricityCostPerDay } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const oldDataRes = await client.query('SELECT * FROM festivals WHERE id=$1 FOR UPDATE', [id]);
         if (oldDataRes.rows.length === 0) throw new Error('Festival not found');
         
-        const result = await client.query('UPDATE festivals SET name=$1, description=$2, start_date=$3, end_date=$4, campaign_id=$5, updated_at=NOW() WHERE id=$6 RETURNING id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", created_at as "createdAt", updated_at as "updatedAt"',
-            [name, description, startDate, endDate, campaignId || null, id]);
+        const result = await client.query(`UPDATE festivals SET name=$1, description=$2, start_date=$3, end_date=$4, campaign_id=$5, updated_at=NOW(),
+            stall_registration_open=$7, stall_start_date=$8, stall_end_date=$9, stall_price_per_table_per_day=$10, stall_electricity_cost_per_day=$11
+            WHERE id=$6 
+            RETURNING id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", stall_registration_open as "stallRegistrationOpen", stall_start_date as "stallStartDate", stall_end_date as "stallEndDate", stall_price_per_table_per_day as "stallPricePerTablePerDay", stall_electricity_cost_per_day as "stallElectricityCostPerDay", created_at as "createdAt", updated_at as "updatedAt"`,
+            [name, description, startDate, endDate, campaignId || null, id, stallRegistrationOpen, stallStartDate, stallEndDate, stallPricePerTablePerDay, stallElectricityCostPerDay]);
         
         await logChanges(client, {
             historyTable: 'festivals_history', recordId: id, changedByUserId: req.user.id,
             oldData: oldDataRes.rows[0], newData: req.body,
-            fieldMapping: { name: 'name', description: 'description', startDate: 'start_date', endDate: 'end_date', campaignId: 'campaign_id' }
+            fieldMapping: { name: 'name', description: 'description', startDate: 'start_date', endDate: 'end_date', campaignId: 'campaign_id', stallRegistrationOpen: 'stall_registration_open', stallStartDate: 'stall_start_date', stallEndDate: 'stall_end_date', stallPricePerTablePerDay: 'stall_price_per_table_per_day', stallElectricityCostPerDay: 'stall_electricity_cost_per_day' }
         });
 
         await client.query('COMMIT');
@@ -93,6 +98,28 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// --- Festival Stall Registrations ---
+router.get('/:id/stall-registrations', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                id, festival_id as "festivalId", registrant_name as "registrantName", contact_number as "contactNumber",
+                stall_dates as "stallDates", products,
+                needs_electricity as "needsElectricity", number_of_tables as "numberOfTables",
+                total_payment as "totalPayment", payment_screenshot as "paymentScreenshot", submitted_at as "submittedAt"
+            FROM stall_registrations
+            WHERE festival_id = $1 AND deleted_at IS NULL
+            ORDER BY submitted_at DESC
+        `, [id]);
+        res.json(rows);
+    } catch (err) {
+        console.error(`Error fetching stall registrations for festival ${id}:`, err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 // --- Festival Photo Management ---
 router.get('/:id/photos', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {

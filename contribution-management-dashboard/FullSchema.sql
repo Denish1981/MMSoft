@@ -391,3 +391,42 @@ CREATE TABLE event_registrations (
 );
 
 ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS payment_proof_image TEXT;
+
+
+-- Adds a toggle to enable/disable stall registrations for a festival
+ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_registration_open BOOLEAN DEFAULT FALSE;
+
+-- Sets the available date range for stall bookings
+ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_start_date DATE;
+ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_end_date DATE;
+
+-- Defines the pricing structure
+ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_price_per_table_per_day NUMERIC(10, 2);
+ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_electricity_cost NUMERIC(10, 2);
+
+CREATE TABLE IF NOT EXISTS stall_registrations (
+    id SERIAL PRIMARY KEY,
+    festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+    registrant_name VARCHAR(255) NOT NULL,
+    contact_number VARCHAR(20) NOT NULL,
+    stall_start_date DATE NOT NULL,
+    stall_end_date DATE NOT NULL,
+    products JSONB, -- Stores multiple products and prices efficiently
+    needs_electricity BOOLEAN NOT NULL,
+    number_of_tables INTEGER NOT NULL,
+    total_payment NUMERIC(10, 2) NOT NULL, -- Calculated on the server
+    payment_screenshot TEXT NOT NULL,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    -- Standard tracking columns
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+ALTER TABLE stall_registrations DROP COLUMN stall_start_date;
+ALTER TABLE stall_registrations DROP COLUMN stall_end_date;
+
+ALTER TABLE stall_registrations ADD COLUMN stall_dates DATE[];
+
+ALTER TABLE festivals RENAME COLUMN stall_electricity_cost TO stall_electricity_cost_per_day;

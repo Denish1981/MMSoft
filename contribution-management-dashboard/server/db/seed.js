@@ -64,7 +64,7 @@ const seedDatabase = async () => {
         console.log('Seeding database with roles and permissions...');
 
         // Base table checks...
-        const tablesToTimestamp = ['sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'campaigns', 'tasks', 'contributions', 'events'];
+        const tablesToTimestamp = ['sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'campaigns', 'tasks', 'contributions', 'events', 'stall_registrations'];
         for (const table of tablesToTimestamp) {
              await client.query(`
                 CREATE TABLE IF NOT EXISTS events (
@@ -129,6 +129,32 @@ const seedDatabase = async () => {
         await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS payment_proof_image TEXT;`);
         await client.query(`ALTER TABLE event_registrations DROP COLUMN IF EXISTS phone_number;`);
         await client.query(`ALTER TABLE event_registrations ALTER COLUMN email DROP NOT NULL;`);
+
+        // --- Stall Registrations ---
+        await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_registration_open BOOLEAN DEFAULT FALSE;`);
+        await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_start_date DATE;`);
+        await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_end_date DATE;`);
+        await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_price_per_table_per_day NUMERIC(10, 2);`);
+        await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_electricity_cost_per_day NUMERIC(10, 2);`);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS stall_registrations (
+                id SERIAL PRIMARY KEY,
+                festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
+                registrant_name VARCHAR(255) NOT NULL,
+                contact_number VARCHAR(20) NOT NULL,
+                stall_dates DATE[] NOT NULL,
+                products JSONB,
+                needs_electricity BOOLEAN NOT NULL,
+                number_of_tables INTEGER NOT NULL,
+                total_payment NUMERIC(10, 2) NOT NULL,
+                payment_screenshot TEXT NOT NULL,
+                submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                deleted_at TIMESTAMPTZ
+            );
+        `);
 
         // --- FIX: Retroactively remove the 'email' field from all existing event registration forms.
         // This ensures all events, new and old, align with the policy of not having an email field by default.
@@ -199,6 +225,7 @@ const seedDatabase = async () => {
         await createHistoryTable(client, 'events_history', 'events');
         await createHistoryTable(client, 'expense_payments_history', 'expense_payments');
         await createHistoryTable(client, 'campaigns_history', 'campaigns');
+        await createHistoryTable(client, 'stall_registrations_history', 'stall_registrations');
 
 
         const permissionMap = new Map();

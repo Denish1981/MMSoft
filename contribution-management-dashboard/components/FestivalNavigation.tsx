@@ -4,6 +4,7 @@ import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 
 const navItems = [
     { to: 'events', label: "Events" },
+    { to: 'stall-registrations', label: "Stall Registrations" },
     { to: 'photos', label: "Photos" },
 ];
 

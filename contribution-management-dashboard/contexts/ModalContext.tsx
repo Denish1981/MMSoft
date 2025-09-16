@@ -57,6 +57,7 @@ interface ModalContextType {
 
     isConfirmationModalOpen: boolean;
     confirmMessage: string;
+    confirmText: string;
     openConfirmationModal: (id: number, type: string, onDeleteSuccess?: () => void) => void;
     closeConfirmationModal: () => void;
     confirmDelete: () => Promise<void>;
@@ -103,14 +104,22 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const [itemToDelete, setItemToDelete] = useState<{ id: number; type: string } | null>(null);
     const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
     const [onDeleteSuccessCallback, setOnDeleteSuccessCallback] = useState<(() => void) | null>(null);
-    // FIX: Import and use `useMemo` to prevent recalculating the message on every render.
-    const confirmMessage = useMemo(() => {
-        if (!itemToDelete) return '';
-        if (itemToDelete.type === 'event-registrations') {
-            return 'Are you sure you want to permanently delete this registration? This action cannot be undone.';
+    
+    const { message: confirmMessage, text: confirmText } = useMemo(() => {
+        if (!itemToDelete) return { message: '', text: '' };
+
+        if (itemToDelete.type.includes('registrations')) {
+            return {
+                message: 'Are you sure you want to permanently delete this registration? This action cannot be undone.',
+                text: 'Yes, Delete Permanently'
+            };
         }
+        
         const itemType = itemToDelete.type.slice(0, -1);
-        return `Are you sure you want to archive this ${itemType}? It can be restored later from the Archive page.`;
+        return {
+            message: `Are you sure you want to archive this ${itemType}? It can be restored later from the Archive page.`,
+            text: 'Yes, Archive'
+        };
     }, [itemToDelete]);
 
     // State for History Modal
@@ -163,7 +172,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // --- Confirmation and History Modals ---
     const openConfirmationModal = (id: number, type: string, onDeleteSuccess?: () => void) => {
-        const permission = type === 'event-registrations' ? 'action:delete' : 'action:delete'; // Could be different permissions later
+        const permission = type.includes('registrations') ? 'action:delete' : 'action:delete'; // Could be different permissions later
         if (!hasPermission(permission)) {
             alert("You don't have permission to perform this action.");
             return;
@@ -181,10 +190,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!itemToDelete) return;
         const { id, type } = itemToDelete;
         
-        // Use a different URL for deleting registrations
-        const url = type === 'event-registrations'
-            ? `${API_URL}/event-registrations/${id}`
-            : `${API_URL}/${type}/${id}`;
+        const url = `${API_URL}/${type}/${id}`;
         
         try {
             const response = await fetch(url, { 
@@ -248,7 +254,7 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isTaskModalOpen, taskToEdit, openTaskModal, closeTaskModal,
         isEventModalOpen, eventToEdit, openEventModal, closeEventModal,
         isCampaignModalOpen, campaignToEdit, openCampaignModal, closeCampaignModal,
-        isConfirmationModalOpen, confirmMessage, openConfirmationModal, closeConfirmationModal, confirmDelete,
+        isConfirmationModalOpen, confirmMessage, confirmText, openConfirmationModal, closeConfirmationModal, confirmDelete,
         isHistoryModalOpen, historyData, historyTitle, isLoadingHistory, openHistoryModal, closeHistoryModal,
     };
 

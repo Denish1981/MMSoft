@@ -5,8 +5,9 @@ import { CameraIcon } from '../components/icons/CameraIcon';
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
-import type { RegistrationFormField } from '../types';
+import type { RegistrationFormField, Festival as PublicFestival } from '../types';
 import CameraCapture from '../components/CameraCapture';
+import StallRegistrationModal from '../components/StallRegistrationModal';
 
 interface PublicEvent {
     id: number;
@@ -230,35 +231,59 @@ const EventCard: React.FC<{ event: PublicEvent; onRegisterClick: (event: PublicE
     );
 };
 
+const StallFestivalCard: React.FC<{ festival: PublicFestival; onRegisterClick: (festival: PublicFestival) => void }> = ({ festival, onRegisterClick }) => {
+    return (
+        <div className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col">
+            <div className="p-6 flex flex-col flex-grow">
+                <h3 className="text-xl font-bold text-slate-800">{festival.name}</h3>
+                 <div className="mt-2 text-sm text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span>🗓️ {formatUTCDate(festival.startDate)} - {formatUTCDate(festival.endDate)}</span>
+                </div>
+                <p className="mt-4 text-sm text-slate-500 flex-grow">{festival.description}</p>
+                <div className="mt-6 pt-4 border-t border-slate-100">
+                    <button 
+                        onClick={() => onRegisterClick(festival)}
+                        className="inline-block w-full text-center px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 transition-colors"
+                    >
+                        Register for Stall
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const PublicHomePage: React.FC = () => {
     const { isAuthenticated } = useAuth();
     const [events, setEvents] = useState<PublicEvent[]>([]);
-    const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+    const [stallFestivals, setStallFestivals] = useState<PublicFestival[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
+    const [selectedStallFestival, setSelectedStallFestival] = useState<PublicFestival | null>(null);
 
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchPublicData = async () => {
             try {
-                const response = await fetch(`${API_URL}/public/events`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setEvents(data);
-                }
+                const [eventsRes, festivalsRes] = await Promise.all([
+                    fetch(`${API_URL}/public/events`),
+                    fetch(`${API_URL}/public/festivals`)
+                ]);
+                if (eventsRes.ok) setEvents(await eventsRes.json());
+                if (festivalsRes.ok) setStallFestivals(await festivalsRes.json());
             } catch (error) {
-                console.error("Failed to fetch public events:", error);
+                console.error("Failed to fetch public data:", error);
             } finally {
-                setIsLoadingEvents(false);
+                setIsLoading(false);
             }
         };
-        fetchEvents();
+        fetchPublicData();
     }, []);
 
-    const handleRegisterClick = (event: PublicEvent) => {
-        setSelectedEvent(event);
-    };
-
+    const handleEventRegisterClick = (event: PublicEvent) => setSelectedEvent(event);
+    const handleStallRegisterClick = (festival: PublicFestival) => setSelectedStallFestival(festival);
     const handleCloseModal = () => {
         setSelectedEvent(null);
+        setSelectedStallFestival(null);
     };
 
     return (
@@ -280,7 +305,7 @@ const PublicHomePage: React.FC = () => {
                     </Link>
                 </nav>
             </header>
-            <main className="container mx-auto px-6 py-12">
+            <main className="container mx-auto px-6 py-12 space-y-20">
                 <section className="text-center">
                     <h2 className="text-5xl font-extrabold text-slate-900">Welcome to Contribution OS</h2>
                     <p className="mt-4 text-xl text-slate-600 max-w-2xl mx-auto">
@@ -297,17 +322,32 @@ const PublicHomePage: React.FC = () => {
                     </div>
                 </section>
 
-                <section className="mt-20">
+                 {stallFestivals.length > 0 && (
+                    <section>
+                        <div className="text-center mb-12">
+                            <h2 className="text-4xl font-extrabold text-slate-900">Stall Registrations</h2>
+                            <p className="mt-4 text-lg text-slate-600">Register for a stall at our upcoming festivals.</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {stallFestivals.map((festival) => (
+                                <StallFestivalCard key={festival.id} festival={festival} onRegisterClick={handleStallRegisterClick} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+
+                <section>
                     <div className="text-center mb-12">
                         <h2 className="text-4xl font-extrabold text-slate-900">Upcoming Events</h2>
                         <p className="mt-4 text-lg text-slate-600">Join us for our next community gathering.</p>
                     </div>
-                    {isLoadingEvents ? (
+                    {isLoading ? (
                         <p className="text-center text-slate-500">Loading events...</p>
                     ) : events.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {events.map((event) => (
-                                <EventCard key={event.id} event={event} onRegisterClick={handleRegisterClick} />
+                                <EventCard key={event.id} event={event} onRegisterClick={handleEventRegisterClick} />
                             ))}
                         </div>
                     ) : (
@@ -320,6 +360,9 @@ const PublicHomePage: React.FC = () => {
             </footer>
             {selectedEvent && (
                 <RegistrationModal event={selectedEvent} onClose={handleCloseModal} />
+            )}
+            {selectedStallFestival && (
+                <StallRegistrationModal festival={selectedStallFestival} onClose={handleCloseModal} />
             )}
         </div>
     );

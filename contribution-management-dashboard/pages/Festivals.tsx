@@ -6,6 +6,7 @@ import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { PhotoIcon } from '../components/icons/PhotoIcon';
 import { CalendarDaysIcon } from '../components/icons/CalendarDaysIcon';
+import { StoreIcon } from '../components/icons/StoreIcon';
 import { formatUTCDate } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 import { useModal } from '../contexts/ModalContext';
@@ -76,6 +77,9 @@ const Festivals: React.FC = () => {
                                     <div className="flex items-center space-x-4">
                                         <Link to={`/festivals/${festival.id}/events`} className="text-blue-600 hover:text-blue-900" title="Manage Events">
                                             <CalendarDaysIcon className="w-4 h-4" />
+                                        </Link>
+                                         <Link to={`/festivals/${festival.id}/stall-registrations`} className="text-green-600 hover:text-green-900" title="Manage Stalls">
+                                            <StoreIcon className="w-4 h-4" />
                                         </Link>
                                         <Link to={`/festivals/${festival.id}/photos`} className="text-purple-600 hover:text-purple-900" title="Manage Photos">
                                             <PhotoIcon className="w-4 h-4" />
