@@ -291,9 +291,8 @@ const PublicHomePage: React.FC = () => {
             <header className="bg-white shadow-sm">
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-8">
-                        <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">Contribution OS</Link>
+                        <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">Gold Towers Mitra Mandal</Link>
                         <div className="hidden md:flex items-center space-x-6">
-                            <Link to="/" className="text-base font-medium text-blue-600 border-b-2 border-blue-600 pb-1">Home</Link>
                             <Link to="/photos" className="text-base font-medium text-slate-600 hover:text-blue-600">Photo Albums</Link>
                         </div>
                     </div>
@@ -306,21 +305,6 @@ const PublicHomePage: React.FC = () => {
                 </nav>
             </header>
             <main className="container mx-auto px-6 py-12 space-y-20">
-                <section className="text-center">
-                    <h2 className="text-5xl font-extrabold text-slate-900">Welcome to Contribution OS</h2>
-                    <p className="mt-4 text-xl text-slate-600 max-w-2xl mx-auto">
-                        An intelligent dashboard for managing, tracking, and analyzing charitable contributions for our community events.
-                    </p>
-                    <div className="mt-10">
-                        <Link
-                            to="/photos"
-                            className="inline-flex items-center justify-center bg-blue-600 text-white px-8 py-4 text-lg rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-transform transform hover:scale-105"
-                        >
-                            <CameraIcon className="w-6 h-6 mr-3" />
-                            Explore Our Photo Albums
-                        </Link>
-                    </div>
-                </section>
 
                  {stallFestivals.length > 0 && (
                     <section>

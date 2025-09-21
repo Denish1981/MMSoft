@@ -20,6 +20,7 @@ import { CameraIcon } from './icons/CameraIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { CampaignIcon } from './icons/CampaignIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { DashboardIcon } from './icons/DashboardIcon';
 
 interface NavItemProps {
     to: string;
@@ -54,11 +55,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
     const { hasPermission } = useAuth();
     
     const publicNavItems = [
-        { to: "/", icon: <CameraIcon className="w-5 h-5" />, label: "Photo Albums" },
+        { to: "/", icon: <HomeIcon className="w-5 h-5" />, label: "Home" },
     ];
     
     const navItems = [
-        { to: "/dashboard", permission: 'page:dashboard:view', icon: <HomeIcon className="w-5 h-5" />, label: "Dashboard" },
+        { to: "/dashboard", permission: 'page:dashboard:view', icon: <DashboardIcon className="w-5 h-5" />, label: "Dashboard" },
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
         { to: "/participants", permission: 'page:participants:view', icon: <UsersIcon className="w-5 h-5" />, label: "Participants" },
         { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },

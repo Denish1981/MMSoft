@@ -35,7 +35,7 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
         const numberOfDays = selectedDates.length;
         
         const tableCost = numberOfDays * numberOfTables * festival.stallPricePerTablePerDay;
-        const electricityCost = needsElectricity ? (numberOfDays * (festival.stallElectricityCostPerDay || 0)) : 0;
+        const electricityCost = needsElectricity ? (numberOfDays * numberOfTables * (festival.stallElectricityCostPerDay || 0)) : 0;
         
         return tableCost + electricityCost;
     }, [selectedDates, numberOfTables, needsElectricity, festival]);
