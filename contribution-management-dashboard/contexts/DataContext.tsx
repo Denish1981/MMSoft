@@ -122,7 +122,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     // --- Generic CRUD Handlers ---
-    const handleAdd = async <T extends { id: any }>(url: string, body: Omit<T, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, setData: React.Dispatch<React.SetStateAction<T[]>>) => {
+    const handleAdd = async <T extends { id: any }, C>(url: string, body: C, setData: React.Dispatch<React.SetStateAction<T[]>>) => {
         try {
             const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body) });
             if (response.status === 401) { logout(); return; }
