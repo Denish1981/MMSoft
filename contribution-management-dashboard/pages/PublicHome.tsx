@@ -5,7 +5,7 @@ import { CameraIcon } from '../components/icons/CameraIcon';
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
 import { CloseIcon } from '../components/icons/CloseIcon';
-import type { RegistrationFormField, Festival as PublicFestival } from '../types';
+import type { RegistrationFormField, Festival as PublicFestival } from '../types/index';
 import CameraCapture from '../components/CameraCapture';
 import StallRegistrationModal from '../components/StallRegistrationModal';
 

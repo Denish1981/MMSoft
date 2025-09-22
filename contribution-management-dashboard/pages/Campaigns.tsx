@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Campaign } from '../types';
+import type { Campaign } from '../types/index';
 import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 import { useModal } from '../contexts/ModalContext';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
+import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';

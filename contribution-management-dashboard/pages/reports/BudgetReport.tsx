@@ -1,7 +1,7 @@
 
 
 import React, { useMemo, useState } from 'react';
-import type { Budget, Expense, Festival } from '../../types';
+import type { Budget, Expense, Festival } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency } from '../../utils/formatting';

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Quotation, Vendor, Festival } from '../../types';
+import type { Quotation, Vendor, Festival } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';

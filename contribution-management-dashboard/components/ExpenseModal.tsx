@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import type { Expense, Vendor, Festival, Payment, PaymentMethod } from '../types';
+import React, { useState, useEffect, useCallback } from 'react';
+import type { Expense, Vendor, Festival, Payment } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
-import { PlusIcon } from './icons/PlusIcon';
-import { DeleteIcon } from './icons/DeleteIcon';
-import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
+import { SinglePaymentForm } from './SinglePaymentForm';
+import { MultiPaymentForm } from './MultiPaymentForm';
 
 interface ExpenseModalProps {
     vendors: Vendor[];
@@ -16,17 +15,6 @@ interface ExpenseModalProps {
 }
 
 type NewPayment = Omit<Payment, 'id' | 'expenseId' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
-
-const ImageViewerModal: React.FC<{ imageUrl: string; onClose: () => void }> = ({ imageUrl, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-[100]" onClick={onClose}>
-        <div className="p-4 bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <img src={imageUrl} alt="Full size payment receipt" className="max-w-full max-h-[85vh] object-contain" />
-             <button onClick={onClose} className="absolute -top-4 -right-4 text-white bg-slate-800 rounded-full p-2">
-                <CloseIcon className="w-6 h-6" />
-            </button>
-        </div>
-    </div>
-);
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, expenseToEdit, onClose, onSubmit }) => {
     // Shared Expense Fields
@@ -40,44 +28,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
     const [expenseBy, setExpenseBy] = useState('');
     const [festivalId, setFestivalId] = useState<string | null>(null);
 
-    // Payment Mode State
+    // Payment State
     const [hasMultiplePayments, setHasMultiplePayments] = useState(false);
-
-    // Multi-payment State
-    const [multiPayments, setMultiPayments] = useState<NewPayment[]>([]);
-    const [paymentAmount, setPaymentAmount] = useState('');
-    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Online');
-    const [paymentNotes, setPaymentNotes] = useState('');
-    const [paymentImage, setPaymentImage] = useState<string | undefined>();
-    const [paymentImagePreview, setPaymentImagePreview] = useState<string | null>(null);
-
-    // Single-payment State
-    const [singlePaymentDate, setSinglePaymentDate] = useState(new Date().toISOString().split('T')[0]);
-    const [singlePaymentMethod, setSinglePaymentMethod] = useState<PaymentMethod>('Online');
-    const [singlePaymentNotes, setSinglePaymentNotes] = useState('');
-    const [singlePaymentImage, setSinglePaymentImage] = useState<string | undefined>();
-    const [singlePaymentImagePreview, setSinglePaymentImagePreview] = useState<string | null>(null);
-
+    const [payments, setPayments] = useState<NewPayment[]>([]);
+    const [initialPayments, setInitialPayments] = useState<NewPayment[]>([]);
 
     // Modals
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-    const [cameraTarget, setCameraTarget] = useState<'receipt' | 'singlePayment' | 'multiPayment' | null>(null);
-    const [viewingPaymentImage, setViewingPaymentImage] = useState<string | null>(null);
 
     useEffect(() => {
-        const resetSinglePaymentForm = () => {
-            setSinglePaymentDate(new Date().toISOString().split('T')[0]);
-            setSinglePaymentMethod('Online');
-            setSinglePaymentNotes('');
-            setSinglePaymentImage(undefined);
-            setSinglePaymentImagePreview(null);
-        };
-    
-        const resetMultiPaymentForm = () => {
-            setMultiPayments([]);
-        };
-    
         if (expenseToEdit) {
             setName(expenseToEdit.name);
             setVendorId(String(expenseToEdit.vendorId));
@@ -89,119 +48,56 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
             setExpenseBy(expenseToEdit.expenseBy);
             setFestivalId(expenseToEdit.festivalId ? String(expenseToEdit.festivalId) : null);
             
-            // Robustly check the boolean flag, as it might be a string from some data sources.
             const isMulti = String(expenseToEdit.hasMultiplePayments) === 'true';
             setHasMultiplePayments(isMulti);
-    
-            if (isMulti) {
-                setMultiPayments(expenseToEdit.payments || []);
-                resetSinglePaymentForm();
-            } else {
-                resetMultiPaymentForm();
-                if (expenseToEdit.payments?.length === 1) {
-                    const singlePayment = expenseToEdit.payments[0];
-                    setSinglePaymentDate(new Date(singlePayment.paymentDate).toISOString().split('T')[0]);
-                    setSinglePaymentMethod(singlePayment.paymentMethod);
-                    setSinglePaymentNotes(singlePayment.notes || '');
-                    setSinglePaymentImage(singlePayment.image);
-                    setSinglePaymentImagePreview(singlePayment.image || null);
-                } else {
-                    resetSinglePaymentForm();
-                }
-            }
+            setInitialPayments(expenseToEdit.payments || []);
         } else {
             // Reset entire form for new entry
             setName(''); setVendorId(''); setTotalCost('');
             setBillDate(new Date().toISOString().split('T')[0]);
             setExpenseHead(''); setBillReceipts([]); setReceiptPreviews([]);
             setExpenseBy(''); setFestivalId(null); setHasMultiplePayments(false);
-            resetMultiPaymentForm();
-            resetSinglePaymentForm();
+            setInitialPayments([]);
         }
     }, [expenseToEdit]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, target: 'receipt' | 'singlePayment' | 'multiPayment') => {
+    const handleBillReceiptFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64String = reader.result as string;
-                if (target === 'receipt') {
-                    setBillReceipts(prev => [...prev, base64String]);
-                    setReceiptPreviews(prev => [...prev, base64String]);
-                } else if (target === 'singlePayment') {
-                    setSinglePaymentImage(base64String);
-                    setSinglePaymentImagePreview(base64String);
-                } else if (target === 'multiPayment') {
-                    setPaymentImage(base64String);
-                    setPaymentImagePreview(base64String);
-                }
+                setBillReceipts(prev => [...prev, base64String]);
+                setReceiptPreviews(prev => [...prev, base64String]);
             };
             reader.readAsDataURL(file);
         }
     };
-
-    const handleCaptureComplete = (imageDataUrl: string) => {
-        if (cameraTarget === 'receipt') {
-            setBillReceipts(prev => [...prev, imageDataUrl]);
-            setReceiptPreviews(prev => [...prev, imageDataUrl]);
-        } else if (cameraTarget === 'singlePayment') {
-            setSinglePaymentImage(imageDataUrl);
-            setSinglePaymentImagePreview(imageDataUrl);
-        } else if (cameraTarget === 'multiPayment') {
-            setPaymentImage(imageDataUrl);
-            setPaymentImagePreview(imageDataUrl);
-        }
+    
+    const handleBillReceiptCaptureComplete = (imageDataUrl: string) => {
+        setBillReceipts(prev => [...prev, imageDataUrl]);
+        setReceiptPreviews(prev => [...prev, imageDataUrl]);
         setIsCameraOpen(false);
-        setCameraTarget(null);
     };
 
-
-    const removeImage = (index: number) => {
+    const removeBillReceiptImage = (index: number) => {
         setBillReceipts(prev => prev.filter((_, i) => i !== index));
         setReceiptPreviews(prev => prev.filter((_, i) => i !== index));
     };
-    
-    const handleAddPayment = () => {
-        if (!paymentAmount || !paymentDate || !paymentMethod) return;
-        setMultiPayments([...multiPayments, {
-            amount: parseFloat(paymentAmount),
-            paymentDate,
-            paymentMethod,
-            notes: paymentNotes,
-            image: paymentImage,
-        }]);
-        // Reset form
-        setPaymentAmount('');
-        setPaymentDate(new Date().toISOString().split('T')[0]);
-        setPaymentMethod('Online');
-        setPaymentNotes('');
-        setPaymentImage(undefined);
-        setPaymentImagePreview(null);
-    };
 
-    const handleRemovePayment = (index: number) => {
-        setMultiPayments(multiPayments.filter((_, i) => i !== index));
-    };
+    const handleSinglePaymentChange = useCallback((payment: NewPayment) => {
+        setPayments([payment]);
+    }, []);
+
+    const handleMultiPaymentsChange = useCallback((newPayments: NewPayment[]) => {
+        setPayments(newPayments);
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !vendorId || !totalCost || !billDate || !expenseHead || !expenseBy) {
             alert('Please fill out all required fields.');
             return;
-        }
-
-        let finalPayments: NewPayment[] = [];
-        if (hasMultiplePayments) {
-            finalPayments = multiPayments;
-        } else {
-            finalPayments = [{
-                amount: parseFloat(totalCost),
-                paymentDate: singlePaymentDate,
-                paymentMethod: singlePaymentMethod,
-                notes: singlePaymentNotes,
-                image: singlePaymentImage,
-            }];
         }
 
         onSubmit({
@@ -214,19 +110,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
             expenseBy,
             festivalId: festivalId ? Number(festivalId) : null,
             hasMultiplePayments,
-            payments: finalPayments,
+            payments,
         });
     };
     
     const isEditing = !!expenseToEdit;
-    const amountPaid = useMemo(() => multiPayments.reduce((sum, p) => sum + p.amount, 0), [multiPayments]);
-    const outstandingAmount = useMemo(() => parseFloat(totalCost || '0') - amountPaid, [totalCost, amountPaid]);
-
 
     return (
         <>
-            {isCameraOpen && <CameraCapture onCapture={handleCaptureComplete} onClose={() => setIsCameraOpen(false)} />}
-            {viewingPaymentImage && <ImageViewerModal imageUrl={viewingPaymentImage} onClose={() => setViewingPaymentImage(null)} />}
+            {isCameraOpen && <CameraCapture onCapture={handleBillReceiptCaptureComplete} onClose={() => setIsCameraOpen(false)} />}
             <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                 <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-2xl m-4 overflow-y-auto max-h-[90vh]">
                     <div className="flex justify-between items-center mb-6">
@@ -277,10 +169,18 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
                         </div>
                         {/* Bill Receipts */}
                         <div>
-                            <label htmlFor="billReceipts" className="block text-sm font-medium text-slate-700">Bill Receipts</label>
-                            <input type="file" id="billReceipts" accept="image/*" multiple onChange={(e) => handleFileChange(e, 'receipt')} className="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                            <label className="block text-sm font-medium text-slate-700">Bill Receipts</label>
+                            <div className="mt-2 grid grid-cols-2 gap-4">
+                                <label htmlFor="billReceiptUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
+                                    Upload File(s)
+                                    <input id="billReceiptUpload" type="file" accept="image/*" onChange={handleBillReceiptFileChange} className="sr-only" />
+                                </label>
+                                <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
+                                    <CameraIcon className="w-5 h-5 mr-2" /> Capture Image
+                                </button>
+                            </div>
                         </div>
-                        {receiptPreviews.length > 0 && <div className="mt-2"><div className="grid grid-cols-3 gap-2">{receiptPreviews.map((preview, index) => (<div key={index} className="relative"><img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-md border" /><button type="button" onClick={() => removeImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600"><CloseIcon className="w-3 h-3" /></button></div>))}</div></div>}
+                        {receiptPreviews.length > 0 && <div className="mt-2"><div className="grid grid-cols-3 gap-2">{receiptPreviews.map((preview, index) => (<div key={index} className="relative"><img src={preview} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-md border" /><button type="button" onClick={() => removeBillReceiptImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600"><CloseIcon className="w-3 h-3" /></button></div>))}</div></div>}
 
                         {/* Payments Section */}
                         <div className="pt-4 mt-4 border-t border-slate-200">
@@ -291,80 +191,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
                         </div>
 
                         {hasMultiplePayments ? (
-                            // MULTI-PAYMENT UI
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-semibold text-slate-800 mb-4">Payments</h3>
-                                <div className="space-y-2">
-                                    {multiPayments.map((p, index) => (
-                                        <div key={index} className="flex items-center justify-between bg-slate-50 p-3 rounded-md">
-                                            <div className="flex items-center gap-4">
-                                                {p.image && (<img src={p.image} alt="Payment proof" className="h-12 w-16 object-cover rounded-md cursor-pointer" onClick={() => setViewingPaymentImage(p.image!)} />)}
-                                                <div>
-                                                    <p className="font-semibold text-slate-800">{formatCurrency(p.amount)} <span className="text-xs font-normal text-slate-500">({p.paymentMethod})</span></p>
-                                                    <p className="text-xs text-slate-500">{formatUTCDate(p.paymentDate)} {p.notes && `- ${p.notes}`}</p>
-                                                </div>
-                                            </div>
-                                            <button type="button" onClick={() => handleRemovePayment(index)} className="text-red-500 hover:text-red-700"><DeleteIcon className="w-4 h-4" /></button>
-                                        </div>
-                                    ))}
-                                    {multiPayments.length === 0 && <p className="text-sm text-center text-slate-500 py-4">No payments added yet.</p>}
-                                </div>
-                                <div className="flex justify-between items-center bg-slate-100 p-3 rounded-lg font-semibold">
-                                    <span className="text-green-600">Total Paid: {formatCurrency(amountPaid)}</span>
-                                    <span className={outstandingAmount > 0 ? 'text-red-600' : 'text-slate-600'}>Outstanding: {formatCurrency(outstandingAmount)}</span>
-                                </div>
-                                <div className="p-4 border border-slate-200 rounded-lg space-y-3">
-                                    <h4 className="font-medium text-slate-700">Add a New Payment</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <input type="number" placeholder="Amount (₹)" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} className="input-style" />
-                                        <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="input-style" />
-                                        <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod)} className="input-style bg-white"><option>Online</option><option>Cash</option><option>Cheque</option></select>
-                                    </div>
-                                    <input type="text" placeholder="Notes (optional)" value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)} className="w-full input-style" />
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-600 mb-1">Payment Image (Optional)</label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <label htmlFor="multiPaymentImageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
-                                                Upload File
-                                                <input id="multiPaymentImageUpload" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'multiPayment')} className="sr-only" />
-                                            </label>
-                                            <button type="button" onClick={() => { setIsCameraOpen(true); setCameraTarget('multiPayment'); }} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700"><CameraIcon className="w-5 h-5 mr-2" /> Capture Image</button>
-                                        </div>
-                                        {paymentImagePreview && (<div className="mt-2"><div className="relative w-fit"><img src={paymentImagePreview} alt="Payment preview" className="h-16 rounded-md border" /><button type="button" onClick={() => { setPaymentImage(undefined); setPaymentImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><CloseIcon className="w-3 h-3" /></button></div></div>)}
-                                    </div>
-                                    <div className="text-right"><button type="button" onClick={handleAddPayment} className="flex items-center text-sm font-medium text-white bg-slate-700 hover:bg-slate-800 px-3 py-1.5 rounded-md"><PlusIcon className="w-4 h-4 mr-1"/> Add Payment</button></div>
-                                </div>
-                            </div>
+                            <MultiPaymentForm 
+                                totalCost={parseFloat(totalCost || '0')}
+                                initialPayments={initialPayments}
+                                onPaymentsChange={handleMultiPaymentsChange}
+                            />
                         ) : (
-                            // SINGLE-PAYMENT UI
-                             <div className="p-4 border-t border-slate-200 mt-4 space-y-4">
-                                <h3 className="text-lg font-semibold text-slate-800">Payment Details</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                     <div>
-                                        <label htmlFor="singlePaymentDate" className="block text-sm font-medium text-slate-700">Payment Date</label>
-                                        <input type="date" id="singlePaymentDate" value={singlePaymentDate} onChange={e => setSinglePaymentDate(e.target.value)} className="mt-1 block w-full input-style" />
-                                    </div>
-                                    <div>
-                                        <label htmlFor="singlePaymentMethod" className="block text-sm font-medium text-slate-700">Payment Method</label>
-                                        <select id="singlePaymentMethod" value={singlePaymentMethod} onChange={e => setSinglePaymentMethod(e.target.value as PaymentMethod)} className="mt-1 block w-full input-style bg-white"><option>Online</option><option>Cash</option><option>Cheque</option></select>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label htmlFor="singlePaymentNotes" className="block text-sm font-medium text-slate-700">Notes (Optional)</label>
-                                    <input type="text" id="singlePaymentNotes" placeholder="e.g., Final settlement" value={singlePaymentNotes} onChange={e => setSinglePaymentNotes(e.target.value)} className="mt-1 w-full input-style" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700">Payment Receipt (Optional)</label>
-                                    <div className="mt-2 grid grid-cols-2 gap-4">
-                                        <label htmlFor="singlePaymentImageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
-                                            Upload File
-                                            <input id="singlePaymentImageUpload" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'singlePayment')} className="sr-only" />
-                                        </label>
-                                        <button type="button" onClick={() => { setIsCameraOpen(true); setCameraTarget('singlePayment'); }} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700"><CameraIcon className="w-5 h-5 mr-2" /> Capture Image</button>
-                                    </div>
-                                    {singlePaymentImagePreview && (<div className="mt-2"><div className="relative w-fit"><img src={singlePaymentImagePreview} alt="Payment preview" className="h-16 rounded-md border" /><button type="button" onClick={() => { setSinglePaymentImage(undefined); setSinglePaymentImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><CloseIcon className="w-3 h-3" /></button></div></div>)}
-                                </div>
-                            </div>
+                            <SinglePaymentForm 
+                                totalCost={parseFloat(totalCost || '0')}
+                                initialPayment={initialPayments[0]}
+                                onPaymentChange={handleSinglePaymentChange}
+                            />
                         )}
                         
                         <div className="flex justify-end pt-4 space-x-2">

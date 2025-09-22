@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Contribution, Campaign } from '../types';
+import type { Contribution, Campaign } from '../types/index';
 import { generateContributionSummary } from '../services/geminiService';
 import { SparklesIcon } from '../components/icons/SparklesIcon';
 import { API_URL } from '../config';

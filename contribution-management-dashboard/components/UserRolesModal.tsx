@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { UserForManagement, Role } from '../types';
+import type { UserForManagement, Role } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';

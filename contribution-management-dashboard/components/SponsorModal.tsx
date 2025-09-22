@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Sponsor } from '../types';
+import type { Sponsor } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';

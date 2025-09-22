@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
-import type { Sponsor } from '../../types';
+import type { Sponsor } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';

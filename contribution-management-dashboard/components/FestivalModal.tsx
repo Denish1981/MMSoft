@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Festival, Campaign } from '../types';
+import type { Festival, Campaign } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface FestivalModalProps {

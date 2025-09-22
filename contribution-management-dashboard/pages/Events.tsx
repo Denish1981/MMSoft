@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
 import { useParams, useOutletContext } from 'react-router';
 import { Link } from 'react-router-dom';
-import type { Event, Festival } from '../types';
+import type { Event, Festival } from '../types/index';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import FestivalNavigation from '../components/FestivalNavigation';

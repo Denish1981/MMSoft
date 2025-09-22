@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
-import type { ParticipantRegistrationHistory } from '../types';
+import type { ParticipantRegistrationHistory } from '../types/index';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 
 const ParticipantDetailsPage: React.FC = () => {

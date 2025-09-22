@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect } from 'react';
-import type { Budget, Festival } from '../types';
+import type { Budget, Festival } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface BudgetModalProps {

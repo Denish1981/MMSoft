@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { Task } from '../types';
-import { TaskStatus } from '../types';
+import type { Task } from '../types/index';
+import { TaskStatus } from '../types/index';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { ClockIcon } from '../components/icons/ClockIcon';

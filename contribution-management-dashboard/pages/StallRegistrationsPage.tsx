@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import type { StallRegistration } from '../types';
+import type { StallRegistration } from '../types/index';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import { formatUTCDate, formatCurrency } from '../utils/formatting';

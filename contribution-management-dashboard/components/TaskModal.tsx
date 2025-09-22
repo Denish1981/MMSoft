@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Task, Festival, UserForManagement } from '../types';
-import { TaskStatus } from '../types';
+import type { Task, Festival, UserForManagement } from '../types/index';
+import { TaskStatus } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface TaskModalProps {

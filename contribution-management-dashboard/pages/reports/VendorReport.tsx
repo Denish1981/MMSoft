@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo } from 'react';
-import type { Vendor } from '../../types';
+import type { Vendor } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';

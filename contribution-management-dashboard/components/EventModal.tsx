@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
 import { useParams } from 'react-router';
-import type { Event, EventContactPerson, RegistrationFormField, RegistrationFormFieldType } from '../types';
+import type { Event, EventContactPerson, RegistrationFormField, RegistrationFormFieldType } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { CameraIcon } from './icons/CameraIcon';

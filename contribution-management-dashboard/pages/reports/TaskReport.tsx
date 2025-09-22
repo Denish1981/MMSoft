@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Task, Festival, UserForManagement } from '../../types';
-import { TaskStatus } from '../../types';
+import type { Task, Festival, UserForManagement } from '../../types/index';
+import { TaskStatus } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';

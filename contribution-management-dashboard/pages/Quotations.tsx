@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { Quotation } from '../types';
+import type { Quotation } from '../types/index';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';

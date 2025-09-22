@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import type { ArchivedItem } from '../types';
+import type { ArchivedItem } from '../types/index';
 import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { ArchiveIcon } from '../components/icons/ArchiveIcon';
 import { useData } from '../contexts/DataContext';

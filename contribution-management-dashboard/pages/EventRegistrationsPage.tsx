@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
 import { useParams } from 'react-router';
 import { Link } from 'react-router-dom';
-import type { EventRegistration, RegistrationFormField } from '../types';
+import type { EventRegistration, RegistrationFormField } from '../types/index';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';

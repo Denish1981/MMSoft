@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types';
+import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types/index';
 import { useAuth } from '../contexts/AuthContext';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { PlusIcon } from '../components/icons/PlusIcon';

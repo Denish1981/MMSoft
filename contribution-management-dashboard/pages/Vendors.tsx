@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Vendor } from '../types';
+import type { Vendor } from '../types/index';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';

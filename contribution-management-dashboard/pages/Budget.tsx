@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Budget } from '../types';
+import type { Budget } from '../types/index';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';

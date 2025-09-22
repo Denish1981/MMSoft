@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Vendor, ContactPerson } from '../types';
+import type { Vendor, ContactPerson } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { PlusIcon } from './icons/PlusIcon';
 

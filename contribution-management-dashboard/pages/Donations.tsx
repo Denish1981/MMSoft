@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Contribution } from '../types';
-import { ContributionStatus } from '../types';
+import type { Contribution } from '../types/index';
+import { ContributionStatus } from '../types/index';
 import { generateThankYouNote } from '../services/geminiService';
 import { useAuth } from '../contexts/AuthContext';
 import { CopyIcon } from '../components/icons/CopyIcon';

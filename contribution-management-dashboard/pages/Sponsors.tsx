@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Sponsor } from '../types';
+import type { Sponsor } from '../types/index';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import { HistoryIcon } from '../components/icons/HistoryIcon';

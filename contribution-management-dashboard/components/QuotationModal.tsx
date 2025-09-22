@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Quotation, Vendor, Festival } from '../types';
+import type { Quotation, Vendor, Festival } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface QuotationModalProps {

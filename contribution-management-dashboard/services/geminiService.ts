@@ -1,4 +1,4 @@
-import type { Contribution, Campaign } from "../types";
+import type { Contribution, Campaign } from "../types/index";
 import { API_URL } from '../config';
 
 export const generateContributionSummary = async (contributions: Contribution[], campaigns: Campaign[], period: string, token: string | null): Promise<{ summary?: string; error?: string }> => {

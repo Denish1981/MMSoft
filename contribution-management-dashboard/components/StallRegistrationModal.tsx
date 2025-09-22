@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Festival as PublicFestival, StallRegistrationProduct } from '../types';
+import type { Festival as PublicFestival, StallRegistrationProduct } from '../types/index';
 import { API_URL } from '../config';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';

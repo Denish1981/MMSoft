@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
-import type { Contribution, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, Event, HistoryItem, Campaign } from '../types';
+import type { Contribution, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, Event, HistoryItem, Campaign } from '../types/index';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
 import { API_URL } from '../config';

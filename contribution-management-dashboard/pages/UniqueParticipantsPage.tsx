@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import { exportToCsv } from '../utils/exportUtils';
 import { formatUTCDate } from '../utils/formatting';
-import type { UniqueParticipant } from '../types';
+import type { UniqueParticipant } from '../types/index';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 import { useData } from '../contexts/DataContext';

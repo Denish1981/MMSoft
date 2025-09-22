@@ -1,6 +1,6 @@
 
 import React from 'react';
-import type { HistoryItem, Festival } from '../types';
+import type { HistoryItem, Festival } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
 

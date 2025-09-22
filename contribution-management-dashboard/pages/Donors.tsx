@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Donor } from '../types';
+import type { Donor } from '../types/index';
 import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 

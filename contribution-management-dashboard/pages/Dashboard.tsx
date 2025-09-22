@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import SummaryCard from '../components/SummaryCard';
-import type { Contribution, Donor, Sponsor, Expense, Vendor } from '../types';
+import type { Contribution, Donor, Sponsor, Expense, Vendor } from '../types/index';
 import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
 import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
