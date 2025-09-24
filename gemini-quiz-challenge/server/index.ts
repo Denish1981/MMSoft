@@ -1,5 +1,4 @@
-// FIX: Change express import and type annotations to use `express.Request` and
-// `express.Response` to resolve type conflicts with global DOM types.
+// FIX: Changed type annotations for Express request and response objects to use `express.Request` and `express.Response` to avoid conflicts with global DOM types.
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -23,28 +22,55 @@ const startServer = async () => {
 
     // --- API Endpoints ---
 
-    // POST /api/start
-    app.post('/api/start', async (req: express.Request, res: express.Response) => {
-      const { name, mobile } = req.body;
+    // GET /api/quizzes
+    app.get('/api/quizzes', async (req: express.Request, res: express.Response) => {
+      const { mobile } = req.query;
 
-      if (!name || !mobile || !/^\d{10}$/.test(mobile)) {
-        return res.status(400).json({ message: 'Invalid name or mobile number.' });
+      if (!mobile || typeof mobile !== 'string' || !/^\d{10}$/.test(mobile)) {
+        return res.status(400).json({ message: 'A valid 10-digit mobile number is required.' });
       }
 
       try {
-        const userCheck = await query('SELECT id FROM participants WHERE mobile = $1', [mobile]);
-        if (userCheck.rows.length > 0) {
-          return res.status(409).json({ message: 'This mobile number has already been used for the quiz.' });
-        }
+        const queryText = `
+          SELECT
+            q.id,
+            q.name,
+            q.description,
+            p.mobile IS NOT NULL AS completed
+          FROM quizzes q
+          LEFT JOIN participants p ON q.id = p.quiz_id AND p.mobile = $1
+          ORDER BY q.id;
+        `;
+        const quizzesResult = await query(queryText, [mobile]);
+        res.json(quizzesResult.rows);
+      } catch (error) {
+        console.error('Error fetching quizzes:', error);
+        res.status(500).json({ message: 'Failed to fetch quizzes.' });
+      }
+    });
 
+    // POST /api/start
+    app.post('/api/start', async (req: express.Request, res: express.Response) => {
+      const { user, quizId } = req.body;
+      
+      if (!user || !user.name || !user.mobile || !/^\d{10}$/.test(user.mobile) || !quizId) {
+        return res.status(400).json({ message: 'Invalid name, mobile number, or missing quiz ID.' });
+      }
+
+      try {
         const questionsResult = await query(`
             SELECT q.id, q.question_text AS "questionText", array_agg(o.option_text ORDER BY random()) as options
             FROM questions q
             JOIN options o ON q.id = o.question_id
-            WHERE q.id IN (SELECT id FROM questions ORDER BY RANDOM() LIMIT 5)
+            WHERE q.quiz_id = $1
             GROUP BY q.id, q.question_text
-            ORDER BY RANDOM();
-        `);
+            ORDER BY RANDOM()
+            LIMIT 5;
+        `, [quizId]);
+        
+        if (questionsResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No questions found for this quiz.' });
+        }
 
         res.json(questionsResult.rows);
       } catch (error) {
@@ -55,9 +81,9 @@ const startServer = async () => {
 
     // POST /api/submit
     app.post('/api/submit', async (req: express.Request, res: express.Response) => {
-      const { user, answers, timeTaken } = req.body;
+      const { user, answers, timeTaken, quizId } = req.body;
 
-      if (!user || !answers || timeTaken === undefined) {
+      if (!user || !answers || timeTaken === undefined || !quizId) {
         return res.status(400).json({ message: 'Missing required submission data.' });
       }
 
@@ -72,25 +98,41 @@ const startServer = async () => {
             score++;
           }
         }
-
-        await query(
-          'INSERT INTO participants (name, mobile, score, time_taken_seconds) VALUES ($1, $2, $3, $4)',
-          [user.name, user.mobile, score, timeTaken]
-        );
+        
+        const insertQuery = `
+          INSERT INTO participants (name, mobile, score, time_taken_seconds, quiz_id)
+          VALUES ($1, $2, $3, $4, $5);
+        `;
+        
+        await query(insertQuery, [user.name, user.mobile, score, timeTaken, quizId]);
 
         res.status(201).json({ score });
       } catch (error) {
+        // Check for unique_violation error code from postgres (code '23505')
+        if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+            return res.status(409).json({ message: 'You have already submitted this quiz.' });
+        }
         console.error('Error submitting quiz:', error);
         res.status(500).json({ message: 'Failed to submit quiz results.' });
       }
     });
 
 
-    // GET /api/leaderboard
-    app.get('/api/leaderboard', async (req: express.Request, res: express.Response) => {
+    // GET /api/leaderboard/:quizId
+    app.get('/api/leaderboard/:quizId', async (req: express.Request, res: express.Response) => {
+      const { quizId } = req.params;
+
+      if (!quizId || isNaN(parseInt(quizId, 10))) {
+        return res.status(400).json({ message: 'A valid quiz ID is required.' });
+      }
+
       try {
         const result = await query(
-          'SELECT name, score, time_taken_seconds AS "timeTaken" FROM participants ORDER BY score DESC, time_taken_seconds ASC'
+          `SELECT name, score, time_taken_seconds AS "timeTaken" 
+           FROM participants 
+           WHERE quiz_id = $1
+           ORDER BY score DESC, time_taken_seconds ASC`,
+          [quizId]
         );
         
         const leaderboard = result.rows.map((row, index) => ({

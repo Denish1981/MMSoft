@@ -1,4 +1,4 @@
-import { Question, LeaderboardEntry, UserAnswer, User } from '../types';
+import { Question, LeaderboardEntry, UserAnswer, User, Quiz } from '../types';
 
 const API_BASE_URL = '/api'; // Assumes a proxy is set up to the backend server
 
@@ -10,29 +10,34 @@ const handleResponse = async (response: Response) => {
   return data;
 };
 
-export const startQuiz = async (user: User): Promise<Question[]> => {
+export const getQuizzes = async (mobile: string): Promise<Quiz[]> => {
+  const response = await fetch(`${API_BASE_URL}/quizzes?mobile=${mobile}`);
+  return handleResponse(response);
+};
+
+export const startQuiz = async (user: User, quizId: number): Promise<Question[]> => {
   const response = await fetch(`${API_BASE_URL}/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(user),
+    body: JSON.stringify({ user, quizId }),
   });
   return handleResponse(response);
 };
 
-export const submitQuiz = async (user: User, answers: UserAnswer[], timeTaken: number): Promise<{ score: number }> => {
+export const submitQuiz = async (user: User, answers: UserAnswer[], timeTaken: number, quizId: number): Promise<{ score: number }> => {
     const response = await fetch(`${API_BASE_URL}/submit`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ user, answers, timeTaken }),
+    body: JSON.stringify({ user, answers, timeTaken, quizId }),
   });
   return handleResponse(response);
 };
 
-export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
-  const response = await fetch(`${API_BASE_URL}/leaderboard`);
+export const getLeaderboard = async (quizId: number): Promise<LeaderboardEntry[]> => {
+  const response = await fetch(`${API_BASE_URL}/leaderboard/${quizId}`);
   return handleResponse(response);
 };

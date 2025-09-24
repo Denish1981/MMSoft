@@ -6,10 +6,12 @@ import ClockIcon from './icons/ClockIcon';
 interface LeaderboardScreenProps {
   leaderboard: LeaderboardEntry[];
   onPlayAgain: () => void;
+  onChangeUser: () => void;
   userScore: number | null;
+  quizName: string;
 }
 
-const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ leaderboard, onPlayAgain, userScore }) => {
+const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ leaderboard, onPlayAgain, onChangeUser, userScore, quizName }) => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl bg-gray-800 rounded-2xl shadow-2xl p-8 space-y-6 transform transition-all duration-300">
@@ -17,8 +19,9 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ leaderboard, onPl
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500 mb-2">
             Leaderboard
           </h1>
+          <p className="text-lg text-gray-400">{quizName}</p>
           {userScore !== null && (
-            <p className="text-xl text-gray-300">
+            <p className="text-xl text-gray-300 mt-2">
               You scored <span className="font-bold text-white">{userScore}/5</span>!
             </p>
           )}
@@ -49,12 +52,18 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ leaderboard, onPl
           </ul>
         </div>
         
-        <div className="text-center mt-6">
+        <div className="text-center mt-6 space-y-4">
             <button
               onClick={onPlayAgain}
               className="w-full md:w-auto py-3 px-8 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-all duration-300"
             >
-              Play Again
+              Choose Another Quiz
+            </button>
+            <button
+                onClick={onChangeUser}
+                className="w-full md:w-auto py-2 px-6 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-all duration-300"
+            >
+                Change User
             </button>
         </div>
       </div>

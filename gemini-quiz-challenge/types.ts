@@ -21,4 +21,11 @@ export interface User {
     mobile: string;
 }
 
-export type GameState = 'start' | 'quiz' | 'leaderboard';
+export interface Quiz {
+  id: number;
+  name: string;
+  description: string;
+  completed?: boolean;
+}
+
+export type GameState = 'start' | 'quizSelection' | 'quiz' | 'leaderboard';
