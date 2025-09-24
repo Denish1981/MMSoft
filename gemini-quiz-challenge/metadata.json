@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Quiz Challenge",
+  "description": "An online quiz application where users can test their knowledge. It features a timed quiz, score tracking, and a leaderboard to compare results with other participants.",
+  "requestFramePermissions": []
+}
