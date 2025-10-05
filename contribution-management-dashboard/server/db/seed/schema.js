@@ -1,181 +1,279 @@
-const createHistoryTable = (client, tableName, mainTableName, mainTableIdType = 'INTEGER') => {
-    return client.query(`
-        CREATE TABLE IF NOT EXISTS ${tableName} (
-            id SERIAL PRIMARY KEY,
-            record_id ${mainTableIdType} NOT NULL REFERENCES ${mainTableName}(id) ON DELETE CASCADE,
-            field_changed VARCHAR(255) NOT NULL,
-            old_value TEXT,
-            new_value TEXT,
-            changed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-            changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-    `);
-}
 
 const applySchema = async (client) => {
-    // Base table checks...
-    const tablesToTimestamp = ['sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'campaigns', 'tasks', 'contributions', 'events', 'stall_registrations'];
-    for (const table of tablesToTimestamp) {
-         await client.query(`
-            CREATE TABLE IF NOT EXISTS events (
-                id SERIAL PRIMARY KEY,
-                festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
-                name VARCHAR(255) NOT NULL,
-                event_date DATE NOT NULL,
-                start_time TIME,
-                end_time TIME,
-                description TEXT,
-                image_data TEXT,
-                venue VARCHAR(255)
-            );
-        `);
-         await client.query(`
-            CREATE TABLE IF NOT EXISTS event_contact_persons (
-                id SERIAL PRIMARY KEY,
-                event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-                name VARCHAR(255) NOT NULL,
-                contact_number VARCHAR(20),
-                email VARCHAR(255)
-            );
-        `);
-        await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
-        await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
-        await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;`);
-    }
-    await client.query(`ALTER TABLE events DROP COLUMN IF EXISTS registration_link;`);
-    await client.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_form_schema JSONB DEFAULT '[]'::jsonb;`);
-    await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS date_paid DATE;`);
-    await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS payment_received_by VARCHAR(255);`);
-    await client.query(`ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS image TEXT;`);
-    
-    // Ensure image tables have created_at for sorting cover images
-    await client.query(`ALTER TABLE expense_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-    await client.query(`ALTER TABLE quotation_images ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`);
-    
-    // Create dedicated festival photos table
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS festival_photos (
-            id SERIAL PRIMARY KEY,
-            festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
-            image_data TEXT NOT NULL,
-            caption VARCHAR(255),
-            uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-    `);
-    await client.query(`ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;`);
+    // Enable UUID extension
+    await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
 
-    // --- Event Registrations Table ---
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS event_registrations (
+    const queries = [
+        // Users, Roles, and Permissions
+        `CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
-            event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            username VARCHAR(255) UNIQUE NOT NULL,
+            password VARCHAR(255),
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS roles (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(50) UNIQUE NOT NULL,
+            description TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS permissions (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) UNIQUE NOT NULL,
+            description TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS user_roles (
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+            PRIMARY KEY (user_id, role_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS role_permissions (
+            role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+            permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+            PRIMARY KEY (role_id, permission_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS user_sessions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            token TEXT UNIQUE NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`,
+
+        // History and Tracking Tables
+        `CREATE TABLE IF NOT EXISTS login_history (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            login_method VARCHAR(20) NOT NULL,
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            login_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS page_access_history (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            page_path TEXT NOT NULL,
+            ip_address VARCHAR(45),
+            user_agent TEXT,
+            access_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`,
+        
+        // Core Data Tables
+        `CREATE TABLE IF NOT EXISTS campaigns (
+            id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
-            email VARCHAR(255),
-            form_data JSONB,
-            submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-    `);
-    await client.query(`ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS payment_proof_image TEXT;`);
-    await client.query(`ALTER TABLE event_registrations DROP COLUMN IF EXISTS phone_number;`);
-    await client.query(`ALTER TABLE event_registrations ALTER COLUMN email DROP NOT NULL;`);
-
-    // --- Stall Registrations ---
-    await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_registration_open BOOLEAN DEFAULT FALSE;`);
-    await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_start_date DATE;`);
-    await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_end_date DATE;`);
-    await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_price_per_table_per_day NUMERIC(10, 2);`);
-    await client.query(`ALTER TABLE festivals ADD COLUMN IF NOT EXISTS stall_electricity_cost_per_day NUMERIC(10, 2);`);
-
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS stall_registrations (
-            id SERIAL PRIMARY KEY,
-            festival_id INTEGER NOT NULL REFERENCES festivals(id) ON DELETE CASCADE,
-            registrant_name VARCHAR(255) NOT NULL,
-            contact_number VARCHAR(20) NOT NULL,
-            stall_dates DATE[] NOT NULL,
-            products JSONB,
-            needs_electricity BOOLEAN NOT NULL,
-            number_of_tables INTEGER NOT NULL,
-            total_payment NUMERIC(10, 2) NOT NULL,
-            payment_screenshot TEXT NOT NULL,
-            submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            goal NUMERIC(15, 2) NOT NULL,
+            description TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
-        );
-    `);
-
-    // --- FIX: Retroactively remove the 'email' field from all existing event registration forms.
-    // This ensures all events, new and old, align with the policy of not having an email field by default.
-    await client.query(`
-        UPDATE events
-        SET 
-            registration_form_schema = COALESCE(
-                (
-                    SELECT jsonb_agg(elem)
-                    FROM jsonb_array_elements(registration_form_schema) AS elem
-                    WHERE elem->>'name' <> 'email'
-                ),
-                '[]'::jsonb
-            )
-        WHERE 
-            -- Only update rows that actually have an 'email' field in their schema.
-            registration_form_schema @> '[{"name":"email"}]';
-    `);
-    
-    // --- FIX: Ensure all events have tower and flat number fields for contribution check ---
-    await client.query(`
-        UPDATE events
-        SET registration_form_schema = registration_form_schema || 
-            CASE WHEN NOT registration_form_schema @> '[{"name":"tower_number"}]' THEN '[{"name": "tower_number", "label": "Tower Number", "type": "text", "required": true}]'::jsonb ELSE '[]'::jsonb END ||
-            CASE WHEN NOT registration_form_schema @> '[{"name":"flat_number"}]' THEN '[{"name": "flat_number", "label": "Flat Number", "type": "text", "required": true}]'::jsonb ELSE '[]'::jsonb END
-        WHERE deleted_at IS NULL;
-    `);
-    console.log("Ensured event registration forms include Tower and Flat Number fields.");
-
-
-    // --- Expense Payment Migration ---
-    const expenseColumns = await client.query(`
-        SELECT column_name FROM information_schema.columns 
-        WHERE table_name = 'expenses' AND table_schema = 'public' AND column_name = 'cost'
-    `);
-    if (expenseColumns.rows.length > 0) {
-        await client.query('ALTER TABLE expenses RENAME COLUMN cost TO total_cost');
-        console.log("Migrated 'expenses' table: renamed 'cost' to 'total_cost'.");
-    }
-    await client.query(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS has_multiple_payments BOOLEAN NOT NULL DEFAULT FALSE;`);
-    await client.query(`
-        CREATE TABLE IF NOT EXISTS expense_payments (
+        )`,
+        `CREATE TABLE IF NOT EXISTS contributions (
             id SERIAL PRIMARY KEY,
-            expense_id INTEGER NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+            donor_name VARCHAR(255) NOT NULL,
+            donor_email VARCHAR(255),
+            mobile_number VARCHAR(20),
+            tower_number VARCHAR(50) NOT NULL,
+            flat_number VARCHAR(50) NOT NULL,
             amount NUMERIC(10, 2) NOT NULL,
+            number_of_coupons INTEGER NOT NULL DEFAULT 0,
+            campaign_id INTEGER REFERENCES campaigns(id),
+            date DATE NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'Completed',
+            type VARCHAR(20),
+            image TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS sponsors (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            contact_number VARCHAR(20) NOT NULL,
+            address TEXT NOT NULL,
+            email VARCHAR(255),
+            business_category VARCHAR(100) NOT NULL,
+            business_info TEXT NOT NULL,
+            sponsorship_amount NUMERIC(12, 2) NOT NULL,
+            sponsorship_type VARCHAR(100) NOT NULL,
+            date_paid DATE NOT NULL,
+            payment_received_by VARCHAR(100) NOT NULL,
+            image TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS vendors (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            business TEXT,
+            address TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS contact_persons (
+            id SERIAL PRIMARY KEY,
+            vendor_id INTEGER REFERENCES vendors(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            contact_number VARCHAR(20) NOT NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS festivals (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            campaign_id INTEGER REFERENCES campaigns(id),
+            stall_price_per_table_per_day NUMERIC(10, 2),
+            stall_electricity_cost_per_day NUMERIC(10, 2),
+            stall_start_date DATE,
+            stall_end_date DATE,
+            max_stalls INTEGER,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS expenses (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            vendor_id INTEGER REFERENCES vendors(id),
+            total_cost NUMERIC(12, 2) NOT NULL,
+            bill_date DATE NOT NULL,
+            expense_head VARCHAR(100) NOT NULL,
+            expense_by VARCHAR(100) NOT NULL,
+            festival_id INTEGER REFERENCES festivals(id),
+            has_multiple_payments BOOLEAN DEFAULT false,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS expense_payments (
+            id SERIAL PRIMARY KEY,
+            expense_id INTEGER REFERENCES expenses(id) ON DELETE CASCADE,
+            amount NUMERIC(12, 2) NOT NULL,
             payment_date DATE NOT NULL,
             payment_method VARCHAR(50) NOT NULL,
             notes TEXT,
             image_data TEXT,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
-        );
-    `);
-    await client.query('ALTER TABLE expense_payments ADD COLUMN IF NOT EXISTS image_data TEXT;');
-    // --- End Expense Payment Migration ---
+        )`,
+        `CREATE TABLE IF NOT EXISTS expense_images (
+            id SERIAL PRIMARY KEY,
+            expense_id INTEGER REFERENCES expenses(id) ON DELETE CASCADE,
+            image_data TEXT NOT NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS quotations (
+            id SERIAL PRIMARY KEY,
+            quotation_for VARCHAR(255) NOT NULL,
+            vendor_id INTEGER REFERENCES vendors(id),
+            cost NUMERIC(12, 2) NOT NULL,
+            date DATE NOT NULL,
+            festival_id INTEGER REFERENCES festivals(id),
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS quotation_images (
+            id SERIAL PRIMARY KEY,
+            quotation_id INTEGER REFERENCES quotations(id) ON DELETE CASCADE,
+            image_data TEXT NOT NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS budgets (
+            id SERIAL PRIMARY KEY,
+            item_name VARCHAR(255) NOT NULL,
+            budgeted_amount NUMERIC(12, 2) NOT NULL,
+            expense_head VARCHAR(100) NOT NULL,
+            festival_id INTEGER REFERENCES festivals(id),
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            status VARCHAR(50) NOT NULL DEFAULT 'To Do',
+            due_date DATE NOT NULL,
+            festival_id INTEGER REFERENCES festivals(id),
+            assignee_name VARCHAR(255) NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS events (
+            id SERIAL PRIMARY KEY,
+            festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            event_date DATE NOT NULL,
+            start_time TIME,
+            end_time TIME,
+            venue TEXT NOT NULL,
+            image_data TEXT,
+            registration_form_schema JSONB,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS event_contact_persons (
+            id SERIAL PRIMARY KEY,
+            event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            contact_number VARCHAR(20) NOT NULL,
+            email VARCHAR(255)
+        )`,
+        `CREATE TABLE IF NOT EXISTS event_registrations (
+            id SERIAL PRIMARY KEY,
+            event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255),
+            form_data JSONB NOT NULL,
+            submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            payment_proof_image TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS festival_photos (
+            id SERIAL PRIMARY KEY,
+            festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,
+            image_data TEXT NOT NULL,
+            uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS stall_registrations (
+            id SERIAL PRIMARY KEY,
+            festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,
+            registrant_name VARCHAR(255) NOT NULL,
+            contact_number VARCHAR(20) NOT NULL,
+            stall_dates DATE[] NOT NULL,
+            products JSONB,
+            needs_electricity BOOLEAN DEFAULT false,
+            number_of_tables INTEGER NOT NULL DEFAULT 1,
+            total_payment NUMERIC(10, 2) NOT NULL,
+            payment_screenshot TEXT NOT NULL,
+            submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+            rejection_reason TEXT,
+            reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            reviewed_at TIMESTAMPTZ
+        )`,
 
+        // History Tables
+        ...['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events', 'campaigns'].map(table => 
+        `CREATE TABLE IF NOT EXISTS ${table}_history (
+            id SERIAL PRIMARY KEY,
+            record_id INTEGER NOT NULL,
+            field_changed VARCHAR(255) NOT NULL,
+            old_value TEXT,
+            new_value TEXT,
+            changed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            changed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`)
+    ];
 
-    // History tables
-    await createHistoryTable(client, 'contributions_history', 'contributions');
-    await createHistoryTable(client, 'sponsors_history', 'sponsors');
-    await createHistoryTable(client, 'vendors_history', 'vendors');
-    await createHistoryTable(client, 'expenses_history', 'expenses');
-    await createHistoryTable(client, 'quotations_history', 'quotations');
-    await createHistoryTable(client, 'budgets_history', 'budgets');
-    await createHistoryTable(client, 'festivals_history', 'festivals');
-    await createHistoryTable(client, 'task_history', 'tasks', 'INTEGER');
-    await createHistoryTable(client, 'events_history', 'events');
-    await createHistoryTable(client, 'expense_payments_history', 'expense_payments');
-    await createHistoryTable(client, 'campaigns_history', 'campaigns');
-    await createHistoryTable(client, 'stall_registrations_history', 'stall_registrations');
+    for (const query of queries) {
+        await client.query(query);
+    }
 };
 
 module.exports = { applySchema };

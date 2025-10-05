@@ -1,7 +1,6 @@
 import React from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
-import { useLocation } from 'react-router';
-import { Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useModal } from '../contexts/ModalContext';
 import { PlusIcon } from './icons/PlusIcon';

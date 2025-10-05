@@ -430,3 +430,9 @@ ALTER TABLE stall_registrations DROP COLUMN stall_end_date;
 ALTER TABLE stall_registrations ADD COLUMN stall_dates DATE[];
 
 ALTER TABLE festivals RENAME COLUMN stall_electricity_cost TO stall_electricity_cost_per_day;
+
+ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'Pending';
+ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+ALTER TABLE festivals ADD COLUMN IF NOT EXISTS max_stalls INTEGER;

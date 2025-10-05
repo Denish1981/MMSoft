@@ -1,39 +1,39 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import type { StallRegistration } from '../types/index';
-import { useAuth } from '../contexts/AuthContext';
-import { API_URL } from '../config';
-import { exportToCsv } from '../utils/exportUtils';
-import { formatUTCDate, formatCurrency } from '../utils/formatting';
-import { useModal } from '../contexts/ModalContext';
-import FestivalNavigation from '../components/FestivalNavigation';
-import { StoreIcon } from '../components/icons/StoreIcon';
-import ImageViewerModal from '../components/ImageViewerModal';
-import StallRegistrationsTable from './StallRegistrationsPage/components/StallRegistrationsTable';
-import ApprovalModal from './StallRegistrationsPage/components/ApprovalModal';
-import RejectionModal from './StallRegistrationsPage/components/RejectionModal';
+import type { StallRegistration, Festival } from '../../types/index';
+import { useAuth } from '../../contexts/AuthContext';
+import { API_URL } from '../../config';
+import { exportToCsv } from '../../utils/exportUtils';
+import { formatUTCDate, formatCurrency } from '../../utils/formatting';
+import { useModal } from '../../contexts/ModalContext';
+import FestivalNavigation from '../../components/FestivalNavigation';
+import { StoreIcon } from '../../components/icons/StoreIcon';
+import ImageViewerModal from '../../components/ImageViewerModal';
+import StallRegistrationsTable from './components/StallRegistrationsTable';
+import ApprovalModal from './components/ApprovalModal';
+import RejectionModal from './components/RejectionModal';
+import StallRegistrationsByDateView from './components/StallRegistrationsByDateView';
 
 const ExportIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
         <polyline points="7 10 12 15 17 10" />
         <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
 );
 
-interface FestivalDetails {
-    name: string;
-}
+type View = 'list' | 'date';
 
 const StallRegistrationsPage: React.FC = () => {
     const { id: festivalId } = useParams<{ id: string }>();
     const { token, logout, hasPermission } = useAuth();
     const { openConfirmationModal } = useModal();
     const [registrations, setRegistrations] = useState<StallRegistration[]>([]);
-    const [festivalDetails, setFestivalDetails] = useState<FestivalDetails | null>(null);
+    const [festivalDetails, setFestivalDetails] = useState<Festival | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const [view, setView] = useState<View>('list');
 
     const [registrationToApprove, setRegistrationToApprove] = useState<StallRegistration | null>(null);
     const [registrationToReject, setRegistrationToReject] = useState<StallRegistration | null>(null);
@@ -87,7 +87,7 @@ const StallRegistrationsPage: React.FC = () => {
                 throw new Error(data.error || 'Failed to update status');
             }
             const updatedRegistration = await response.json();
-            setRegistrations(prev => prev.map(r => r.id === registrationId ? { ...r, ...updatedRegistration } : r));
+            setRegistrations(prev => prev.map(r => r.id === registrationId ? updatedRegistration : r));
             setRegistrationToApprove(null);
             setRegistrationToReject(null);
         } catch (err) {
@@ -119,11 +119,55 @@ const StallRegistrationsPage: React.FC = () => {
         exportToCsv(dataToExport, filename);
     };
 
+    const { registrationsByDate, allStallDates } = useMemo(() => {
+        const byDate = new Map<string, StallRegistration[]>();
+        const allDates = new Set<string>();
+
+        if (festivalDetails?.stallStartDate && festivalDetails.stallEndDate) {
+            let currentDate = new Date(new Date(festivalDetails.stallStartDate).toISOString().slice(0, 10));
+            const endDate = new Date(new Date(festivalDetails.stallEndDate).toISOString().slice(0, 10));
+
+            while(currentDate <= endDate) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+                allDates.add(dateStr);
+                byDate.set(dateStr, []);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+        }
+
+        registrations.forEach(reg => {
+            if (reg.status !== 'Rejected') {
+                reg.stallDates.forEach(date => {
+                    const dateStr = date.split('T')[0];
+                    if (byDate.has(dateStr)) {
+                        byDate.get(dateStr)!.push(reg);
+                    } else { // Handle case where reg date is outside festival stall dates
+                        allDates.add(dateStr);
+                        byDate.set(dateStr, [reg]);
+                    }
+                });
+            }
+        });
+
+        return { 
+            registrationsByDate: byDate, 
+            allStallDates: Array.from(allDates).sort((a,b) => new Date(a).getTime() - new Date(b).getTime())
+        };
+    }, [registrations, festivalDetails]);
+
+
     if (isLoading) return <div className="text-center p-8">Loading registrations...</div>;
     if (error && !isUpdatingStatus) return <div className="text-center p-8 text-red-500">{error}</div>;
 
     const canReview = hasPermission('action:edit');
     const canDelete = hasPermission('action:delete');
+    
+    const ViewToggle = () => (
+        <div className="flex items-center p-1 bg-slate-200 rounded-lg">
+            <button onClick={() => setView('list')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${view === 'list' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-600'}`}>List View</button>
+            <button onClick={() => setView('date')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${view === 'date' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-600'}`}>Date View</button>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
@@ -134,21 +178,38 @@ const StallRegistrationsPage: React.FC = () => {
                     <h3 className="text-lg font-semibold text-slate-800">
                         {registrations.length} Total Stall Registrations
                     </h3>
-                    <button onClick={handleExport} disabled={registrations.length === 0} className="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-slate-400">
-                        <ExportIcon className="w-5 h-5 mr-2" />
-                        Export to CSV
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <ViewToggle />
+                        <button onClick={handleExport} disabled={registrations.length === 0} className="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:bg-slate-400">
+                            <ExportIcon className="w-5 h-5 mr-2" />
+                            Export
+                        </button>
+                    </div>
                 </div>
                 {registrations.length > 0 ? (
-                    <StallRegistrationsTable
-                        registrations={registrations}
-                        onApprove={setRegistrationToApprove}
-                        onReject={setRegistrationToReject}
-                        onDelete={handleDelete}
-                        onViewImage={setViewingImage}
-                        canReview={canReview}
-                        canDelete={canDelete}
-                    />
+                    view === 'list' ? (
+                        <StallRegistrationsTable
+                            registrations={registrations}
+                            onApprove={setRegistrationToApprove}
+                            onReject={setRegistrationToReject}
+                            onDelete={handleDelete}
+                            onViewImage={setViewingImage}
+                            canReview={canReview}
+                            canDelete={canDelete}
+                        />
+                    ) : (
+                        <StallRegistrationsByDateView
+                            allStallDates={allStallDates}
+                            registrationsByDate={registrationsByDate}
+                            maxStalls={festivalDetails?.maxStalls}
+                            onApprove={setRegistrationToApprove}
+                            onReject={setRegistrationToReject}
+                            onDelete={handleDelete}
+                            onViewImage={setViewingImage}
+                            canReview={canReview}
+                            canDelete={canDelete}
+                        />
+                    )
                 ) : (
                     <div className="text-center py-16 text-slate-500">
                         <StoreIcon className="w-16 h-16 mx-auto text-slate-300 mb-4" />

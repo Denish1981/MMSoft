@@ -25,6 +25,10 @@ export interface StallRegistration {
     totalPayment: number;
     paymentScreenshot: string;
     submittedAt: string; // ISO String
+    status: 'Pending' | 'Approved' | 'Rejected';
+    rejectionReason?: string;
+    reviewedAt?: string; // ISO String
+    reviewedBy?: string;
 }
 
 export interface UniqueParticipant {

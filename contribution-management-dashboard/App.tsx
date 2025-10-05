@@ -1,7 +1,7 @@
+
 import React from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
-import { Route, Routes, Navigate } from 'react-router';
-import { HashRouter } from 'react-router-dom';
+import { Route, Routes, Navigate, HashRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
@@ -37,6 +37,7 @@ import PhotoAlbumsListPage from './pages/PhotoAlbumsListPage';
 import UniqueParticipantsPage from './pages/UniqueParticipantsPage';
 import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
 import StallRegistrationsPage from './pages/StallRegistrationsPage';
+import StallRegistrationPage from './pages/StallRegistrationPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -54,6 +55,7 @@ const App: React.FC = () => {
                                 <Route path="/" element={<PublicHomePage />} />
                                 <Route path="/photos" element={<PhotoAlbumsListPage />} />
                                 <Route path="/album/:id" element={<PhotoAlbumPage />} />
+                                <Route path="/festivals/:id/register-stall" element={<StallRegistrationPage />} />
                                 <Route path="/login" element={<LoginPage />} />
                                 
                                 {/* Protected Routes */}

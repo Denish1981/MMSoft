@@ -1,6 +1,6 @@
 import React from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
-import { Navigate, useLocation } from 'react-router';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {

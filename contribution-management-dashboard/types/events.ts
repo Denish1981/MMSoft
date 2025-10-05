@@ -1,38 +1,41 @@
+
 export interface Festival {
   id: number;
   name: string;
-  description?: string;
-  startDate: string; // ISO String
-  endDate: string; // ISO String
+  description: string;
+  startDate: string; // ISO string
+  endDate: string; // ISO string
   campaignId: number | null;
-  stallRegistrationOpen?: boolean;
-  stallStartDate?: string; // ISO String
-  stallEndDate?: string; // ISO String
-  stallPricePerTablePerDay?: number;
-  stallElectricityCostPerDay?: number;
+  stallPricePerTablePerDay?: number | null;
+  stallElectricityCostPerDay?: number | null;
+  stallStartDate?: string | null; // ISO string
+  stallEndDate?: string | null; // ISO string
+  maxStalls?: number | null;
+  stallDateCounts?: Record<string, number>;
+  approvedStallCounts?: Record<string, number>;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;
 }
 
 export enum TaskStatus {
-    ToDo = 'To Do',
-    InProgress = 'In Progress',
-    Done = 'Done',
-    Blocked = 'Blocked',
+  ToDo = 'To Do',
+  InProgress = 'In Progress',
+  Done = 'Done',
+  Blocked = 'Blocked',
 }
 
 export interface Task {
-    id: number;
-    title: string;
-    description?: string;
-    status: TaskStatus;
-    dueDate: string; // ISO String
-    festivalId: number | null;
-    assigneeName: string;
-    createdAt: string; // ISO String
-    updatedAt: string; // ISO String
-    deletedAt?: string | null;
+  id: number;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  dueDate: string; // ISO String
+  festivalId: number | null;
+  assigneeName: string;
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  deletedAt?: string | null;
 }
 
 export interface EventContactPerson {
@@ -48,23 +51,23 @@ export interface RegistrationFormField {
   label: string;
   type: RegistrationFormFieldType;
   required: boolean;
-  options?: string;
+  options?: string; // Comma-separated for select
 }
 
 export interface Event {
   id: number;
   festivalId: number;
   name: string;
+  description: string | null;
   eventDate: string; // ISO String
-  startTime: string; // e.g., "18:00"
-  endTime: string | null; // e.g., "20:00"
-  description?: string;
-  image?: string;
+  startTime: string | null; // HH:mm
+  endTime: string | null; // HH:mm
   venue: string;
+  image?: string;
+  registrationFormSchema: RegistrationFormField[];
   contactPersons: EventContactPerson[];
   registrationCount?: number;
-  registrationFormSchema?: RegistrationFormField[];
-  createdAt: string; // ISO String
-  updatedAt: string; // ISO String
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
   deletedAt?: string | null;
 }
