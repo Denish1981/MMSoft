@@ -4,6 +4,7 @@ import type { Sponsor } from '../types/index';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
+import { useData } from '../contexts/DataContext';
 
 interface SponsorModalProps {
     sponsorToEdit: Sponsor | null;
@@ -12,6 +13,7 @@ interface SponsorModalProps {
 }
 
 export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClose, onSubmit }) => {
+    const { campaigns } = useData();
     const [name, setName] = useState('');
     const [contactNumber, setContactNumber] = useState('');
     const [address, setAddress] = useState('');
@@ -20,6 +22,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
     const [businessInfo, setBusinessInfo] = useState('');
     const [sponsorshipAmount, setSponsorshipAmount] = useState('');
     const [sponsorshipType, setSponsorshipType] = useState('');
+    const [campaignId, setCampaignId] = useState<number | ''>('');
     const [datePaid, setDatePaid] = useState('');
     const [paymentReceivedBy, setPaymentReceivedBy] = useState('');
     const [image, setImage] = useState<string | undefined>();
@@ -36,6 +39,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             setBusinessInfo(sponsorToEdit.businessInfo);
             setSponsorshipAmount(String(sponsorToEdit.sponsorshipAmount));
             setSponsorshipType(sponsorToEdit.sponsorshipType);
+            setCampaignId(sponsorToEdit.campaignId || '');
             setDatePaid(sponsorToEdit.datePaid ? new Date(sponsorToEdit.datePaid).toISOString().split('T')[0] : '');
             setPaymentReceivedBy(sponsorToEdit.paymentReceivedBy || '');
             setImage(sponsorToEdit.image);
@@ -50,6 +54,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             setBusinessInfo('');
             setSponsorshipAmount('');
             setSponsorshipType('');
+            setCampaignId('');
             setDatePaid(new Date().toISOString().split('T')[0]);
             setPaymentReceivedBy('');
             setImage(undefined);
@@ -91,6 +96,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             businessInfo,
             sponsorshipAmount: parseFloat(sponsorshipAmount),
             sponsorshipType,
+            campaignId: campaignId === '' ? null : Number(campaignId),
             datePaid: datePaid,
             paymentReceivedBy,
             image,
@@ -137,19 +143,33 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
                                 <input type="text" id="sponsorshipType" value={sponsorshipType} onChange={e => setSponsorshipType(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                             </div>
                             <div>
+                                <label htmlFor="campaign" className="block text-sm font-medium text-slate-700">Campaign (Optional)</label>
+                                <select 
+                                    id="campaign" 
+                                    value={campaignId} 
+                                    onChange={e => setCampaignId(e.target.value === '' ? '' : Number(e.target.value))} 
+                                    className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="">None</option>
+                                    {campaigns.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name} ({c.financialYear})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
                                 <label htmlFor="paymentReceivedBy" className="block text-sm font-medium text-slate-700">Payment Received By</label>
                                 <input type="text" id="paymentReceivedBy" value={paymentReceivedBy} onChange={e => setPaymentReceivedBy(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                             </div>
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div>
                                 <label htmlFor="contactNumber" className="block text-sm font-medium text-slate-700">Contact Number</label>
                                 <input type="tel" id="contactNumber" value={contactNumber} onChange={e => setContactNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                             </div>
-                             <div>
-                                <label htmlFor="sponsorEmail" className="block text-sm font-medium text-slate-700">Email (Optional)</label>
-                                <input type="email" id="sponsorEmail" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="sponsorEmail" className="block text-sm font-medium text-slate-700">Email (Optional)</label>
+                            <input type="email" id="sponsorEmail" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                         </div>
                         <div>
                              <label htmlFor="address" className="block text-sm font-medium text-slate-700">Address / Location</label>

@@ -7,6 +7,7 @@ import { TextInput, DateInput, SelectInput, FilterContainer } from './FilterCont
 import { exportToCsv } from '../../utils/exportUtils';
 import { HistoryIcon } from '../../components/icons/HistoryIcon';
 import { formatUTCDate } from '../../utils/formatting';
+// Removed useData import as it's no longer needed here
 
 interface TaskReportProps {
     tasks: Task[];
@@ -33,6 +34,7 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users, onView
     });
 
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+    
     const festivalOptions = useMemo(() => festivals.map(f => ({ value: f.id.toString(), label: f.name })), [festivals]);
     
     const userOptions = useMemo(() => {
@@ -114,11 +116,11 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users, onView
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {filteredTasks.map(task => (
+                        {filteredTasks.length > 0 ? filteredTasks.map(task => (
                             <tr key={task.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-medium text-slate-900">{task.title}</div>
-                                    <div className="text-sm text-slate-500 truncate max-w-xs" title={task.description}>{task.description}</div>
+                                    <div className="text-sm text-slate-500 truncate max-w-xs" title={task.description ?? undefined}>{task.description}</div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{task.status}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(task.dueDate)}</td>
@@ -134,8 +136,7 @@ const TaskReport: React.FC<TaskReportProps> = ({ tasks, festivals, users, onView
                                     </button>
                                 </td>
                             </tr>
-                        ))}
-                         {filteredTasks.length === 0 && (
+                        )) : (
                             <tr>
                                 <td colSpan={6} className="text-center py-10 text-slate-500">
                                     No tasks match the current filters.

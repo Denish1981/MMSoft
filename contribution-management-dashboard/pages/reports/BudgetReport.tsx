@@ -1,11 +1,11 @@
 
-
 import React, { useMemo, useState } from 'react';
 import type { Budget, Expense, Festival } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency } from '../../utils/formatting';
 import { FilterContainer, SelectInput } from './FilterControls';
+import { useData } from '../../contexts/DataContext';
 
 interface BudgetReportProps {
     budgets: Budget[];
@@ -14,20 +14,37 @@ interface BudgetReportProps {
 }
 
 const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses, festivals }) => {
+    const { selectedCampaignId } = useData();
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('');
 
-    const festivalOptions = useMemo(() => festivals.map(f => ({ value: String(f.id), label: f.name })), [festivals]);
+    const relevantFestivals = useMemo(() => {
+        if (selectedCampaignId === 'all') return festivals;
+        const campId = Number(selectedCampaignId);
+        return festivals.filter(f => f.campaignId === campId);
+    }, [festivals, selectedCampaignId]);
+
+    const festivalOptions = useMemo(() => relevantFestivals.map(f => ({ value: String(f.id), label: f.name })), [relevantFestivals]);
 
     const reportData = useMemo(() => {
+        let baseBudgets = budgets;
+        let baseExpenses = expenses;
+
+        if (selectedCampaignId !== 'all') {
+            const campId = Number(selectedCampaignId);
+            const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+            baseBudgets = baseBudgets.filter(b => b.festivalId && campaignFestivalIds.includes(b.festivalId));
+            baseExpenses = baseExpenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId));
+        }
+
         const festivalIdNum = selectedFestivalId ? Number(selectedFestivalId) : null;
         
         const filteredBudgets = festivalIdNum
-            ? budgets.filter(b => b.festivalId === festivalIdNum)
-            : budgets;
+            ? baseBudgets.filter(b => b.festivalId === festivalIdNum)
+            : baseBudgets;
         
         const filteredExpenses = festivalIdNum
-            ? expenses.filter(e => e.festivalId === festivalIdNum)
-            : expenses;
+            ? baseExpenses.filter(e => e.festivalId === festivalIdNum)
+            : baseExpenses;
 
         const dataMap = new Map<string, { budgeted: number; actual: number }>();
 
@@ -60,7 +77,7 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgets, expenses, festival
             };
         }).sort((a, b) => a.expenseHead.localeCompare(b.expenseHead)); // Sort alphabetically
 
-    }, [budgets, expenses, selectedFestivalId]);
+    }, [budgets, expenses, selectedFestivalId, selectedCampaignId, festivals]);
 
     const handleExport = () => {
         const festivalMap = new Map(festivals.map(f => [f.id, f.name]));

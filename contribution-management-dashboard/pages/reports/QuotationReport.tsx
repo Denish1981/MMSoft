@@ -5,6 +5,7 @@ import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
+import { useData } from '../../contexts/DataContext';
 
 interface QuotationReportProps {
     quotations: Quotation[];
@@ -34,6 +35,7 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
     const vendorOptions = useMemo(() => vendors.map(v => ({ value: String(v.id), label: v.name })), [vendors]);
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+    
     const festivalOptions = useMemo(() => festivals.map(f => ({ value: String(f.id), label: f.name })), [festivals]);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
@@ -119,7 +121,7 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {filteredQuotations.map(q => (
+                        {filteredQuotations.length > 0 ? filteredQuotations.map(q => (
                             <tr key={q.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{q.quotationFor}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(q.vendorId) || 'N/A'}</td>
@@ -128,7 +130,13 @@ const QuotationReport: React.FC<QuotationReportProps> = ({ quotations, vendors, 
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(q.date)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{q.quotationImages.length}</td>
                             </tr>
-                        ))}
+                        )) : (
+                            <tr>
+                                <td colSpan={6} className="text-center py-10 text-slate-500">
+                                    {quotations.length === 0 ? "No quotations have been added yet." : "No quotations match your current filters."}
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

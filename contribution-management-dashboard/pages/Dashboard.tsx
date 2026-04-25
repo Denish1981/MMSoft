@@ -5,37 +5,68 @@ import type { Contribution, Donor, Sponsor, Expense, Vendor } from '../types/ind
 import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
 import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
+import { CashIcon } from '../components/icons/CashIcon';
 import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 
 const Dashboard: React.FC = () => {
-    const { contributions, donors, sponsors, expenses, vendors, festivals } = useData();
+    const { contributions, campaigns, donors, sponsors, expenses, vendors, festivals, selectedCampaignId, setSelectedCampaignId } = useData();
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
     
+    // Auto-reset festival filter if campaign changes, or keep it if still valid
+    const filteredFestivals = useMemo(() => {
+        if (selectedCampaignId === 'all') return festivals;
+        const campId = Number(selectedCampaignId);
+        return festivals.filter(f => f.campaignId === campId);
+    }, [festivals, selectedCampaignId]);
+
+    const filteredContributions = useMemo(() => {
+        if (selectedCampaignId === 'all') return contributions;
+        const campId = Number(selectedCampaignId);
+        return contributions.filter(c => c.campaignId === campId);
+    }, [contributions, selectedCampaignId]);
+
+    const filteredSponsors = useMemo(() => {
+        if (selectedCampaignId === 'all') return sponsors;
+        const campId = Number(selectedCampaignId);
+        return sponsors.filter(s => s.campaignId === campId);
+    }, [sponsors, selectedCampaignId]);
+
     const totalContributions = useMemo(() => {
-        return contributions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
-    }, [contributions]);
+        return filteredContributions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    }, [filteredContributions]);
 
     const totalSponsorshipsAmount = useMemo(() => {
-        return sponsors.reduce((acc, s) => acc + (Number(s.sponsorshipAmount) || 0), 0);
-    }, [sponsors]);
+        return filteredSponsors.reduce((acc, s) => acc + (Number(s.sponsorshipAmount) || 0), 0);
+    }, [filteredSponsors]);
     
     const totalRaised = useMemo(() => {
         return totalContributions + totalSponsorshipsAmount;
     }, [totalContributions, totalSponsorshipsAmount]);
     
     const fundsBreakdown = [
-        { label: 'Contributions', value: totalContributions, color: 'bg-green-500', path: '/reports?tab=contributions' },
-        { label: 'Sponsorships', value: totalSponsorshipsAmount, color: 'bg-indigo-500', path: '/reports?tab=sponsors' },
+        { label: 'Contributions', value: totalContributions, color: 'bg-green-500', path: `/reports?tab=contributions${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}` },
+        { label: 'Sponsorships', value: totalSponsorshipsAmount, color: 'bg-indigo-500', path: `/reports?tab=sponsors${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}` },
     ];
 
     const filteredExpenses = useMemo(() => {
-        if (selectedFestivalId === 'all') {
-            return expenses;
+        let baseExpenses = expenses;
+        
+        // Filter by Campaign (via festivals)
+        if (selectedCampaignId !== 'all') {
+            const campId = Number(selectedCampaignId);
+            const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+            baseExpenses = baseExpenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId));
         }
-        const festivalId = Number(selectedFestivalId);
-        return expenses.filter(e => e.festivalId === festivalId);
-    }, [expenses, selectedFestivalId]);
+
+        // Filter by Festival
+        if (selectedFestivalId !== 'all') {
+            const festivalId = Number(selectedFestivalId);
+            baseExpenses = baseExpenses.filter(e => e.festivalId === festivalId);
+        }
+        
+        return baseExpenses;
+    }, [expenses, selectedCampaignId, selectedFestivalId, festivals]);
 
     const totalExpenses = useMemo(() => {
         return filteredExpenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
@@ -58,24 +89,46 @@ const Dashboard: React.FC = () => {
                 label,
                 value,
                 color: colors[index % colors.length],
-                path: `/reports?tab=expenses&expenseHead=${encodeURIComponent(label)}`
+                path: `/reports?tab=expenses&expenseHead=${encodeURIComponent(label)}${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}${selectedFestivalId !== 'all' ? `&festivalId=${selectedFestivalId}` : ''}`
             }));
-    }, [filteredExpenses]);
+    }, [filteredExpenses, selectedCampaignId, selectedFestivalId]);
 
     const outstandingPayments = useMemo(() => {
         const vendorMap = new Map(vendors.map(v => [v.id, v.name]));
-        return expenses
+        return filteredExpenses // Use filtered expenses here too
             .filter(e => e.outstandingAmount && e.outstandingAmount > 0)
             .map(e => ({
                 ...e,
                 vendorName: vendorMap.get(e.vendorId) || 'Unknown Vendor',
             }))
             .sort((a, b) => (b.outstandingAmount || 0) - (a.outstandingAmount || 0));
-    }, [expenses, vendors]);
+    }, [filteredExpenses, vendors]);
 
     const totalOutstanding = useMemo(() => {
         return outstandingPayments.reduce((acc, payment) => acc + (payment.outstandingAmount || 0), 0);
     }, [outstandingPayments]);
+
+    const carryForwardBalance = useMemo(() => {
+        return totalRaised - totalExpenses;
+    }, [totalRaised, totalExpenses]);
+
+    const campaignFilterDropdown = (
+        <select
+            value={selectedCampaignId}
+            onChange={(e) => {
+                setSelectedCampaignId(e.target.value);
+                setSelectedFestivalId('all'); // Reset festival filter when campaign changes
+            }}
+            className="text-xs p-1 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Filter by campaign"
+        >
+            <option value="all">All Campaigns</option>
+            {campaigns.map(c => (
+                <option key={c.id} value={c.id}>{c.name} ({c.financialYear})</option>
+            ))}
+        </select>
+    );
 
     const expenseFilterDropdown = (
         <select
@@ -86,14 +139,21 @@ const Dashboard: React.FC = () => {
             aria-label="Filter expenses by festival"
         >
             <option value="all">All Festivals</option>
-            {festivals.map(f => (
+            {filteredFestivals.map(f => (
                 <option key={f.id} value={f.id}>{f.name}</option>
             ))}
         </select>
     );
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
+            <div className="flex justify-end">
+                <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
+                    <span className="text-sm font-medium text-slate-600">Global Filter:</span>
+                    {campaignFilterDropdown}
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <SummaryCard
                     title="Total Funds Raised"
@@ -155,6 +215,31 @@ const Dashboard: React.FC = () => {
                             <p className="text-sm">No outstanding expense payments found.</p>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Carry Forward Balance Widget */}
+            <div className={`p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 ${carryForwardBalance >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'} border`}>
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center">
+                        <div className={`${carryForwardBalance >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} p-4 rounded-full mr-4 shadow-sm`}>
+                            <CashIcon className="w-8 h-8" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">Carry Forward Balance</h3>
+                            <p className="text-sm text-slate-500 font-medium">
+                                {carryForwardBalance >= 0 
+                                    ? 'Surplus funds available to be carried forward' 
+                                    : 'Net deficit for the selected period'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-center md:text-right px-4 py-2 rounded-lg bg-white/50 border border-white/50 backdrop-blur-sm shadow-inner min-w-[200px]">
+                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Estimated Balance</p>
+                        <p className={`text-4xl font-extrabold tracking-tight ${carryForwardBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {formatCurrency(carryForwardBalance)}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

@@ -97,7 +97,7 @@ export const ProtectedLayout: React.FC = () => {
             {isFestivalModalOpen && <FestivalModal campaigns={campaigns} festivalToEdit={festivalToEdit} onClose={closeFestivalModal} onSubmit={(data) => { handleFestivalSubmit(data, festivalToEdit); closeFestivalModal(); }} />}
             {isTaskModalOpen && <TaskModal users={users} festivals={festivals} taskToEdit={taskToEdit} onClose={closeTaskModal} onSubmit={(data) => { handleTaskSubmit(data, taskToEdit); closeTaskModal(); }} />}
             {isEventModalOpen && <EventModal eventToEdit={eventToEdit} onClose={closeEventModal} onSubmit={async (data) => { await handleEventSubmit(data, eventToEdit); closeEventModal(); }} />}
-            {isCampaignModalOpen && <CampaignModal campaignToEdit={campaignToEdit} onClose={closeCampaignModal} onSubmit={(data) => { handleCampaignSubmit(data, campaignToEdit); closeCampaignModal(); }} />}
+            {isCampaignModalOpen && <CampaignModal campaignToEdit={campaignToEdit} campaigns={campaigns} onClose={closeCampaignModal} onSubmit={(data) => { handleCampaignSubmit(data, campaignToEdit); closeCampaignModal(); }} />}
             {isConfirmationModalOpen && <ConfirmationModal onConfirm={confirmDelete} onCancel={closeConfirmationModal} message={confirmMessage} confirmText={confirmText} />}
             {isHistoryModalOpen && <HistoryModal isOpen={isHistoryModalOpen} onClose={closeHistoryModal} title={historyTitle} history={historyData} isLoading={isLoadingHistory} festivalMap={festivalMap} />}
         </div>

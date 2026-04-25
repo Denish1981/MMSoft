@@ -11,11 +11,18 @@ import { useData } from '../contexts/DataContext';
 import { useModal } from '../contexts/ModalContext';
 
 const Budget: React.FC = () => {
-    const { budgets, festivalMap } = useData();
+    const { budgets, festivalMap, festivals, selectedCampaignId } = useData();
     const { openBudgetModal, openConfirmationModal, openHistoryModal } = useModal();
     
+    const filteredBudgets = useMemo(() => {
+        if (selectedCampaignId === 'all') return budgets;
+        const campId = Number(selectedCampaignId);
+        const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+        return budgets.filter(b => b.festivalId && campaignFestivalIds.includes(b.festivalId));
+    }, [budgets, festivals, selectedCampaignId]);
+
     const handleExport = () => {
-        const dataToExport = budgets.map(budget => ({
+        const dataToExport = filteredBudgets.map(budget => ({
             'Budget ID': budget.id,
             'Item Name': budget.itemName,
             'Expense Head': budget.expenseHead,
@@ -41,7 +48,7 @@ const Budget: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
-                            {budgets.map(budget => (
+                            {filteredBudgets.map(budget => (
                                 <tr key={budget.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{budget.itemName}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{budget.expenseHead}</td>
@@ -64,10 +71,9 @@ const Budget: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
-                    {budgets.length === 0 && (
+                    {filteredBudgets.length === 0 && (
                         <div className="text-center py-12 text-slate-500">
-                            <p>No budget items found.</p>
-                            <p className="text-sm">Click "Add Budget Item" to get started.</p>
+                            <p>No budget items found matching the selected filters.</p>
                         </div>
                     )}
                 </div>

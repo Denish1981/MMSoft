@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ContributionReport from './reports/ContributionReport';
 import VendorReport from './reports/VendorReport';
@@ -14,7 +14,11 @@ type ReportTab = 'contributions' | 'sponsors' | 'vendors' | 'expenses' | 'quotat
 const VALID_TABS: ReportTab[] = ['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budget', 'tasks'];
 
 const Reports: React.FC = () => {
-    const { contributions, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users } = useData();
+    const { 
+        contributions, sponsors, vendors, expenses, 
+        quotations, budgets, festivals, tasks, users,
+        campaigns, selectedCampaignId, setSelectedCampaignId 
+    } = useData();
     const { openHistoryModal } = useModal();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -37,22 +41,54 @@ const Reports: React.FC = () => {
         setSearchParams({ tab: tabName });
     };
 
+    const filteredData = useMemo(() => {
+        const campId = selectedCampaignId === 'all' ? null : Number(selectedCampaignId);
+        
+        const filteredFestivals = campId !== null 
+            ? festivals.filter(f => f.campaignId === campId)
+            : festivals;
+        
+        const festivalIds = new Set(filteredFestivals.map(f => f.id));
+
+        return {
+            contributions: campId !== null 
+                ? contributions.filter(c => c.campaignId === campId) 
+                : contributions,
+            sponsors: campId !== null 
+                ? sponsors.filter(s => s.campaignId === campId) 
+                : sponsors,
+            expenses: campId !== null 
+                ? expenses.filter(e => e.festivalId && festivalIds.has(e.festivalId)) 
+                : expenses,
+            quotations: campId !== null 
+                ? quotations.filter(q => q.festivalId && festivalIds.has(q.festivalId)) 
+                : quotations,
+            budgets: campId !== null 
+                ? budgets.filter(b => b.festivalId && festivalIds.has(b.festivalId)) 
+                : budgets,
+            tasks: campId !== null 
+                ? tasks.filter(t => t.festivalId && festivalIds.has(t.festivalId)) 
+                : tasks,
+            festivals: filteredFestivals,
+        };
+    }, [selectedCampaignId, contributions, sponsors, expenses, quotations, budgets, tasks, festivals]);
+
     const renderTabContent = () => {
         switch (activeTab) {
             case 'contributions':
-                return <ContributionReport contributions={contributions} />;
+                return <ContributionReport contributions={filteredData.contributions} />;
             case 'sponsors':
-                return <SponsorReport sponsors={sponsors} />;
+                return <SponsorReport sponsors={filteredData.sponsors} />;
             case 'vendors':
                 return <VendorReport vendors={vendors} />;
             case 'expenses':
-                return <ExpenseReport expenses={expenses} vendors={vendors} festivals={festivals} />;
+                return <ExpenseReport expenses={filteredData.expenses} vendors={vendors} festivals={filteredData.festivals} />;
             case 'quotations':
-                return <QuotationReport quotations={quotations} vendors={vendors} festivals={festivals} />;
+                return <QuotationReport quotations={filteredData.quotations} vendors={vendors} festivals={filteredData.festivals} />;
             case 'budget':
-                return <BudgetReport budgets={budgets} expenses={expenses} festivals={festivals} />;
+                return <BudgetReport budgets={filteredData.budgets} expenses={filteredData.expenses} festivals={filteredData.festivals} />;
             case 'tasks':
-                return <TaskReport tasks={tasks} festivals={festivals} users={users} onViewHistory={openHistoryModal} />;
+                return <TaskReport tasks={filteredData.tasks} festivals={filteredData.festivals} users={users} onViewHistory={openHistoryModal} />;
             default:
                 return null;
         }
@@ -76,15 +112,34 @@ const Reports: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-2 rounded-lg shadow-sm">
-                <div className="flex items-center space-x-2 flex-wrap">
-                    <TabButton tabName="contributions" label="Contribution Report" />
-                    <TabButton tabName="sponsors" label="Sponsor Report" />
-                    <TabButton tabName="vendors" label="Vendor Report" />
-                    <TabButton tabName="expenses" label="Expense Report" />
-                    <TabButton tabName="quotations" label="Quotation Report" />
-                    <TabButton tabName="budget" label="Budget Report" />
-                    <TabButton tabName="tasks" label="Task Report" />
+            <div className="flex flex-col space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Reports</h1>
+                    <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 min-w-[240px]">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Active Campaign:</span>
+                        <select
+                            value={selectedCampaignId}
+                            onChange={(e) => setSelectedCampaignId(e.target.value)}
+                            className="text-sm font-medium bg-transparent border-none focus:ring-0 cursor-pointer text-slate-700 w-full"
+                        >
+                            <option value="all">All Campaigns</option>
+                            {campaigns.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} ({c.financialYear})</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="bg-white p-2 rounded-lg shadow-sm overflow-x-auto">
+                    <div className="flex items-center space-x-2 whitespace-nowrap">
+                        <TabButton tabName="contributions" label="Contribution Report" />
+                        <TabButton tabName="sponsors" label="Sponsor Report" />
+                        <TabButton tabName="vendors" label="Vendor Report" />
+                        <TabButton tabName="expenses" label="Expense Report" />
+                        <TabButton tabName="quotations" label="Quotation Report" />
+                        <TabButton tabName="budget" label="Budget Report" />
+                        <TabButton tabName="tasks" label="Task Report" />
+                    </div>
                 </div>
             </div>
             <div>{renderTabContent()}</div>

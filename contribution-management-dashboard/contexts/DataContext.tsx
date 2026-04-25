@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem, Event } from '../types/index';
+import { ContributionStatus } from '../types/index';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../config';
 
@@ -27,11 +28,13 @@ interface DataContextType {
     handleFestivalSubmit: (data: Omit<Festival, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Festival | null) => void;
     handleTaskSubmit: (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Task | null) => void;
     handleEventSubmit: (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => Promise<void>;
-    handleCampaignSubmit: (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Campaign | null) => void;
+    handleCampaignSubmit: (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & { sourceCampaignId?: number }, itemToEdit: Campaign | null) => void;
     handleDeleteClick: (id: number, type: string) => void;
     handleRestore: (recordType: string, recordId: number) => Promise<void>;
     eventDataVersion: number;
     triggerEventRefetch: () => void;
+    selectedCampaignId: string;
+    setSelectedCampaignId: (id: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -49,6 +52,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [tasks, setTasks] = useState<Task[]>([]);
     const [users, setUsers] = useState<UserForManagement[]>([]);
     const [eventDataVersion, setEventDataVersion] = useState(0);
+    const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
 
     const getAuthHeaders = useCallback(() => ({
         'Authorization': `Bearer ${token}`,
@@ -220,9 +224,65 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (itemToEdit) handleUpdate(`${API_URL}/tasks`, { ...itemToEdit, ...data }, setTasks);
         else handleAdd(`${API_URL}/tasks`, data, setTasks);
     };
-    const handleCampaignSubmit = (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Campaign | null) => {
-        if (itemToEdit) handleUpdate(`${API_URL}/campaigns`, { ...itemToEdit, ...data }, setCampaigns);
-        else handleAdd(`${API_URL}/campaigns`, data, setCampaigns);
+    const handleCampaignSubmit = async (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & { sourceCampaignId?: number }, itemToEdit: Campaign | null) => {
+        if (itemToEdit) {
+            handleUpdate(`${API_URL}/campaigns`, { ...itemToEdit, ...data }, setCampaigns);
+        } else {
+            const { sourceCampaignId, ...campaignData } = data;
+            
+            try {
+                const response = await fetch(`${API_URL}/campaigns`, { 
+                    method: 'POST', 
+                    headers: getAuthHeaders(), 
+                    body: JSON.stringify(campaignData) 
+                });
+                
+                if (response.status === 401) { logout(); return; }
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Failed to add campaign`);
+                }
+                
+                const newCampaign: Campaign = await response.json();
+                setCampaigns((prev) => [newCampaign, ...prev]);
+
+                // If sourceCampaignId is provided, calculate balance and add contribution
+                if (typeof sourceCampaignId === 'number') {
+                    const sourceContributions = contributions.filter(c => c.campaignId === sourceCampaignId);
+                    const sourceSponsors = sponsors.filter(s => s.campaignId === sourceCampaignId);
+                    const campaignFestivalIds = festivals.filter(f => f.campaignId === sourceCampaignId).map(f => f.id);
+                    const sourceExpenses = expenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId));
+
+                    const totalRaised = sourceContributions.reduce((acc, c) => acc + (Number(c.amount) || 0), 0) +
+                                       sourceSponsors.reduce((acc, s) => acc + (Number(s.sponsorshipAmount) || 0), 0);
+                    
+                    const totalExpenses = sourceExpenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
+                    
+                    const balance = totalRaised - totalExpenses;
+                    
+                    console.log(`Carrying forward balance from campaign ${sourceCampaignId} to ${newCampaign.id}: ${balance}`);
+
+                    const broughtForwardContribution = {
+                        donorName: "Balance Brought Forward",
+                        towerNumber: "N/A",
+                        flatNumber: "N/A",
+                        amount: balance,
+                        numberOfCoupons: 0,
+                        campaignId: newCampaign.id,
+                        date: new Date().toISOString(),
+                        status: ContributionStatus.Completed,
+                        type: 'Online' as any,
+                        donorEmail: '',
+                        mobileNumber: ''
+                    };
+
+                    await handleAdd(`${API_URL}/contributions`, broughtForwardContribution, setContributions);
+                }
+            } catch (error) {
+                console.error(`Failed to process campaign submission:`, error);
+                alert(error instanceof Error ? error.message : "An unknown error occurred.");
+            }
+        }
     };
 
     const handleEventSubmit = async (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => {
@@ -251,7 +311,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit, handleCampaignSubmit,
         handleDeleteClick, handleRestore,
         eventDataVersion,
-        triggerEventRefetch
+        triggerEventRefetch,
+        selectedCampaignId,
+        setSelectedCampaignId
     };
 
     return (

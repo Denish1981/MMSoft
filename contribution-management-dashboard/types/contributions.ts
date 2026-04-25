@@ -9,6 +9,7 @@ export type ContributionType = 'Online' | 'Cash';
 export interface Campaign {
   id: number;
   name: string;
+  financialYear: string;
   goal: number;
   description:string;
   createdAt: string; // ISO string
@@ -56,6 +57,7 @@ export interface Sponsor {
   businessInfo: string;
   sponsorshipAmount: number;
   sponsorshipType: string;
+  campaignId?: number | null;
   datePaid: string; // ISO string
   paymentReceivedBy: string;
   image?: string;

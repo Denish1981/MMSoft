@@ -25,8 +25,13 @@ const Campaigns: React.FC = () => {
         <div className="space-y-6">
             {campaignProgress.map(c => (
                 <div key={c.id} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-                    <h3 className="text-xl font-bold text-slate-800">{c.name}</h3>
-                    <p className="mt-1 text-sm text-slate-600">{c.description}</p>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">{c.name}</h3>
+                            <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase tracking-wider">{c.financialYear}</span>
+                        </div>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">{c.description}</p>
                     <div className="mt-4">
                         <div className="flex justify-between items-center mb-1">
                             <span className="text-sm font-medium text-slate-700">

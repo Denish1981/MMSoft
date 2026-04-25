@@ -61,12 +61,19 @@ const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({
 };
 
 const Quotations: React.FC = () => {
-    const { quotations, vendors, festivals } = useData();
+    const { quotations, vendors, festivals, selectedCampaignId } = useData();
     const { openQuotationModal, openConfirmationModal, openHistoryModal } = useModal();
     
     const [viewingImages, setViewingImages] = useState<string[] | null>(null);
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+
+    const filteredQuotations = useMemo(() => {
+        if (selectedCampaignId === 'all') return quotations;
+        const campId = Number(selectedCampaignId);
+        const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+        return quotations.filter(q => q.festivalId && campaignFestivalIds.includes(q.festivalId));
+    }, [quotations, festivals, selectedCampaignId]);
 
     return (
         <div className="space-y-6">
@@ -89,7 +96,7 @@ const Quotations: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
-                            {quotations.map(quote => (
+                            {filteredQuotations.map(quote => (
                                 <tr key={quote.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{quote.quotationFor}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(quote.vendorId) || 'N/A'}</td>

@@ -1,10 +1,10 @@
 
-
 import React, { useState, useMemo } from 'react';
 import type { Vendor } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
+import { useData } from '../../contexts/DataContext';
 
 interface VendorReportProps {
     vendors: Vendor[];
@@ -17,6 +17,7 @@ interface VendorFilters {
 }
 
 const VendorReport: React.FC<VendorReportProps> = ({ vendors }) => {
+    const { expenses, quotations, festivals, selectedCampaignId } = useData();
     const [filters, setFilters] = useState<VendorFilters>({
         vendorName: '',
         vendorBusiness: '',
@@ -35,14 +36,28 @@ const VendorReport: React.FC<VendorReportProps> = ({ vendors }) => {
         });
     };
 
+    const campaignFilteredVendors = useMemo(() => {
+        if (selectedCampaignId === 'all') return vendors;
+        
+        const campId = Number(selectedCampaignId);
+        const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+        
+        const vendorIdsInCampaign = new Set([
+            ...expenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId)).map(e => e.vendorId),
+            ...quotations.filter(q => q.festivalId && campaignFestivalIds.includes(q.festivalId)).map(q => q.vendorId)
+        ]);
+
+        return vendors.filter(v => vendorIdsInCampaign.has(v.id));
+    }, [vendors, expenses, quotations, festivals, selectedCampaignId]);
+
     const filteredVendors = useMemo(() => {
-        return vendors.filter(v => {
+        return campaignFilteredVendors.filter(v => {
             if (filters.vendorName && !v.name.toLowerCase().includes(filters.vendorName.toLowerCase())) return false;
             if (filters.vendorBusiness && v.business && !v.business.toLowerCase().includes(filters.vendorBusiness.toLowerCase())) return false;
             if (filters.contactName && !v.contacts.some(c => c.name.toLowerCase().includes(filters.contactName.toLowerCase()))) return false;
             return true;
         });
-    }, [vendors, filters]);
+    }, [campaignFilteredVendors, filters]);
 
     const handleExport = () => {
         const dataToExport = filteredVendors.flatMap(v => 
@@ -84,7 +99,7 @@ const VendorReport: React.FC<VendorReportProps> = ({ vendors }) => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {filteredVendors.map(v => (
+                        {filteredVendors.length > 0 ? filteredVendors.map(v => (
                             <tr key={v.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 align-top">{v.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 align-top">{v.business}</td>
@@ -99,7 +114,13 @@ const VendorReport: React.FC<VendorReportProps> = ({ vendors }) => {
                                     </ul>
                                 </td>
                             </tr>
-                        ))}
+                        )) : (
+                            <tr>
+                                <td colSpan={4} className="text-center py-10 text-slate-500">
+                                    {vendors.length === 0 ? "No vendors have been added yet." : "No vendors match your current filters."}
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

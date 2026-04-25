@@ -7,6 +7,7 @@ import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
 import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../../components/icons/ChevronRightIcon';
+import { useData } from '../../contexts/DataContext';
 
 interface ContributionReportProps {
     contributions: Contribution[];
@@ -23,6 +24,7 @@ interface ContributionFilters {
 }
 
 const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }) => {
+    const { selectedCampaignId } = useData();
     const [filters, setFilters] = useState<ContributionFilters>({
         towerNumber: '',
         flatNumber: '',
@@ -157,7 +159,7 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
                         )) : (
                              <tr>
                                 <td colSpan={6} className="text-center py-10 text-slate-500">
-                                    {contributions.length === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
+                                    {contributions.length === 0 ? "No contributions match the campaign or filters." : "No contributions match your current filters."}
                                 </td>
                             </tr>
                         )}

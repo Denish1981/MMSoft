@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Expense, Vendor, Festival } from '../../types/index';
@@ -5,6 +6,7 @@ import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, SelectInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
+// Removed useData import as it's no longer needed here
 
 interface ExpenseReportProps {
     expenses: Expense[];
@@ -40,6 +42,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
     const vendorMap = useMemo(() => new Map(vendors.map(v => [v.id, v.name])), [vendors]);
     const vendorOptions = useMemo(() => vendors.map(v => ({ value: String(v.id), label: v.name })), [vendors]);
     const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+    
     const festivalOptions = useMemo(() => festivals.map(f => ({ value: String(f.id), label: f.name })), [festivals]);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
@@ -133,7 +136,7 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
-                        {filteredExpenses.map(e => (
+                        {filteredExpenses.length > 0 ? filteredExpenses.map(e => (
                             <tr key={e.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{e.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{vendorMap.get(e.vendorId) || 'N/A'}</td>
@@ -142,7 +145,13 @@ const ExpenseReport: React.FC<ExpenseReportProps> = ({ expenses, vendors, festiv
                                 <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${(e.outstandingAmount || 0) > 0 ? 'text-red-600' : 'text-slate-500'}`}>{formatCurrency(e.outstandingAmount || 0)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(e.billDate)}</td>
                             </tr>
-                        ))}
+                        )) : (
+                            <tr>
+                                <td colSpan={6} className="text-center py-10 text-slate-500">
+                                    {expenses.length === 0 ? "No expenses have been added yet." : "No expenses match your current filters."}
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

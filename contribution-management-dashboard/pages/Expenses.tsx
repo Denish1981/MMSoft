@@ -73,7 +73,7 @@ const ImageViewerModal: React.FC<{ images: string[], onClose: () => void }> = ({
 };
 
 const Expenses: React.FC = () => {
-    const { expenses, vendors } = useData();
+    const { expenses, vendors, festivals, selectedCampaignId } = useData();
     const { openExpenseModal, openConfirmationModal, openHistoryModal } = useModal();
     
     const [viewingImages, setViewingImages] = useState<string[] | null>(null);
@@ -102,7 +102,16 @@ const Expenses: React.FC = () => {
     };
 
     const filteredExpenses = useMemo(() => {
-        return expenses.filter(e => {
+        let baseExpenses = expenses;
+
+        // Filter by global campaign filter
+        if (selectedCampaignId !== 'all') {
+            const campId = Number(selectedCampaignId);
+            const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+            baseExpenses = baseExpenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId));
+        }
+
+        return baseExpenses.filter(e => {
             if (filters.name && !e.name.toLowerCase().includes(filters.name.toLowerCase())) return false;
             if (filters.vendorId && e.vendorId !== Number(filters.vendorId)) return false;
             if (filters.expenseHead && e.expenseHead !== filters.expenseHead) return false;
@@ -119,7 +128,7 @@ const Expenses: React.FC = () => {
             }
             return true;
         });
-    }, [expenses, filters]);
+    }, [expenses, filters, selectedCampaignId, festivals]);
 
     useEffect(() => {
         setCurrentPage(1);

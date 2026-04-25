@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:campaigns:view'), async (req, res) => {
     try {
-        const { rows } = await db.query(`SELECT id, name, goal, description, created_at AS "createdAt", updated_at AS "updatedAt" FROM campaigns WHERE deleted_at IS NULL ORDER BY id DESC`);
+        const { rows } = await db.query(`SELECT id, name, financial_year AS "financialYear", goal, description, created_at AS "createdAt", updated_at AS "updatedAt" FROM campaigns WHERE deleted_at IS NULL ORDER BY financial_year DESC, name ASC`);
         res.json(rows.map(c => ({ ...c, goal: parseFloat(c.goal) })));
     } catch (err) { 
         console.error('Error fetching campaigns:', err);
@@ -15,11 +15,11 @@ router.get('/', authMiddleware, permissionMiddleware('page:campaigns:view'), asy
 });
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { name, goal, description } = req.body;
+    const { name, goal, description, financialYear } = req.body;
     try {
         const result = await db.query(
-            'INSERT INTO campaigns (name, goal, description) VALUES ($1, $2, $3) RETURNING id, name, goal, description, created_at AS "createdAt", updated_at AS "updatedAt"',
-            [name, goal, description]
+            'INSERT INTO campaigns (name, goal, description, financial_year) VALUES ($1, $2, $3, $4) RETURNING id, name, financial_year AS "financialYear", goal, description, created_at AS "createdAt", updated_at AS "updatedAt"',
+            [name, goal, description, financialYear]
         );
         const newCampaign = result.rows[0];
         res.status(201).json({ ...newCampaign, goal: parseFloat(newCampaign.goal) });
@@ -31,7 +31,7 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
 
 router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, goal, description } = req.body;
+    const { name, goal, description, financialYear } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
@@ -39,8 +39,8 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
         if (oldDataRes.rows.length === 0) throw new Error('Campaign not found');
 
         const result = await client.query(
-            'UPDATE campaigns SET name=$1, goal=$2, description=$3, updated_at=NOW() WHERE id=$4 RETURNING id, name, goal, description, created_at AS "createdAt", updated_at AS "updatedAt"',
-            [name, goal, description, id]
+            'UPDATE campaigns SET name=$1, goal=$2, description=$3, financial_year=$4, updated_at=NOW() WHERE id=$5 RETURNING id, name, financial_year AS "financialYear", goal, description, created_at AS "createdAt", updated_at AS "updatedAt"',
+            [name, goal, description, financialYear, id]
         );
         
         await logChanges(client, {
@@ -49,7 +49,7 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
             changedByUserId: req.user.id,
             oldData: oldDataRes.rows[0],
             newData: req.body,
-            fieldMapping: { name: 'name', goal: 'goal', description: 'description' }
+            fieldMapping: { name: 'name', goal: 'goal', description: 'description', financialYear: 'financial_year' }
         });
 
         await client.query('COMMIT');

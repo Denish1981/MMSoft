@@ -436,3 +436,5 @@ ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS reviewed_by_user_id INT
 ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
 ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 ALTER TABLE festivals ADD COLUMN IF NOT EXISTS max_stalls INTEGER;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS financial_year VARCHAR(20);
+ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS campaign_id INTEGER REFERENCES campaigns(id);

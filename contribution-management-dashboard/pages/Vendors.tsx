@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Vendor } from '../types/index';
 import { EditIcon } from '../components/icons/EditIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
@@ -8,9 +8,23 @@ import { useData } from '../contexts/DataContext';
 import { useModal } from '../contexts/ModalContext';
 
 const Vendors: React.FC = () => {
-    const { vendors } = useData();
+    const { vendors, expenses, quotations, festivals, selectedCampaignId } = useData();
     const { openVendorModal, openConfirmationModal, openHistoryModal } = useModal();
     
+    const filteredVendors = useMemo(() => {
+        if (selectedCampaignId === 'all') return vendors;
+        
+        const campId = Number(selectedCampaignId);
+        const campaignFestivalIds = festivals.filter(f => f.campaignId === campId).map(f => f.id);
+        
+        const vendorIdsInCampaign = new Set([
+            ...expenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId)).map(e => e.vendorId),
+            ...quotations.filter(q => q.festivalId && campaignFestivalIds.includes(q.festivalId)).map(q => q.vendorId)
+        ]);
+
+        return vendors.filter(v => vendorIdsInCampaign.has(v.id));
+    }, [vendors, expenses, quotations, festivals, selectedCampaignId]);
+
     return (
         <div className="space-y-6">
             <FinanceNavigation />
@@ -27,7 +41,7 @@ const Vendors: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
-                            {vendors.map(vendor => (
+                            {filteredVendors.map(vendor => (
                                 <tr key={vendor.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap align-top">
                                         <div className="text-sm font-medium text-slate-900">{vendor.name}</div>

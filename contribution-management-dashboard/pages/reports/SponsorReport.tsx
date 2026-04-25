@@ -1,11 +1,11 @@
 
-
 import React, { useState, useMemo } from 'react';
 import type { Sponsor } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
+import { useData } from '../../contexts/DataContext';
 
 interface SponsorReportProps {
     sponsors: Sponsor[];

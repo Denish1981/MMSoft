@@ -61,12 +61,14 @@ const applySchema = async (client) => {
         `CREATE TABLE IF NOT EXISTS campaigns (
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
+            financial_year VARCHAR(20),
             goal NUMERIC(15, 2) NOT NULL,
             description TEXT,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
         )`,
+        `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS financial_year VARCHAR(20)`,
         `CREATE TABLE IF NOT EXISTS contributions (
             id SERIAL PRIMARY KEY,
             donor_name VARCHAR(255) NOT NULL,
@@ -95,6 +97,7 @@ const applySchema = async (client) => {
             business_info TEXT NOT NULL,
             sponsorship_amount NUMERIC(12, 2) NOT NULL,
             sponsorship_type VARCHAR(100) NOT NULL,
+            campaign_id INTEGER REFERENCES campaigns(id),
             date_paid DATE NOT NULL,
             payment_received_by VARCHAR(100) NOT NULL,
             image TEXT,
@@ -102,6 +105,7 @@ const applySchema = async (client) => {
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
         )`,
+        `ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS campaign_id INTEGER REFERENCES campaigns(id)`,
         `CREATE TABLE IF NOT EXISTS vendors (
             id SERIAL PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
