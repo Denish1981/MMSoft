@@ -35,7 +35,7 @@ const UniqueParticipantsPage: React.FC = () => {
         try {
             const headers = { 'Authorization': `Bearer ${token}` };
             
-            const url = new URL(`${API_URL}/participants`);
+            const url = new URL(`${API_URL}/participants`, window.location.origin);
             if (selectedFestivalId !== 'all') {
                 url.searchParams.append('festivalId', selectedFestivalId);
             }

@@ -289,9 +289,6 @@ const PublicHomePage: React.FC = () => {
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-8">
                         <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">Gold Towers Mitra Mandal</Link>
-                        <div className="hidden md:flex items-center space-x-6">
-                            <Link to="/photos" className="text-base font-medium text-slate-600 hover:text-blue-600">Photo Albums</Link>
-                        </div>
                     </div>
                     <Link
                         to={isAuthenticated ? "/dashboard" : "/login"}
