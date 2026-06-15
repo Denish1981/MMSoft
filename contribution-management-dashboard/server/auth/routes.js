@@ -90,4 +90,36 @@ router.post('/logout', authMiddleware, async (req, res) => {
     }
 });
 
+router.post('/change-password', authMiddleware, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!newPassword || newPassword.trim().length < 4) {
+        return res.status(400).json({ message: 'New password must be at least 4 characters long.' });
+    }
+
+    try {
+        const userId = req.user.id;
+        
+        // Fetch user password
+        const userRes = await db.query('SELECT password FROM users WHERE id = $1', [userId]);
+        if (userRes.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        
+        const storedPassword = userRes.rows[0].password;
+        
+        // If they have an existing password, verify it
+        if (storedPassword && storedPassword !== currentPassword) {
+            return res.status(400).json({ message: 'The current password you entered is incorrect.' });
+        }
+        
+        // Update user password
+        await db.query('UPDATE users SET password = $1 WHERE id = $2', [newPassword, userId]);
+        res.status(200).json({ message: 'Password updated successfully.' });
+    } catch (err) {
+        console.error('Change password error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;

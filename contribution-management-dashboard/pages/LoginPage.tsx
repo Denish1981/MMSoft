@@ -1,14 +1,36 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
-    const { login, googleLogin } = useAuth();
+    const { isAuthenticated, isLoading: authLoading, login, googleLogin } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            const from = (location.state as any)?.from?.pathname || '/dashboard';
+            const target = from === '/login' ? '/dashboard' : from;
+            navigate(target, { replace: true });
+        }
+    }, [isAuthenticated, authLoading, navigate, location]);
+
+    if (authLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-slate-100">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-slate-600 font-medium">Validating session...</p>
+                </div>
+            </div>
+        );
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

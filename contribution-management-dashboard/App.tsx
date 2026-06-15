@@ -10,6 +10,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import { ProtectedLayout } from './layouts/ProtectedLayout';
 import Dashboard from './pages/Dashboard';
+import Documentation from './pages/Documentation';
+import ChangePassword from './pages/ChangePassword';
 import Contributions from './pages/Donations';
 import Donors from './pages/Donors';
 import Campaigns from './pages/Campaigns';
@@ -39,8 +41,8 @@ import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
 import StallRegistrationsPage from './pages/StallRegistrationsPage';
 import StallRegistrationPage from './pages/StallRegistrationPage';
 
-
-const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
+//const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '849094775458-7c7q3r4ns2h532r543dst1699nv4gjeg.apps.googleusercontent.com';
 
 const App: React.FC = () => {
     return (
@@ -61,6 +63,8 @@ const App: React.FC = () => {
                                 {/* Protected Routes */}
                                 <Route element={<ProtectedLayout />}>
                                     <Route path="/dashboard" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard /></ProtectedRoute>} />
+                                    <Route path="/documentation" element={<ProtectedRoute permission="page:dashboard:view"><Documentation /></ProtectedRoute>} />
+                                    <Route path="/change-password" element={<ProtectedRoute permission="page:dashboard:view"><ChangePassword /></ProtectedRoute>} />
                                     <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions /></ProtectedRoute>} />
                                     <Route path="/bulk-add" element={<ProtectedRoute permission="page:bulk-add:view"><BulkAddPage /></ProtectedRoute>} />
                                     <Route path="/donors" element={<ProtectedRoute permission="page:donors:view"><Donors /></ProtectedRoute>} />

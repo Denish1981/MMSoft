@@ -7,6 +7,7 @@ import { PlusIcon } from './icons/PlusIcon';
 import { LogoutIcon } from './icons/LogoutIcon';
 import { DocumentAddIcon } from './icons/DocumentAddIcon';
 import { MenuIcon } from './icons/MenuIcon';
+import { LockClosedIcon } from './icons/LockClosedIcon';
 
 interface HeaderProps {
     onMobileMenuClick: () => void;
@@ -99,9 +100,18 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
                     </div>
                     <div className="flex items-center space-x-2 md:space-x-4">
                         {button}
+                        <Link 
+                            to="/change-password"
+                            className="flex items-center text-slate-600 hover:text-blue-650 focus:outline-none transition-colors duration-200 text-sm font-medium mr-2"
+                            aria-label="Change Password"
+                            title="Change Password"
+                        >
+                            <LockClosedIcon className="w-4 h-4 md:mr-2 text-slate-500 fill-current"/>
+                            <span className="hidden md:inline">Change Password</span>
+                        </Link>
                         <button 
                             onClick={logout}
-                            className="flex items-center text-slate-600 hover:text-slate-900 focus:outline-none transition-colors duration-200"
+                            className="flex items-center text-slate-600 hover:text-slate-900 focus:outline-none transition-colors duration-200 text-sm font-medium"
                             aria-label="Logout"
                         >
                             <LogoutIcon className="w-5 h-5 md:mr-2"/>

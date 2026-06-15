@@ -21,6 +21,7 @@ import { UsersIcon } from './icons/UsersIcon';
 import { CampaignIcon } from './icons/CampaignIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { DashboardIcon } from './icons/DashboardIcon';
+import { HelpIcon } from './icons/HelpIcon';
 
 interface NavItemProps {
     to: string;
@@ -71,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
         // { to: "/ai-insights", permission: 'page:ai-insights:view', icon: <SparklesIcon className="w-5 h-5" />, label: "AI Insights" },
         { to: "/user-management", permission: 'page:user-management:view', icon: <UserGroupIcon className="w-5 h-5" />, label: "User Management" },
         { to: "/archive", permission: 'page:archive:view', icon: <ArchiveIcon className="w-5 h-5" />, label: "Archive" },
+        { to: "/documentation", permission: 'page:dashboard:view', icon: <HelpIcon className="w-5 h-5" />, label: "Help & Guide" },
     ];
 
     const showCollapsedContent = isCollapsed && !isMobileOpen;

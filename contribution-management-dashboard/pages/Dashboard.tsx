@@ -6,6 +6,7 @@ import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
 import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
 import { CashIcon } from '../components/icons/CashIcon';
+import { HelpIcon } from '../components/icons/HelpIcon';
 import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 
@@ -147,10 +148,23 @@ const Dashboard: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end">
-                <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200">
-                    <span className="text-sm font-medium text-slate-600">Global Filter:</span>
-                    {campaignFilterDropdown}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+                <div>
+                    <h2 className="text-lg font-bold text-slate-800 font-sans tracking-tight">Operational & Financial Overview</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Setup campaigns, record donations, monitor expenses, and manage festivals.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <Link 
+                        to="/documentation" 
+                        className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs rounded-lg border border-blue-200 transition-colors"
+                    >
+                        <HelpIcon className="w-4 h-4" />
+                        <span>System Guide & Help</span>
+                    </Link>
+                    <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
+                        <span className="font-semibold text-slate-500">Filter Campaign:</span>
+                        {campaignFilterDropdown}
+                    </div>
                 </div>
             </div>
 
