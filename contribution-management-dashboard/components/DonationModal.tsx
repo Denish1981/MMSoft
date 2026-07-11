@@ -22,7 +22,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [numberOfCoupons, setNumberOfCoupons] = useState('');
     const [campaignId, setCampaignId] = useState<number | null>(campaigns[0]?.id || null);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [type, setType] = useState<ContributionType>('Online');
+    const [selectedDropdownType, setSelectedDropdownType] = useState<string>('Online');
+    const [customType, setCustomType] = useState<string>('');
     const [status, setStatus] = useState<ContributionStatus>(ContributionStatus.Completed);
     const [image, setImage] = useState<string | undefined>();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -30,17 +31,27 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
 
     useEffect(() => {
         if (contributionToEdit) {
-            setDonorName(contributionToEdit.donorName);
+            setDonorName(contributionToEdit.donorName || '');
             setDonorEmail(contributionToEdit.donorEmail || '');
             setMobileNumber(contributionToEdit.mobileNumber || '');
-            setTowerNumber(contributionToEdit.towerNumber);
-            setFlatNumber(contributionToEdit.flatNumber);
-            setAmount(String(contributionToEdit.amount));
-            setNumberOfCoupons(String(contributionToEdit.numberOfCoupons));
-            setCampaignId(contributionToEdit.campaignId);
-            setDate(new Date(contributionToEdit.date).toISOString().split('T')[0]);
-            setType(contributionToEdit.type || 'Online');
-            setStatus(contributionToEdit.status);
+            setTowerNumber(contributionToEdit.towerNumber || '');
+            setFlatNumber(contributionToEdit.flatNumber || '');
+            setAmount(contributionToEdit.amount ? String(contributionToEdit.amount) : '');
+            setNumberOfCoupons(contributionToEdit.numberOfCoupons ? String(contributionToEdit.numberOfCoupons) : '');
+            setCampaignId(contributionToEdit.campaignId || (campaigns[0]?.id || null));
+            setDate(contributionToEdit.date ? new Date(contributionToEdit.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            const currentType = contributionToEdit.type || 'Online';
+            if (['Online', 'Cash', 'Donation Box', 'Miscellaneous'].includes(currentType)) {
+                setSelectedDropdownType(currentType);
+                setCustomType('');
+            } else if (currentType.startsWith('Miscellaneous:')) {
+                setSelectedDropdownType('Miscellaneous');
+                setCustomType(currentType.substring('Miscellaneous:'.length).trim());
+            } else {
+                setSelectedDropdownType('Other');
+                setCustomType(currentType);
+            }
+            setStatus(contributionToEdit.status || ContributionStatus.Completed);
             setImage(contributionToEdit.image);
             setImagePreview(contributionToEdit.image || null);
         } else {
@@ -54,7 +65,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setNumberOfCoupons('');
             setCampaignId(campaigns[0]?.id || null);
             setDate(new Date().toISOString().split('T')[0]);
-            setType('Online');
+            setSelectedDropdownType('Online');
+            setCustomType('');
             setStatus(ContributionStatus.Completed);
             setImage(undefined);
             setImagePreview(null);
@@ -82,28 +94,34 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!donorName || !amount || !campaignId || !towerNumber || !flatNumber || !numberOfCoupons || !date) {
+        const isMisc = selectedDropdownType === 'Miscellaneous';
+        if (!donorName || !amount || !campaignId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date) {
             alert('Please fill out all required fields.');
             return;
         }
+        const finalType = selectedDropdownType === 'Other' 
+            ? (customType.trim() || 'Other') 
+            : (selectedDropdownType === 'Miscellaneous' && customType.trim())
+                ? `Miscellaneous: ${customType.trim()}`
+                : selectedDropdownType;
         const submissionData: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt'> = {
             donorName,
             donorEmail,
             mobileNumber,
-            towerNumber,
-            flatNumber,
+            towerNumber: isMisc ? 'N/A' : towerNumber,
+            flatNumber: isMisc ? 'N/A' : flatNumber,
             amount: parseFloat(amount),
-            numberOfCoupons: parseInt(numberOfCoupons, 10),
+            numberOfCoupons: isMisc ? 0 : parseInt(numberOfCoupons, 10),
             campaignId,
             date: date,
-            type,
+            type: finalType,
             image,
             status,
         };
         onSubmit(submissionData);
     };
     
-    const isEditing = !!contributionToEdit;
+    const isEditing = !!(contributionToEdit && contributionToEdit.id);
 
     return (
         <>
@@ -118,7 +136,9 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">Donor Name</label>
+                            <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">
+                                {selectedDropdownType === 'Miscellaneous' ? 'Name / Source' : 'Donor Name'}
+                            </label>
                             <input type="text" id="donorName" value={donorName} onChange={e => setDonorName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -131,16 +151,18 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                                 <input type="tel" id="mobileNumber" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number</label>
-                                <input type="text" id="towerNumber" value={towerNumber} onChange={e => setTowerNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
+                        {selectedDropdownType !== 'Miscellaneous' && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number</label>
+                                    <input type="text" id="towerNumber" value={towerNumber} onChange={e => setTowerNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
+                                </div>
+                                <div>
+                                    <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number</label>
+                                    <input type="text" id="flatNumber" value={flatNumber} onChange={e => setFlatNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
+                                </div>
                             </div>
-                            <div>
-                                <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number</label>
-                                <input type="text" id="flatNumber" value={flatNumber} onChange={e => setFlatNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
-                            </div>
-                        </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="amount" className="block text-sm font-medium text-slate-700">Amount (₹)</label>
@@ -151,16 +173,21 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                                 <input type="date" id="contributionDate" value={date} onChange={e => setDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
                             </div>
                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
-                                <input type="number" id="numberOfCoupons" value={numberOfCoupons} onChange={e => setNumberOfCoupons(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required min="0" />
-                            </div>
+                        <div className={`grid ${selectedDropdownType === 'Miscellaneous' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'} gap-4`}>
+                            {selectedDropdownType !== 'Miscellaneous' && (
+                                <div>
+                                    <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
+                                    <input type="number" id="numberOfCoupons" value={numberOfCoupons} onChange={e => setNumberOfCoupons(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required min="0" />
+                                </div>
+                            )}
                             <div>
                                 <label htmlFor="type" className="block text-sm font-medium text-slate-700">Type</label>
-                                <select id="type" value={type} onChange={e => setType(e.target.value as ContributionType)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                                <select id="type" value={selectedDropdownType} onChange={e => setSelectedDropdownType(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
                                     <option value="Online">Online</option>
                                     <option value="Cash">Cash</option>
+                                    <option value="Donation Box">Donation Box</option>
+                                    <option value="Miscellaneous">Miscellaneous</option>
+                                    <option value="Other">Other...</option>
                                 </select>
                             </div>
                             <div>
@@ -170,6 +197,22 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                                 </select>
                             </div>
                         </div>
+                        {(selectedDropdownType === 'Other' || selectedDropdownType === 'Miscellaneous') && (
+                            <div>
+                                <label htmlFor="customType" className="block text-sm font-medium text-slate-700">
+                                    {selectedDropdownType === 'Miscellaneous' ? 'Specify Custom Income Type (Optional)' : 'Specify Custom Income Type'}
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="customType" 
+                                    value={customType} 
+                                    onChange={e => setCustomType(e.target.value)} 
+                                    placeholder={selectedDropdownType === 'Miscellaneous' ? "e.g., Stall Fee, Interest, Advertisement" : "e.g. Sponsorship, Sale of coupons, Tea Stall"} 
+                                    className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                                    required={selectedDropdownType === 'Other'} 
+                                />
+                            </div>
+                        )}
                         <div>
                             <label htmlFor="campaign" className="block text-sm font-medium text-slate-700">Campaign</label>
                             <select id="campaign" value={campaignId || ''} onChange={e => setCampaignId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>

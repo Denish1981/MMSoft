@@ -4,7 +4,7 @@ export enum ContributionStatus {
   Failed = 'Failed',
 }
 
-export type ContributionType = 'Online' | 'Cash';
+export type ContributionType = string;
 
 export interface Campaign {
   id: number;
@@ -31,6 +31,7 @@ export interface Contribution {
   status: ContributionStatus;
   type: ContributionType | null;
   image?: string;
+  stallRegistrationId?: number | null;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;

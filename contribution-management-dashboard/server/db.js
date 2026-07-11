@@ -24,6 +24,7 @@ if (isProduction && process.env.CLOUD_SQL_CONNECTION_NAME) {
 } else {
     // For local development, connect to the Cloud SQL Auth Proxy via TCP.
     console.log(`Development: Connecting to database via TCP.`);
+    console.log(`Username : ${connectionConfig.user}, Database: ${connectionConfig.database}`);
     connectionConfig.host = process.env.PGHOST || 'denishE1570';
     connectionConfig.port = process.env.PGPORT || 5432;
 }

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Contribution } from '../types/index';
 import { ContributionStatus } from '../types/index';
 import { generateThankYouNote } from '../services/geminiService';
@@ -73,6 +74,13 @@ const Contributions: React.FC = () => {
     const { contributions, campaigns } = useData();
     const { openContributionModal, openConfirmationModal, openHistoryModal } = useModal();
     
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = searchParams.get('tab') === 'miscellaneous' ? 'miscellaneous' : 'individual';
+
+    const setActiveTab = (tab: 'individual' | 'miscellaneous') => {
+        setSearchParams({ tab });
+    };
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCampaign, setFilterCampaign] = useState('all');
     const [generatedNote, setGeneratedNote] = useState<string | null>(null);
@@ -85,9 +93,16 @@ const Contributions: React.FC = () => {
 
     const filteredContributions = useMemo(() => {
         return contributions
+            .filter(d => {
+                if (activeTab === 'individual') {
+                    return d.type !== 'Miscellaneous' && !d.type?.startsWith('Miscellaneous:') && d.type !== 'Stall Fee' && !d.stallRegistrationId;
+                } else {
+                    return d.type === 'Miscellaneous' || d.type?.startsWith('Miscellaneous:');
+                }
+            })
             .filter(d => searchTerm === '' || d.donorName.toLowerCase().includes(searchTerm.toLowerCase()))
             .filter(d => filterCampaign === 'all' || (d.campaignId !== null && d.campaignId.toString() === filterCampaign));
-    }, [contributions, searchTerm, filterCampaign]);
+    }, [contributions, searchTerm, filterCampaign, activeTab]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -123,7 +138,32 @@ const Contributions: React.FC = () => {
     return (
         <div className="space-y-6">
             <ContributionsNavigation />
+            
             <div className="bg-white p-6 rounded-xl shadow-md">
+                {/* Tab selector */}
+                <div className="flex border-b border-slate-200 mb-6">
+                    <button
+                        onClick={() => setActiveTab('individual')}
+                        className={`py-2.5 px-4 font-semibold text-sm border-b-2 transition-all duration-200 ${
+                            activeTab === 'individual'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        Individual Contributions
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('miscellaneous')}
+                        className={`py-2.5 px-4 font-semibold text-sm border-b-2 transition-all duration-200 ${
+                            activeTab === 'miscellaneous'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        Miscellaneous Contributions
+                    </button>
+                </div>
+
                 {isLoadingNote && (
                     <div className="fixed inset-0 bg-white bg-opacity-75 flex flex-col justify-center items-center z-50">
                         <SparklesIcon className="w-12 h-12 text-blue-500 animate-pulse" />
@@ -136,7 +176,7 @@ const Contributions: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <input
                         type="text"
-                        placeholder="Search by donor name..."
+                        placeholder={activeTab === 'miscellaneous' ? "Search by name or source..." : "Search by donor name..."}
                         className="w-full md:w-1/3 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         onChange={e => setSearchTerm(e.target.value)}
                     />
@@ -147,15 +187,27 @@ const Contributions: React.FC = () => {
                         <option value="all">All Campaigns</option>
                         {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
+                    {activeTab === 'miscellaneous' && (
+                        <button
+                            onClick={() => openContributionModal({ type: 'Miscellaneous' } as any)}
+                            className="w-full md:w-auto flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm transition"
+                        >
+                            <span className="mr-2">+</span> Add Miscellaneous Contribution
+                        </button>
+                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Donor</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    {activeTab === 'miscellaneous' ? 'Name / Source' : 'Donor'}
+                                </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Coupons</th>
+                                {activeTab === 'individual' && (
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Coupons</th>
+                                )}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Campaign</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
                                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Image</th>
@@ -168,11 +220,13 @@ const Contributions: React.FC = () => {
                                 <tr key={contribution.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
-                                        <div className="text-sm text-slate-500">{contribution.donorEmail}</div>
+                                        {contribution.donorEmail && <div className="text-sm text-slate-500">{contribution.donorEmail}</div>}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(contribution.amount)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
+                                    {activeTab === 'individual' && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
+                                    )}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{(contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(contribution.date)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -207,7 +261,7 @@ const Contributions: React.FC = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={9} className="text-center py-10 text-slate-500">
+                                    <td colSpan={activeTab === 'individual' ? 9 : 8} className="text-center py-10 text-slate-500">
                                         {contributions.length === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
                                     </td>
                                 </tr>

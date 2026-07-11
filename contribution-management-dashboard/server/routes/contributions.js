@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:contributions:view'), async (req, res) => {
     try {
-        const { rows } = await db.query('SELECT id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt" FROM contributions WHERE deleted_at IS NULL ORDER BY date DESC');
+        const { rows } = await db.query('SELECT id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image, stall_registration_id AS "stallRegistrationId", created_at AS "createdAt", updated_at AS "updatedAt" FROM contributions WHERE deleted_at IS NULL ORDER BY date DESC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });

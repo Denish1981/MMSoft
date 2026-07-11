@@ -278,7 +278,6 @@ const applySchema = async (client) => {
     for (const query of queries) {
         await client.query(query);
     }
-    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS stall_registration_id INTEGER REFERENCES stall_registrations(id) ON DELETE CASCADE;');
 };
 
 module.exports = { applySchema };

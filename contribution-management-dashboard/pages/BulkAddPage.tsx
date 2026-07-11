@@ -214,11 +214,42 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
                         </div>
                         <div>
                             <label htmlFor="type" className="block text-sm font-medium text-slate-700">Type</label>
-                            <select id="type" name="type" value={formData.type || 'Online'} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
+                            <select 
+                                id="type" 
+                                name="type" 
+                                value={['Online', 'Cash', 'Donation Box'].includes(formData.type || 'Online') ? (formData.type || 'Online') : 'Other'} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'Other') {
+                                        setFormData(prev => ({ ...prev, type: '' }));
+                                    } else {
+                                        setFormData(prev => ({ ...prev, type: val }));
+                                    }
+                                }} 
+                                className="mt-1 block w-full input-style bg-white" 
+                                required
+                            >
                                 <option value="Online">Online</option>
                                 <option value="Cash">Cash</option>
+                                <option value="Donation Box">Donation Box</option>
+                                <option value="Other">Other...</option>
                             </select>
                         </div>
+                        {!['Online', 'Cash', 'Donation Box'].includes(formData.type || '') && (
+                            <div>
+                                <label htmlFor="customType" className="block text-sm font-medium text-slate-700">Custom Type</label>
+                                <input 
+                                    type="text" 
+                                    id="customType" 
+                                    name="type" 
+                                    value={formData.type || ''} 
+                                    onChange={handleInputChange} 
+                                    placeholder="e.g. Tea Stall, Gift, etc." 
+                                    className="mt-1 block w-full input-style bg-white" 
+                                    required 
+                                />
+                            </div>
+                        )}
                         <div>
                             <label htmlFor="status" className="block text-sm font-medium text-slate-700">Status</label>
                              <select id="status" name="status" value={formData.status} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>

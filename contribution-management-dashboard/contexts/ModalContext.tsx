@@ -130,9 +130,9 @@ export const ModalProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     // Generic modal opener with permission check
     const openModal = <T,>(setter: React.Dispatch<React.SetStateAction<boolean>>, itemToEditSetter: (item: T | null) => void, item?: T) => {
-        const requiredPermission = item ? 'action:edit' : 'action:create';
+        const requiredPermission = (item && (item as any).id) ? 'action:edit' : 'action:create';
         if (!hasPermission(requiredPermission)) {
-            alert(`You do not have permission to ${item ? 'edit' : 'create'} this item.`);
+            alert(`You do not have permission to ${(item && (item as any).id) ? 'edit' : 'create'} this item.`);
             return;
         }
         itemToEditSetter(item || null);

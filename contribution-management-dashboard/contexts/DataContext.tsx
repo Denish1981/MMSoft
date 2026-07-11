@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem, Event } from '../types/index';
+import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem, Event, StallRegistration } from '../types/index';
 import { ContributionStatus } from '../types/index';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../config';
@@ -16,6 +16,7 @@ interface DataContextType {
     tasks: Task[];
     users: UserForManagement[];
     donors: Donor[];
+    stallRegistrations: StallRegistration[];
     expenseHeads: string[];
     festivalMap: Map<number, string>;
     fetchData: () => Promise<void>;
@@ -51,6 +52,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [festivals, setFestivals] = useState<Festival[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [users, setUsers] = useState<UserForManagement[]>([]);
+    const [stallRegistrations, setStallRegistrations] = useState<StallRegistration[]>([]);
     const [eventDataVersion, setEventDataVersion] = useState(0);
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
 
@@ -68,7 +70,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 fetch(`${API_URL}/sponsors`, { headers }), fetch(`${API_URL}/vendors`, { headers }),
                 fetch(`${API_URL}/expenses`, { headers }), fetch(`${API_URL}/quotations`, { headers }),
                 fetch(`${API_URL}/budgets`, { headers }), fetch(`${API_URL}/festivals`, { headers }),
-                fetch(`${API_URL}/tasks`, { headers }), fetch(`${API_URL}/users/management`, { headers })
+                fetch(`${API_URL}/tasks`, { headers }), fetch(`${API_URL}/users/management`, { headers }),
+                fetch(`${API_URL}/stall-registrations`, { headers })
             ];
             const responses = await Promise.all(resPromises);
             
@@ -89,6 +92,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setFestivals(data[7] || []);
             setTasks(data[8] || []);
             setUsers(data[9] || []); // If fetch fails (e.g., no permission), it will be null, defaulting to empty array.
+            setStallRegistrations(data[10] || []);
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
@@ -186,46 +190,46 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // --- Specific Submit Handlers ---
     const handleContributionSubmit = (data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Contribution | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Contribution` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/contributions`, { ...itemToEdit, ...data }, setContributions);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/contributions`, { ...itemToEdit, ...data }, setContributions);
         else handleAdd(`${API_URL}/contributions`, data, setContributions);
     };
     const handleSponsorSubmit = (data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Sponsor` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
         else handleAdd(`${API_URL}/sponsors`, data, setSponsors);
     };
     const handleVendorSubmit = (data: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Vendor | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Vendor` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/vendors`, { ...itemToEdit, ...data }, setVendors);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/vendors`, { ...itemToEdit, ...data }, setVendors);
         else handleAdd(`${API_URL}/vendors`, data, setVendors);
     };
     const handleExpenseSubmit = (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'amountPaid' | 'outstandingAmount'>, itemToEdit: Expense | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Expense` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/expenses`, { ...itemToEdit, ...data }, setExpenses);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/expenses`, { ...itemToEdit, ...data }, setExpenses);
         else handleAdd(`${API_URL}/expenses`, data, setExpenses);
     };
     const handleQuotationSubmit = (data: Omit<Quotation, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Quotation | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Quotation` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/quotations`, { ...itemToEdit, ...data }, setQuotations);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/quotations`, { ...itemToEdit, ...data }, setQuotations);
         else handleAdd(`${API_URL}/quotations`, data, setQuotations);
     };
     const handleBudgetSubmit = (data: Omit<BudgetType, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: BudgetType | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `BudgetType` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/budgets`, { ...itemToEdit, ...data }, setBudgets);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/budgets`, { ...itemToEdit, ...data }, setBudgets);
         else handleAdd(`${API_URL}/budgets`, data, setBudgets);
     };
     const handleFestivalSubmit = (data: Omit<Festival, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Festival | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Festival` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/festivals`, { ...itemToEdit, ...data }, setFestivals);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/festivals`, { ...itemToEdit, ...data }, setFestivals);
         else handleAdd(`${API_URL}/festivals`, data, setFestivals);
     };
     const handleTaskSubmit = (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Task | null) => {
         // FIX: Spread `itemToEdit` to include all properties required by the `Task` type.
-        if (itemToEdit) handleUpdate(`${API_URL}/tasks`, { ...itemToEdit, ...data }, setTasks);
+        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/tasks`, { ...itemToEdit, ...data }, setTasks);
         else handleAdd(`${API_URL}/tasks`, data, setTasks);
     };
     const handleCampaignSubmit = async (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & { sourceCampaignId?: number }, itemToEdit: Campaign | null) => {
-        if (itemToEdit) {
+        if (itemToEdit && itemToEdit.id) {
             handleUpdate(`${API_URL}/campaigns`, { ...itemToEdit, ...data }, setCampaigns);
         } else {
             const { sourceCampaignId, ...campaignData } = data;
@@ -305,7 +309,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const value = {
         contributions, campaigns, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users,
-        donors, expenseHeads, festivalMap,
+        donors, stallRegistrations, expenseHeads, festivalMap,
         fetchData,
         handleContributionSubmit, handleSponsorSubmit, handleVendorSubmit, handleExpenseSubmit, handleQuotationSubmit,
         handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit, handleCampaignSubmit,

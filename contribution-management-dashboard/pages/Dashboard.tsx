@@ -33,21 +33,43 @@ const Dashboard: React.FC = () => {
         return sponsors.filter(s => s.campaignId === campId);
     }, [sponsors, selectedCampaignId]);
 
-    const totalContributions = useMemo(() => {
-        return filteredContributions.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    const filteredContributionsOnly = useMemo(() => {
+        return filteredContributions.filter(c => !c.stallRegistrationId && c.type !== 'Stall Fee' && c.type !== 'Miscellaneous' && !c.type?.startsWith('Miscellaneous:'));
     }, [filteredContributions]);
+
+    const filteredStallRevenue = useMemo(() => {
+        return filteredContributions.filter(c => c.stallRegistrationId || c.type === 'Stall Fee');
+    }, [filteredContributions]);
+
+    const filteredMiscellaneous = useMemo(() => {
+        return filteredContributions.filter(c => c.type === 'Miscellaneous' || c.type?.startsWith('Miscellaneous:'));
+    }, [filteredContributions]);
+
+    const totalContributions = useMemo(() => {
+        return filteredContributionsOnly.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    }, [filteredContributionsOnly]);
+
+    const totalStallRevenue = useMemo(() => {
+        return filteredStallRevenue.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    }, [filteredStallRevenue]);
+
+    const totalMiscellaneous = useMemo(() => {
+        return filteredMiscellaneous.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+    }, [filteredMiscellaneous]);
 
     const totalSponsorshipsAmount = useMemo(() => {
         return filteredSponsors.reduce((acc, s) => acc + (Number(s.sponsorshipAmount) || 0), 0);
     }, [filteredSponsors]);
     
     const totalRaised = useMemo(() => {
-        return totalContributions + totalSponsorshipsAmount;
-    }, [totalContributions, totalSponsorshipsAmount]);
+        return totalContributions + totalSponsorshipsAmount + totalStallRevenue + totalMiscellaneous;
+    }, [totalContributions, totalSponsorshipsAmount, totalStallRevenue, totalMiscellaneous]);
     
     const fundsBreakdown = [
         { label: 'Contributions', value: totalContributions, color: 'bg-green-500', path: `/reports?tab=contributions${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}` },
         { label: 'Sponsorships', value: totalSponsorshipsAmount, color: 'bg-indigo-500', path: `/reports?tab=sponsors${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}` },
+        { label: 'Stalls', value: totalStallRevenue, color: 'bg-cyan-500', path: `/reports?tab=stalls${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}` },
+        { label: 'Miscellaneous', value: totalMiscellaneous, color: 'bg-purple-500', path: `/reports?tab=miscellaneous${selectedCampaignId !== 'all' ? `&campaignId=${selectedCampaignId}` : ''}` },
     ];
 
     const filteredExpenses = useMemo(() => {

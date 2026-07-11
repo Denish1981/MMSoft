@@ -114,11 +114,11 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
                             </div>
                             <div>
                                 <label htmlFor="stallPricePerTablePerDay" className="block text-sm font-medium text-slate-700">Stall Price (per table/day)</label>
-                                <input type="number" id="stallPricePerTablePerDay" value={stallPricePerTablePerDay} className="mt-1 block w-full input-style" min="0" />
+                                <input type="number" id="stallPricePerTablePerDay" value={stallPricePerTablePerDay} onChange={e => setStallPricePerTablePerDay(e.target.value)} className="mt-1 block w-full input-style" min="0" step="any" />
                             </div>
                             <div>
                                 <label htmlFor="stallElectricityCostPerDay" className="block text-sm font-medium text-slate-700">Electricity Cost (per day)</label>
-                                <input type="number" id="stallElectricityCostPerDay" value={stallElectricityCostPerDay} className="mt-1 block w-full input-style" min="0" />
+                                <input type="number" id="stallElectricityCostPerDay" value={stallElectricityCostPerDay} onChange={e => setStallElectricityCostPerDay(e.target.value)} className="mt-1 block w-full input-style" min="0" step="any" />
                             </div>
                             <div>
                                 <label htmlFor="stallStartDate" className="block text-sm font-medium text-slate-700">Stall Registration Start Date</label>
