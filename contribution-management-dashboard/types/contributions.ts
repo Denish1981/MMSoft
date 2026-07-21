@@ -66,3 +66,6 @@ export interface Sponsor {
   updatedAt: string; // ISO string
   deletedAt?: string | null;
 }
+
+export type StagedContribution = Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+
