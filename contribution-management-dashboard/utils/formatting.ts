@@ -1,4 +1,23 @@
 
+export const formatDateForInput = (dateStr?: string | null): string => {
+    if (!dateStr) return '';
+    if (typeof dateStr === 'string') {
+        const datePart = dateStr.split('T')[0].split(' ')[0];
+        if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+            return datePart;
+        }
+    }
+    try {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+        }
+    } catch {
+        // Fallback for any unexpected error
+    }
+    return '';
+};
+
 export const formatCurrency = (value: number, options: Intl.NumberFormatOptions = {}) => {
     return new Intl.NumberFormat('en-IN', {
         style: 'currency',

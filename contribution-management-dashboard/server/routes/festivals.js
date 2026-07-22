@@ -66,7 +66,16 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
     try {
         const query = `
             SELECT 
-                e.id, e.festival_id, e.name, e.description, e.event_date, e.start_time, e.end_time, e.venue, e.image_data, e.registration_form_schema,
+                e.id, 
+                e.festival_id as "festivalId", 
+                e.name, 
+                e.description, 
+                e.event_date as "eventDate", 
+                e.start_time as "startTime", 
+                e.end_time as "endTime", 
+                e.venue, 
+                e.image_data as "image", 
+                e.registration_form_schema as "registrationFormSchema",
                 (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id) as "registrationCount"
             FROM events e
             WHERE e.festival_id = $1 AND e.deleted_at IS NULL
@@ -77,6 +86,15 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
         for (const event of events) {
              const contactsRes = await db.query('SELECT name, contact_number as "contactNumber", email FROM event_contact_persons WHERE event_id = $1', [event.id]);
              event.contactPersons = contactsRes.rows;
+             if (typeof event.registrationFormSchema === 'string') {
+                 try {
+                     event.registrationFormSchema = JSON.parse(event.registrationFormSchema);
+                 } catch (e) {
+                     event.registrationFormSchema = [];
+                 }
+             }
+             if (event.startTime) event.startTime = event.startTime.substring(0, 5);
+             if (event.endTime) event.endTime = event.endTime.substring(0, 5);
         }
 
         res.json(events);

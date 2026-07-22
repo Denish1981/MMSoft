@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
 import { useParams } from 'react-router';
-import type { Event, EventContactPerson, RegistrationFormField, RegistrationFormFieldType } from '../types/index';
+import type { Event, EventContactPerson, RegistrationFormField } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
-import { PlusIcon } from './icons/PlusIcon';
-import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
-import { DeleteIcon } from './icons/DeleteIcon';
+import { EventBasicDetailsSection } from './event-modal/EventBasicDetailsSection';
+import { EventRegistrationSchemaSection } from './event-modal/EventRegistrationSchemaSection';
+import { EventContactPersonsSection } from './event-modal/EventContactPersonsSection';
 
 interface EventModalProps {
     eventToEdit: Event | null;
@@ -43,16 +44,37 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
     
     useEffect(() => {
         if (eventToEdit) {
-            setName(eventToEdit.name);
-            setEventDate(new Date(eventToEdit.eventDate).toISOString().split('T')[0]);
-            setStartTime(eventToEdit.startTime || '');
-            setEndTime(eventToEdit.endTime || '');
-            setVenue(eventToEdit.venue);
-            setDescription(eventToEdit.description || '');
-            setImage(eventToEdit.image);
-            setImagePreview(eventToEdit.image || null);
-            setContactPersons(eventToEdit.contactPersons.length > 0 ? eventToEdit.contactPersons : [{ name: '', contactNumber: '', email: '' }]);
-            setFormSchema(eventToEdit.registrationFormSchema && eventToEdit.registrationFormSchema.length > 0 ? eventToEdit.registrationFormSchema : defaultFormSchema);
+            const raw = eventToEdit as any;
+            setName(raw.name || '');
+            
+            const rawDate = raw.eventDate ?? raw.event_date;
+            setEventDate(formatDateForInput(rawDate));
+            
+            const rawStart = raw.startTime ?? raw.start_time ?? '';
+            setStartTime(rawStart ? String(rawStart).substring(0, 5) : '');
+            
+            const rawEnd = raw.endTime ?? raw.end_time ?? '';
+            setEndTime(rawEnd ? String(rawEnd).substring(0, 5) : '');
+            
+            setVenue(raw.venue || '');
+            setDescription(raw.description || '');
+            
+            const rawImg = raw.image ?? raw.image_data ?? undefined;
+            setImage(rawImg);
+            setImagePreview(rawImg || null);
+            
+            const rawContacts = raw.contactPersons ?? raw.contact_persons ?? [];
+            setContactPersons(Array.isArray(rawContacts) && rawContacts.length > 0 ? rawContacts : [{ name: '', contactNumber: '', email: '' }]);
+            
+            let rawSchema = raw.registrationFormSchema ?? raw.registration_form_schema;
+            if (typeof rawSchema === 'string') {
+                try {
+                    rawSchema = JSON.parse(rawSchema);
+                } catch {
+                    rawSchema = defaultFormSchema;
+                }
+            }
+            setFormSchema(Array.isArray(rawSchema) && rawSchema.length > 0 ? rawSchema : defaultFormSchema);
         } else {
             // Reset form for new entry
             setName('');
@@ -155,134 +177,38 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><CloseIcon className="w-6 h-6" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Basic Event Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="eventName" className="block text-sm font-medium text-slate-700">Event Name</label>
-                            <input type="text" id="eventName" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full input-style" required />
-                        </div>
-                        <div>
-                            <label htmlFor="eventDate" className="block text-sm font-medium text-slate-700">Date</label>
-                            <input type="date" id="eventDate" value={eventDate} onChange={e => setEventDate(e.target.value)} className="mt-1 block w-full input-style" required />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="startTime" className="block text-sm font-medium text-slate-700">Start Time</label>
-                            <input type="time" id="startTime" value={startTime} onChange={e => setStartTime(e.target.value)} className="mt-1 block w-full input-style" required />
-                        </div>
-                        <div>
-                           <label htmlFor="endTime" className="block text-sm font-medium text-slate-700">End Time (Optional)</label>
-                           <input type="time" id="endTime" value={endTime} onChange={e => setEndTime(e.target.value)} className="mt-1 block w-full input-style" />
-                        </div>
-                    </div>
-                     <div>
-                        <label htmlFor="venue" className="block text-sm font-medium text-slate-700">Venue</label>
-                        <input type="text" id="venue" value={venue} onChange={e => setVenue(e.target.value)} className="mt-1 block w-full input-style" required />
-                    </div>
-                    <div>
-                        <label htmlFor="description" className="block text-sm font-medium text-slate-700">Description (Optional)</label>
-                        <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="mt-1 block w-full input-style" />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-slate-700">Event Image (Optional)</label>
-                         <div className="mt-2 grid grid-cols-2 gap-4">
-                            <label htmlFor="imageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
-                                Upload File
-                                <input id="imageUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
-                            </label>
-                            <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
-                                <CameraIcon className="w-5 h-5 mr-2" /> Capture Image
-                            </button>
-                        </div>
-                        {imagePreview && (
-                            <div className="mt-4"><div className="relative w-fit">
-                                <img src={imagePreview} alt="Event preview" className="max-h-40 rounded-md border border-slate-200 p-1" />
-                                <button type="button" onClick={() => { setImage(undefined); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
-                                    <CloseIcon className="w-4 h-4" />
-                                </button>
-                            </div></div>
-                        )}
-                    </div>
+                    <EventBasicDetailsSection
+                        name={name}
+                        setName={setName}
+                        eventDate={eventDate}
+                        setEventDate={setEventDate}
+                        startTime={startTime}
+                        setStartTime={setStartTime}
+                        endTime={endTime}
+                        setEndTime={setEndTime}
+                        venue={venue}
+                        setVenue={setVenue}
+                        description={description}
+                        setDescription={setDescription}
+                        imagePreview={imagePreview}
+                        onFileChange={handleFileChange}
+                        onOpenCamera={() => setIsCameraOpen(true)}
+                        onClearImage={() => { setImage(undefined); setImagePreview(null); }}
+                    />
 
-                    {/* Registration Form Builder */}
-                    <div className="pt-4 mt-4 border-t border-slate-200">
-                        <h3 className="text-lg font-semibold text-slate-800 mb-4">Custom Registration Form</h3>
-                        <div className="space-y-4">
-                            {formSchema.map((field, index) => {
-                                const isDefault = index < 4;
-                                return (
-                                <div key={index} className="p-4 border border-slate-200 rounded-lg bg-slate-50 relative">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-600">Field Label</label>
-                                            <input type="text" value={field.label} onChange={e => handleSchemaChange(index, 'label', e.target.value)} className="mt-1 block w-full input-style text-sm" disabled={isDefault} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-600">Field Type</label>
-                                            <select value={field.type} onChange={e => handleSchemaChange(index, 'type', e.target.value)} className="mt-1 block w-full input-style text-sm bg-white" disabled={isDefault}>
-                                                <option value="text">Text</option>
-                                                <option value="email">Email</option>
-                                                <option value="tel">Phone</option>
-                                                <option value="textarea">Text Area</option>
-                                                <option value="select">Dropdown</option>
-                                                <option value="checkbox">Checkbox</option>
-                                            </select>
-                                        </div>
-                                        <div className="flex items-end">
-                                            <label className="flex items-center space-x-2">
-                                                <input type="checkbox" checked={field.required} onChange={e => handleSchemaChange(index, 'required', e.target.checked)} className="h-4 w-4 text-blue-600 border-slate-300 rounded" disabled={isDefault} />
-                                                <span className="text-sm font-medium text-slate-700">Required</span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    {field.type === 'select' && (
-                                        <div className="mt-4">
-                                             <label className="block text-xs font-medium text-slate-600">Dropdown Options</label>
-                                             <input type="text" value={field.options} onChange={e => handleSchemaChange(index, 'options', e.target.value)} placeholder="e.g., Small, Medium, Large" className="mt-1 block w-full input-style text-sm" />
-                                             <p className="text-xs text-slate-500 mt-1">Enter comma-separated values.</p>
-                                        </div>
-                                    )}
-                                    {!isDefault && (
-                                        <button type="button" onClick={() => removeSchemaField(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700"><DeleteIcon className="w-5 h-5" /></button>
-                                    )}
-                                </div>
-                            )})}
-                        </div>
-                        <button type="button" onClick={addSchemaField} className="mt-4 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800">
-                            <PlusIcon className="w-4 h-4 mr-1"/> Add Custom Field
-                        </button>
-                    </div>
+                    <EventRegistrationSchemaSection
+                        formSchema={formSchema}
+                        onSchemaChange={handleSchemaChange}
+                        onAddSchemaField={addSchemaField}
+                        onRemoveSchemaField={removeSchemaField}
+                    />
 
-                    <div className="space-y-4 pt-4 mt-4 border-t border-slate-200">
-                        <h3 className="text-lg font-medium text-slate-800">Contact Persons</h3>
-                        {contactPersons.map((contact, index) => (
-                            <div key={index} className="p-4 border border-slate-200 rounded-lg space-y-3 relative">
-                                {contactPersons.length > 1 && (
-                                    <button type="button" onClick={() => removeContactField(index)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
-                                        <CloseIcon className="w-4 h-4" />
-                                    </button>
-                                )}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label htmlFor={`contactName-${index}`} className="block text-sm font-medium text-slate-600">Contact Name</label>
-                                        <input type="text" id={`contactName-${index}`} value={contact.name} onChange={e => handleContactChange(index, 'name', e.target.value)} className="mt-1 block w-full input-style" />
-                                    </div>
-                                     <div>
-                                        <label htmlFor={`contactNumber-${index}`} className="block text-sm font-medium text-slate-600">Contact Number</label>
-                                        <input type="tel" id={`contactNumber-${index}`} value={contact.contactNumber} onChange={e => handleContactChange(index, 'contactNumber', e.target.value)} className="mt-1 block w-full input-style" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label htmlFor={`contactEmail-${index}`} className="block text-sm font-medium text-slate-600">Email (Optional)</label>
-                                    <input type="email" id={`contactEmail-${index}`} value={contact.email || ''} onChange={e => handleContactChange(index, 'email', e.target.value)} className="mt-1 block w-full input-style" />
-                                </div>
-                            </div>
-                        ))}
-                        <button type="button" onClick={addContactField} className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-800">
-                            <PlusIcon className="w-4 h-4 mr-1"/> Add another contact
-                        </button>
-                    </div>
+                    <EventContactPersonsSection
+                        contactPersons={contactPersons}
+                        onContactChange={handleContactChange}
+                        onAddContactField={addContactField}
+                        onRemoveContactField={removeContactField}
+                    />
 
                     <div className="flex justify-end pt-4 space-x-2">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition">Cancel</button>

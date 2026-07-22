@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Sponsor } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
@@ -40,7 +41,7 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             setSponsorshipAmount(String(sponsorToEdit.sponsorshipAmount));
             setSponsorshipType(sponsorToEdit.sponsorshipType);
             setCampaignId(sponsorToEdit.campaignId || '');
-            setDatePaid(sponsorToEdit.datePaid ? new Date(sponsorToEdit.datePaid).toISOString().split('T')[0] : '');
+            setDatePaid(formatDateForInput(sponsorToEdit.datePaid));
             setPaymentReceivedBy(sponsorToEdit.paymentReceivedBy || '');
             setImage(sponsorToEdit.image);
             setImagePreview(sponsorToEdit.image || null);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Expense, Vendor, Festival, Payment } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
@@ -41,7 +42,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ vendors, festivals, 
             setName(expenseToEdit.name);
             setVendorId(String(expenseToEdit.vendorId));
             setTotalCost(String(expenseToEdit.totalCost));
-            setBillDate(new Date(expenseToEdit.billDate).toISOString().split('T')[0]);
+            setBillDate(formatDateForInput(expenseToEdit.billDate));
             setExpenseHead(expenseToEdit.expenseHead);
             setBillReceipts(expenseToEdit.billReceipts || []);
             setReceiptPreviews(expenseToEdit.billReceipts || []);

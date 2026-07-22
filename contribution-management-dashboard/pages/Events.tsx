@@ -67,36 +67,42 @@ const Events: React.FC = () => {
         <div className="space-y-6">
             <FestivalNavigation festivalId={id!} festivalName={festival?.name} />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.map(event => (
-                    <div key={event.id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
-                        <img src={event.image || `https://via.placeholder.com/400x200.png/E2E8F0/475569?text=${encodeURIComponent(event.name)}`} alt={event.name} className="w-full h-48 object-cover"/>
-                        <div className="p-4 flex flex-col flex-grow">
-                            <h3 className="text-lg font-bold text-slate-800">{event.name}</h3>
-                            <div className="mt-2 text-sm text-slate-600 flex items-center space-x-4">
-                                <span>🗓️ {formatUTCDate(event.eventDate, { day: 'numeric', month: 'long', year: 'numeric'})}</span>
-                                {event.startTime && <span>⏰ {formatTime(event.startTime)}{event.endTime ? ` - ${formatTime(event.endTime)}` : ''}</span>}
+                {events.map(event => {
+                    const eventDate = event.eventDate || (event as any).event_date;
+                    const startTime = event.startTime || (event as any).start_time;
+                    const endTime = event.endTime || (event as any).end_time;
+                    const image = event.image || (event as any).image_data;
+                    return (
+                        <div key={event.id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+                            <img src={image || `https://via.placeholder.com/400x200.png/E2E8F0/475569?text=${encodeURIComponent(event.name)}`} alt={event.name} className="w-full h-48 object-cover"/>
+                            <div className="p-4 flex flex-col flex-grow">
+                                <h3 className="text-lg font-bold text-slate-800">{event.name}</h3>
+                                <div className="mt-2 text-sm text-slate-600 flex items-center space-x-4">
+                                    {eventDate && <span>🗓️ {formatUTCDate(eventDate, { day: 'numeric', month: 'long', year: 'numeric'})}</span>}
+                                    {startTime && <span>⏰ {formatTime(startTime)}{endTime ? ` - ${formatTime(endTime)}` : ''}</span>}
+                                </div>
+                                <p className="mt-1 text-sm text-slate-600">📍 {event.venue}</p>
+                                <p className="mt-3 text-sm text-slate-500 flex-grow">{event.description}</p>
                             </div>
-                            <p className="mt-1 text-sm text-slate-600">📍 {event.venue}</p>
-                            <p className="mt-3 text-sm text-slate-500 flex-grow">{event.description}</p>
+                            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                                <div className="flex items-center gap-4">
+                                    <Link
+                                        to={`/events/${event.id}/registrations`}
+                                        className="flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full hover:bg-blue-200 transition-colors"
+                                    >
+                                        <UsersIcon className="w-4 h-4 mr-1.5" />
+                                        {event.registrationCount ?? 0} Registrations
+                                    </Link>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <button onClick={() => openHistoryModal('events', event.id, `History for ${event.name}`)} className="text-slate-400 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>
+                                    <button onClick={() => openEventModal(event)} className="text-slate-400 hover:text-slate-800" title="Edit Event"><EditIcon className="w-4 h-4" /></button>
+                                    <button onClick={() => openConfirmationModal(event.id, 'events')} className="text-red-400 hover:text-red-600" title="Archive Event"><DeleteIcon className="w-4 h-4" /></button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-                            <div className="flex items-center gap-4">
-                                <Link
-                                    to={`/events/${event.id}/registrations`}
-                                    className="flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full hover:bg-blue-200 transition-colors"
-                                >
-                                    <UsersIcon className="w-4 h-4 mr-1.5" />
-                                    {event.registrationCount ?? 0} Registrations
-                                </Link>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <button onClick={() => openHistoryModal('events', event.id, `History for ${event.name}`)} className="text-slate-400 hover:text-blue-600" title="View History"><HistoryIcon className="w-4 h-4" /></button>
-                                <button onClick={() => openEventModal(event)} className="text-slate-400 hover:text-slate-800" title="Edit Event"><EditIcon className="w-4 h-4" /></button>
-                                <button onClick={() => openConfirmationModal(event.id, 'events')} className="text-red-400 hover:text-red-600" title="Archive Event"><DeleteIcon className="w-4 h-4" /></button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                  {events.length === 0 && (
                     <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-16 text-slate-500">
                         <p className="text-lg">No events have been added for this festival yet.</p>

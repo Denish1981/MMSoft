@@ -1,14 +1,13 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Festival as PublicFestival, StallRegistrationProduct } from '../types/index';
 import { API_URL } from '../config';
-import { CameraIcon } from '../components/icons/CameraIcon';
 import CameraCapture from '../components/CameraCapture';
-import { PlusIcon } from '../components/icons/PlusIcon';
-import { DeleteIcon } from '../components/icons/DeleteIcon';
-import { formatCurrency, formatUTCDate } from '../utils/formatting';
-import { CloseIcon } from '../components/icons/CloseIcon';
+import { RegistrationSuccessView } from '../components/stall-registration/RegistrationSuccessView';
+import { PersonalDetailsSection } from '../components/stall-registration/PersonalDetailsSection';
+import { StallRequirementsSection } from '../components/stall-registration/StallRequirementsSection';
+import { ProductsPricingSection } from '../components/stall-registration/ProductsPricingSection';
+import { PaymentSection } from '../components/stall-registration/PaymentSection';
 
 const StallRegistrationPage: React.FC = () => {
     const { id: festivalId } = useParams<{ id: string }>();
@@ -82,6 +81,7 @@ const StallRegistrationPage: React.FC = () => {
     };
 
     const handleRemoveDate = (dateToRemove: string) => setSelectedDates(prev => prev.filter(d => d !== dateToRemove));
+    
     const handleProductChange = (index: number, field: keyof StallRegistrationProduct, value: string) => {
         const newProducts = [...products];
         (newProducts[index] as any)[field] = field === 'price' ? (value ? parseFloat(value) : undefined) : value;
@@ -90,6 +90,7 @@ const StallRegistrationPage: React.FC = () => {
 
     const addProduct = () => setProducts([...products, { productName: '', price: undefined }]);
     const removeProduct = (index: number) => setProducts(products.filter((_, i) => i !== index));
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -102,10 +103,16 @@ const StallRegistrationPage: React.FC = () => {
             reader.readAsDataURL(file);
         }
     };
+
     const handleCaptureComplete = (imageDataUrl: string) => {
         setPaymentScreenshot(imageDataUrl);
         setImagePreview(imageDataUrl);
         setIsCameraOpen(false);
+    };
+
+    const handleClearScreenshot = () => {
+        setPaymentScreenshot(undefined);
+        setImagePreview(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -143,15 +150,7 @@ const StallRegistrationPage: React.FC = () => {
     
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-slate-50">Loading registration form...</div>;
 
-    if (isSuccess) return (
-        <div className="flex h-screen items-center justify-center bg-slate-50 p-4">
-             <div className="p-8 text-center bg-white rounded-lg shadow-xl max-w-lg">
-                <h3 className="text-2xl font-bold text-green-600">Registration Submitted!</h3>
-                <p className="mt-2 text-slate-600">Thank you for registering for a stall. We will review your submission and be in touch shortly.</p>
-                <button onClick={() => navigate('/')} className="mt-6 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors">Back to Home</button>
-            </div>
-        </div>
-    );
+    if (isSuccess) return <RegistrationSuccessView onBackToHome={() => navigate('/')} />;
 
     return (
         <div className="bg-slate-100 min-h-screen py-12 px-4">
@@ -164,89 +163,41 @@ const StallRegistrationPage: React.FC = () => {
                 <form onSubmit={handleSubmit} className="p-8 space-y-6">
                     {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert"><p>{error}</p></div>}
                     
-                    <fieldset className="space-y-4">
-                        <legend className="text-lg font-semibold text-slate-700 mb-2">Your Details</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="registrantName" className="block text-sm font-medium text-slate-700">Full Name *</label>
-                                <input type="text" id="registrantName" value={registrantName} onChange={e => setRegistrantName(e.target.value)} className="mt-1 block w-full input-style" />
-                            </div>
-                            <div>
-                                <label htmlFor="contactNumber" className="block text-sm font-medium text-slate-700">Contact Number *</label>
-                                <input type="tel" id="contactNumber" value={contactNumber} onChange={e => setContactNumber(e.target.value)} className="mt-1 block w-full input-style" />
-                            </div>
-                        </div>
-                    </fieldset>
+                    <PersonalDetailsSection
+                        registrantName={registrantName}
+                        setRegistrantName={setRegistrantName}
+                        contactNumber={contactNumber}
+                        setContactNumber={setContactNumber}
+                    />
 
-                    <fieldset className="space-y-4">
-                        <legend className="text-lg font-semibold text-slate-700 mb-2">Stall Requirements</legend>
-                         <div>
-                            <label htmlFor="stallDate" className="block text-sm font-medium text-slate-700">Select Stall Dates *</label>
-                            <div className="flex items-center gap-2 mt-1">
-                                <select id="stallDate" value={dateToAdd} onChange={e => setDateToAdd(e.target.value)} className="block w-full input-style bg-white">
-                                    <option value="" disabled>Choose a date...</option>
-                                    {availableDates.map(date => {
-                                        const totalBooked = festival?.stallDateCounts?.[date] || 0;
-                                        const approvedBooked = festival?.approvedStallCounts?.[date] || 0;
-                                        const isFull = festival?.maxStalls ? approvedBooked >= festival.maxStalls : false;
-                                        const label = `${formatUTCDate(date)} ${festival?.maxStalls ? `(${totalBooked} / ${festival.maxStalls} booked)` : `(${totalBooked} booked)`}${isFull ? ' - Fully Booked' : ''}`;
-                                        return <option key={date} value={date} disabled={isFull}>{label}</option>
-                                    })}
-                                </select>
-                                <button type="button" onClick={handleAddDate} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold" disabled={!dateToAdd}>Add</button>
-                            </div>
-                             <div className="mt-2 flex flex-wrap gap-2 empty:mt-0">
-                                {selectedDates.map(date => (
-                                <span key={date} className="flex items-center bg-slate-200 text-slate-800 text-sm font-medium pl-2.5 pr-1.5 py-1 rounded-full">
-                                    {formatUTCDate(date)}
-                                    <button type="button" onClick={() => handleRemoveDate(date)} className="ml-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-300"><CloseIcon className="w-3.5 h-3.5"/></button>
-                                </span>
-                                ))}
-                            </div>
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                            <div>
-                                <label htmlFor="numberOfTables" className="block text-sm font-medium text-slate-700">Number of Tables *</label>
-                                <input type="number" id="numberOfTables" value={numberOfTables} onChange={e => setNumberOfTables(Math.max(1, parseInt(e.target.value) || 1))} required min="1" className="mt-1 block w-full input-style" />
-                            </div>
-                             <label className="flex items-center space-x-2 md:mt-6">
-                                <input type="checkbox" checked={needsElectricity} onChange={e => setNeedsElectricity(e.target.checked)} className="h-4 w-4 text-blue-600 border-slate-300 rounded" />
-                                <span className="text-sm font-medium text-slate-700">Need Electrical Connection?</span>
-                            </label>
-                        </div>
-                    </fieldset>
+                    <StallRequirementsSection
+                        festival={festival}
+                        availableDates={availableDates}
+                        dateToAdd={dateToAdd}
+                        setDateToAdd={setDateToAdd}
+                        selectedDates={selectedDates}
+                        onAddDate={handleAddDate}
+                        onRemoveDate={handleRemoveDate}
+                        numberOfTables={numberOfTables}
+                        setNumberOfTables={setNumberOfTables}
+                        needsElectricity={needsElectricity}
+                        setNeedsElectricity={setNeedsElectricity}
+                    />
 
-                    <fieldset>
-                        <legend className="text-lg font-semibold text-slate-700 mb-2">Products & Pricing *</legend>
-                        <div className="space-y-2 mt-1">
-                            {products.map((p, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <input type="text" placeholder="Product Name" value={p.productName || ''} onChange={e => handleProductChange(index, 'productName', e.target.value)} className="w-full input-style" />
-                                    <input type="number" placeholder="Price (₹)" value={p.price || ''} onChange={e => handleProductChange(index, 'price', e.target.value)} className="w-40 input-style" min="0" />
-                                    {products.length > 1 && <button type="button" onClick={() => removeProduct(index)} className="text-red-500 hover:text-red-700"><DeleteIcon className="w-5 h-5"/></button>}
-                                </div>
-                            ))}
-                        </div>
-                        <button type="button" onClick={addProduct} className="mt-2 flex items-center text-sm font-medium text-blue-600 hover:text-blue-800">
-                            <PlusIcon className="w-4 h-4 mr-1"/> Add Product
-                        </button>
-                    </fieldset>
+                    <ProductsPricingSection
+                        products={products}
+                        onProductChange={handleProductChange}
+                        onAddProduct={addProduct}
+                        onRemoveProduct={removeProduct}
+                    />
 
-                    <div className="pt-6 border-t border-slate-200 space-y-4">
-                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                            <p className="text-sm font-medium text-slate-600">Total Payment Due</p>
-                            <p className="text-3xl font-bold text-blue-600">{formatCurrency(totalCost)}</p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Payment Screenshot *</label>
-                            <div className="mt-2 grid grid-cols-2 gap-4">
-                                <label htmlFor="screenshotUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">Upload File</label>
-                                <input id="screenshotUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
-                                <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700"><CameraIcon className="w-5 h-5 mr-2" /> Capture</button>
-                            </div>
-                            {imagePreview && <div className="mt-4"><div className="relative w-fit"><img src={imagePreview} alt="Payment preview" className="max-h-28 rounded-md border border-slate-200 p-1" /><button type="button" onClick={() => { setPaymentScreenshot(undefined); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600"><CloseIcon className="w-4 h-4" /></button></div></div>}
-                        </div>
-                    </div>
+                    <PaymentSection
+                        totalCost={totalCost}
+                        imagePreview={imagePreview}
+                        onFileChange={handleFileChange}
+                        onOpenCamera={() => setIsCameraOpen(true)}
+                        onClearScreenshot={handleClearScreenshot}
+                    />
                     
                     <div className="pt-4">
                         <button type="submit" disabled={isSubmitting || !isFormValid} className="w-full px-4 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed">

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Festival, Campaign } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface FestivalModalProps {
@@ -28,13 +29,13 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
         if (festivalToEdit) {
             setName(festivalToEdit.name);
             setDescription(festivalToEdit.description || '');
-            setStartDate(new Date(festivalToEdit.startDate).toISOString().split('T')[0]);
-            setEndDate(new Date(festivalToEdit.endDate).toISOString().split('T')[0]);
+            setStartDate(formatDateForInput(festivalToEdit.startDate));
+            setEndDate(formatDateForInput(festivalToEdit.endDate));
             setCampaignId(festivalToEdit.campaignId);
             setStallPricePerTablePerDay(String(festivalToEdit.stallPricePerTablePerDay || ''));
             setStallElectricityCostPerDay(String(festivalToEdit.stallElectricityCostPerDay || ''));
-            setStallStartDate(festivalToEdit.stallStartDate ? new Date(festivalToEdit.stallStartDate).toISOString().split('T')[0] : '');
-            setStallEndDate(festivalToEdit.stallEndDate ? new Date(festivalToEdit.stallEndDate).toISOString().split('T')[0] : '');
+            setStallStartDate(formatDateForInput(festivalToEdit.stallStartDate));
+            setStallEndDate(formatDateForInput(festivalToEdit.stallEndDate));
             setMaxStalls(String(festivalToEdit.maxStalls || ''));
         } else {
             // Reset form

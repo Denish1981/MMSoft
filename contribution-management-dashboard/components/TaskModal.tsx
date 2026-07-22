@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Task, Festival, UserForManagement } from '../types/index';
 import { TaskStatus } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface TaskModalProps {
@@ -27,7 +28,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ taskToEdit, festivals, use
             setTitle(taskToEdit.title);
             setDescription(taskToEdit.description || '');
             setStatus(taskToEdit.status);
-            setDueDate(new Date(taskToEdit.dueDate).toISOString().split('T')[0]);
+            setDueDate(formatDateForInput(taskToEdit.dueDate));
             setFestivalId(taskToEdit.festivalId ? String(taskToEdit.festivalId) : null);
             setAssigneeName(taskToEdit.assigneeName);
         }

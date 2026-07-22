@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
@@ -38,7 +39,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setAmount(contributionToEdit.amount ? String(contributionToEdit.amount) : '');
             setNumberOfCoupons(contributionToEdit.numberOfCoupons ? String(contributionToEdit.numberOfCoupons) : '');
             setCampaignId(contributionToEdit.campaignId || (campaigns[0]?.id || null));
-            setDate(contributionToEdit.date ? new Date(contributionToEdit.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            setDate(formatDateForInput(contributionToEdit.date) || new Date().toISOString().split('T')[0]);
             const currentType = contributionToEdit.type || 'Online';
             if (['Online', 'Cash', 'Donation Box', 'Miscellaneous'].includes(currentType)) {
                 setSelectedDropdownType(currentType);

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Quotation, Vendor, Festival } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
 
 interface QuotationModalProps {
@@ -25,7 +26,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({ vendors, festiva
             setQuotationFor(quotationToEdit.quotationFor);
             setVendorId(String(quotationToEdit.vendorId));
             setCost(String(quotationToEdit.cost));
-            setDate(new Date(quotationToEdit.date).toISOString().split('T')[0]);
+            setDate(formatDateForInput(quotationToEdit.date));
             setQuotationImages(quotationToEdit.quotationImages || []);
             setPreviews(quotationToEdit.quotationImages || []);
             setFestivalId(quotationToEdit.festivalId ? String(quotationToEdit.festivalId) : null);

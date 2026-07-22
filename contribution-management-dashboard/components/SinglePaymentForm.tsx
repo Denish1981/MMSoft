@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Payment, PaymentMethod } from '../types/index';
+import { formatDateForInput } from '../utils/formatting';
 import { CameraIcon } from './icons/CameraIcon';
 import { CloseIcon } from './icons/CloseIcon';
 import CameraCapture from './CameraCapture';
@@ -22,7 +23,7 @@ export const SinglePaymentForm: React.FC<SinglePaymentFormProps> = ({ totalCost,
     
     useEffect(() => {
         if (initialPayment) {
-            setPaymentDate(new Date(initialPayment.paymentDate).toISOString().split('T')[0]);
+            setPaymentDate(formatDateForInput(initialPayment.paymentDate) || new Date().toISOString().split('T')[0]);
             setPaymentMethod(initialPayment.paymentMethod);
             setNotes(initialPayment.notes || '');
             setImage(initialPayment.image);
