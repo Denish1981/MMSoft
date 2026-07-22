@@ -16,12 +16,13 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
     const contributionStatus = status || 'Completed';
     const contributionDate = date || new Date().toISOString();
     const dbCampaignId = campaignId || null;
+    const userId = req.user ? req.user.id : null;
     try {
         const result = await db.query(
-            `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+            `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image, user_id) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
              RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
-            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbCampaignId, contributionDate, contributionStatus, type, image]
+            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbCampaignId, contributionDate, contributionStatus, type, image, userId]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) { 

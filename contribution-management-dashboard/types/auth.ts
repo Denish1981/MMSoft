@@ -7,6 +7,10 @@ export interface Role {
 export interface AuthUser {
     id: number;
     email: string;
+    fullName?: string;
+    mobileNumber?: string;
+    towerNumber?: string;
+    flatNumber?: string;
     permissions: string[];
 }
 

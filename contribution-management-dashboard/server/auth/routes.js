@@ -29,10 +29,70 @@ const createSession = async (userId) => {
 };
 
 // --- Routes ---
+router.post('/register', async (req, res) => {
+    const { username, password, fullName, mobileNumber, towerNumber, flatNumber } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username/Email and password are required.' });
+    }
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const existingUser = await client.query('SELECT id FROM users WHERE username = $1', [username]);
+        if (existingUser.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'An account with this email/username already exists.' });
+        }
+        const newUserRes = await client.query(
+            'INSERT INTO users (username, password, full_name, mobile_number, tower_number, flat_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+            [username, password, fullName || null, mobileNumber || null, towerNumber || null, flatNumber || null]
+        );
+        const userId = newUserRes.rows[0].id;
+        
+        // Find 'Donor' role ID
+        const roleRes = await client.query("SELECT id FROM roles WHERE name = 'Donor'");
+        let roleId = roleRes.rows[0]?.id;
+        if (!roleId) {
+            const viewerRes = await client.query("SELECT id FROM roles WHERE name = 'Viewer'");
+            roleId = viewerRes.rows[0]?.id;
+        }
+        if (roleId) {
+            await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
+        }
+        await client.query('COMMIT');
+
+        const token = await createSession(userId);
+        const permissions = await getUserPermissions(userId);
+        await logLoginHistory(userId, 'registration', req);
+
+        res.status(201).json({
+            message: 'Registration successful',
+            user: {
+                id: userId,
+                email: username,
+                fullName: fullName || '',
+                mobileNumber: mobileNumber || '',
+                towerNumber: towerNumber || '',
+                flatNumber: flatNumber || '',
+                permissions
+            },
+            token
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Registration error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const result = await db.query('SELECT id, username FROM users WHERE username = $1 AND password = $2', [username, password]);
+        const result = await db.query(
+            'SELECT id, username, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE username = $1 AND password = $2', 
+            [username, password]
+        );
         if (result.rows.length > 0) {
             const user = result.rows[0];
             const permissions = await getUserPermissions(user.id);
@@ -40,7 +100,18 @@ router.post('/login', async (req, res) => {
             
             const token = await createSession(user.id);
             await logLoginHistory(user.id, 'password', req);
-            res.status(200).json({ user: { id: user.id, email: user.username, permissions }, token });
+            res.status(200).json({ 
+                user: { 
+                    id: user.id, 
+                    email: user.username, 
+                    fullName: user.fullName || '',
+                    mobileNumber: user.mobileNumber || '',
+                    towerNumber: user.towerNumber || '',
+                    flatNumber: user.flatNumber || '',
+                    permissions 
+                }, 
+                token 
+            });
         } else {
             res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -58,24 +129,84 @@ router.post('/google', async (req, res) => {
         const email = payload?.email;
         if (!email) return res.status(400).json({ message: 'Invalid Google token: email not found.' });
 
-        const userResult = await db.query('SELECT id, username FROM users WHERE username = $1', [email]);
-        if (userResult.rows.length === 0) return res.status(403).json({ message: 'Access denied. Your account has not been set up by an administrator.' });
+        const userResult = await db.query(
+            'SELECT id, username, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE username = $1', 
+            [email]
+        );
+        let user;
+        if (userResult.rows.length === 0) {
+            // Auto-register Google user as Donor
+            const client = await db.getPool().connect();
+            try {
+                await client.query('BEGIN');
+                const newUserRes = await client.query(
+                    'INSERT INTO users (username, full_name) VALUES ($1, $2) RETURNING id',
+                    [email, payload.name || '']
+                );
+                const userId = newUserRes.rows[0].id;
+                const roleRes = await client.query("SELECT id FROM roles WHERE name = 'Donor'");
+                let roleId = roleRes.rows[0]?.id;
+                if (!roleId) {
+                    const viewerRes = await client.query("SELECT id FROM roles WHERE name = 'Viewer'");
+                    roleId = viewerRes.rows[0]?.id;
+                }
+                if (roleId) {
+                    await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
+                }
+                await client.query('COMMIT');
+                user = { id: userId, username: email, fullName: payload.name || '', mobileNumber: '', towerNumber: '', flatNumber: '' };
+            } catch (createErr) {
+                await client.query('ROLLBACK');
+                throw createErr;
+            } finally {
+                client.release();
+            }
+        } else {
+            user = userResult.rows[0];
+        }
 
-        const user = userResult.rows[0];
         const permissions = await getUserPermissions(user.id);
         if (permissions.length === 0) return res.status(403).json({ message: 'Access denied. Your account has no assigned roles.' });
 
         const sessionToken = await createSession(user.id);
         await logLoginHistory(user.id, 'google', req);
-        res.status(200).json({ user: { id: user.id, email: user.username, permissions }, token: sessionToken });
+        res.status(200).json({ 
+            user: { 
+                id: user.id, 
+                email: user.username, 
+                fullName: user.fullName || '',
+                mobileNumber: user.mobileNumber || '',
+                towerNumber: user.towerNumber || '',
+                flatNumber: user.flatNumber || '',
+                permissions 
+            }, 
+            token: sessionToken 
+        });
     } catch (error) {
         console.error('Google Auth Error:', error);
         res.status(401).json({ message: 'Invalid Google token' });
     }
 });
 
-router.get('/me', authMiddleware, (req, res) => {
-    res.status(200).json({ user: req.user });
+router.get('/me', authMiddleware, async (req, res) => {
+    try {
+        const userRes = await db.query(
+            'SELECT full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE id = $1',
+            [req.user.id]
+        );
+        const userDetails = userRes.rows[0] || {};
+        res.status(200).json({
+            user: {
+                ...req.user,
+                fullName: userDetails.fullName || '',
+                mobileNumber: userDetails.mobileNumber || '',
+                towerNumber: userDetails.towerNumber || '',
+                flatNumber: userDetails.flatNumber || ''
+            }
+        });
+    } catch (err) {
+        res.status(200).json({ user: req.user });
+    }
 });
 
 router.post('/logout', authMiddleware, async (req, res) => {

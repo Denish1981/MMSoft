@@ -10,6 +10,7 @@ router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), asy
         const { rows } = await db.query(`
             SELECT 
                 sr.id, sr.festival_id as "festivalId", sr.registrant_name as "registrantName", sr.contact_number as "contactNumber",
+                sr.tower_number as "towerNumber", sr.flat_number as "flatNumber",
                 sr.stall_dates::TEXT[] as "stallDates", sr.products,
                 sr.needs_electricity as "needsElectricity", sr.number_of_tables as "numberOfTables",
                 sr.total_payment as "totalPayment", sr.payment_screenshot as "paymentScreenshot", sr.submitted_at as "submittedAt",
@@ -72,8 +73,8 @@ router.put('/:id/status', authMiddleware, permissionMiddleware('action:edit'), a
                     registration.registrant_name,
                     null,
                     registration.contact_number,
-                    'Stall',
-                    'N/A',
+                    registration.tower_number || 'Stall',
+                    registration.flat_number || 'N/A',
                     registration.total_payment,
                     0,
                     registration.campaign_id,

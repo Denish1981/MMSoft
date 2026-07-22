@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
     children: React.ReactElement;
-    permission: string;
+    permission?: string;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, permission }) => {
@@ -21,7 +21,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, permission })
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (!hasPermission(permission)) {
+    if (permission && !hasPermission(permission)) {
+        if (permission === 'page:dashboard:view' && hasPermission('page:donor-portal:view')) {
+            return <Navigate to="/donor-portal" replace />;
+        }
         return <Navigate to="/forbidden" replace />;
     }
 

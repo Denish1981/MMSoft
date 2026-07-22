@@ -1,9 +1,14 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { LockClosedIcon } from '../components/icons/LockClosedIcon';
 
 const ForbiddenPage: React.FC = () => {
+    const { hasPermission } = useAuth();
+    const destination = hasPermission('page:donor-portal:view') ? '/donor-portal' : '/';
+    const destinationLabel = hasPermission('page:donor-portal:view') ? 'Return to Donor Portal' : 'Return to Home';
+
     return (
         <div className="flex flex-col items-center justify-center h-full text-center bg-white p-6 rounded-xl shadow-md">
             <LockClosedIcon className="w-16 h-16 text-red-500 mb-4" />
@@ -13,10 +18,10 @@ const ForbiddenPage: React.FC = () => {
                 Please contact the administrator if you believe this is an error.
             </p>
             <NavLink
-                to="/"
+                to={destination}
                 className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
-                Return to Dashboard
+                {destinationLabel}
             </NavLink>
         </div>
     );

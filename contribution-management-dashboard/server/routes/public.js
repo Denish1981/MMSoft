@@ -3,6 +3,18 @@ const express = require('express');
 const db = require('../db');
 const router = express.Router();
 
+const getUserIdFromReq = async (req) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+        const token = authHeader.split(' ')[1];
+        const sessionRes = await db.query('SELECT user_id FROM user_sessions WHERE token = $1 AND expires_at > NOW()', [token]);
+        return sessionRes.rows.length > 0 ? sessionRes.rows[0].user_id : null;
+    } catch {
+        return null;
+    }
+};
+
 router.get('/public/events', async (req, res) => {
     try {
         const { rows } = await db.query(`
@@ -24,9 +36,10 @@ router.post('/public/events/:id/register', async (req, res) => {
     }
 
     try {
+        const userId = await getUserIdFromReq(req);
         await db.query(
-            'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image) VALUES ($1, $2, $3, $4, $5)',
-            [id, formData.name, formData.email, formData, paymentProofImage]
+            'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
+            [id, formData.name, formData.email, formData, paymentProofImage, userId]
         );
         res.status(201).json({ message: 'Registration successful' });
     } catch (err) {
@@ -95,7 +108,7 @@ router.get('/public/festivals/:id', async (req, res) => {
 
 router.post('/public/festivals/:id/register-stall', async (req, res) => {
     const { id } = req.params;
-    const { registrantName, contactNumber, stallDates, products, needsElectricity, numberOfTables, paymentScreenshot } = req.body;
+    const { registrantName, contactNumber, towerNumber, flatNumber, stallDates, products, needsElectricity, numberOfTables, paymentScreenshot } = req.body;
 
     if (!registrantName || !contactNumber || !stallDates || stallDates.length === 0 || !products || products.length === 0 || !paymentScreenshot) {
         return res.status(400).json({ error: 'Missing required fields for stall registration.' });
@@ -104,6 +117,8 @@ router.post('/public/festivals/:id/register-stall', async (req, res) => {
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
+        await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50), ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
+
         const festRes = await client.query('SELECT stall_price_per_table_per_day, stall_electricity_cost_per_day, max_stalls FROM festivals WHERE id=$1', [id]);
         if (festRes.rows.length === 0) return res.status(404).json({ error: 'Festival not found' });
         const { stall_price_per_table_per_day, stall_electricity_cost_per_day, max_stalls } = festRes.rows[0];
@@ -128,9 +143,10 @@ router.post('/public/festivals/:id/register-stall', async (req, res) => {
         const electricityCost = needsElectricity ? (stallDates.length * numberOfTables * (stall_electricity_cost_per_day || 0)) : 0;
         const totalPayment = tableCost + electricityCost;
         
+        const userId = await getUserIdFromReq(req);
         await client.query(
-            'INSERT INTO stall_registrations (festival_id, registrant_name, contact_number, stall_dates, products, needs_electricity, number_of_tables, total_payment, payment_screenshot) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-            [id, registrantName, contactNumber, stallDates, JSON.stringify(products), needsElectricity, numberOfTables, totalPayment, paymentScreenshot]
+            'INSERT INTO stall_registrations (festival_id, registrant_name, contact_number, tower_number, flat_number, stall_dates, products, needs_electricity, number_of_tables, total_payment, payment_screenshot, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+            [id, registrantName, contactNumber, towerNumber || null, flatNumber || null, stallDates, JSON.stringify(products), needsElectricity, numberOfTables, totalPayment, paymentScreenshot, userId]
         );
         await client.query('COMMIT');
         res.status(201).json({ message: 'Stall registration submitted successfully' });

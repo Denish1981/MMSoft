@@ -25,6 +25,7 @@ const eventRoutes = require('./routes/events');
 const participantRoutes = require('./routes/participants');
 const eventRegistrationRoutes = require('./routes/eventRegistrations');
 const stallRegistrationRoutes = require('./routes/stallRegistrations');
+const donorRoutes = require('./routes/donor');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -59,6 +60,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/participants', participantRoutes);
 app.use('/api/event-registrations', eventRegistrationRoutes);
 app.use('/api/stall-registrations', stallRegistrationRoutes);
+app.use('/api/donor', donorRoutes);
 
 
 // --- Server Start ---

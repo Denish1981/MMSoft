@@ -278,13 +278,6 @@ const applySchema = async (client) => {
     for (const query of queries) {
         await client.query(query);
     }
-    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255);');
-    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20);');
-    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50);');
-    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
-    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
-    await client.query('ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
-    await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS stall_registration_id INTEGER REFERENCES stall_registrations(id) ON DELETE CASCADE;');
 };
 

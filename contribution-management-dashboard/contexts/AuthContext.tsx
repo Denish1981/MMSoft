@@ -2,12 +2,22 @@ import React, { createContext, useState, useEffect, useMemo, useCallback, useCon
 import type { AuthUser } from '../types/index';
 import { API_URL } from '../config';
 
+interface RegisterDonorParams {
+    username: string;
+    password: string;
+    fullName?: string;
+    mobileNumber?: string;
+    towerNumber?: string;
+    flatNumber?: string;
+}
+
 interface AuthContextType {
     isAuthenticated: boolean;
     user: AuthUser | null;
     token: string | null;
     isLoading: boolean;
     login: (user: string, pass: string) => Promise<{ success: boolean; message?: string }>;
+    registerDonor: (params: RegisterDonorParams) => Promise<{ success: boolean; message?: string }>;
     googleLogin: (token: string) => Promise<{ success: boolean; message?: string }>;
     logout: () => void;
     hasPermission: (permission: string) => boolean;
@@ -120,6 +130,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const registerDonor = async (params: RegisterDonorParams) => {
+        try {
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                handleSuccessfulLogin(data.user, data.token);
+                return { success: true };
+            }
+            return { success: false, message: data.message || 'Registration failed' };
+        } catch (error) {
+            console.error("Registration failed:", error);
+            return { success: false, message: 'Could not connect to server' };
+        }
+    };
+
     const googleLogin = async (googleToken: string) => {
         try {
             const response = await fetch(`${API_URL}/auth/google`, {
@@ -145,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         login,
+        registerDonor,
         googleLogin,
         logout,
         hasPermission,

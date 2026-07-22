@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Festival as PublicFestival, StallRegistrationProduct } from '../types/index';
 import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 import CameraCapture from '../components/CameraCapture';
 import { RegistrationSuccessView } from '../components/stall-registration/RegistrationSuccessView';
 import { PersonalDetailsSection } from '../components/stall-registration/PersonalDetailsSection';
@@ -12,6 +13,7 @@ import { PaymentSection } from '../components/stall-registration/PaymentSection'
 const StallRegistrationPage: React.FC = () => {
     const { id: festivalId } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { user } = useAuth();
     
     const [festival, setFestival] = useState<PublicFestival | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -20,8 +22,19 @@ const StallRegistrationPage: React.FC = () => {
     const [isSuccess, setIsSuccess] = useState(false);
     
     // Form State
-    const [registrantName, setRegistrantName] = useState('');
-    const [contactNumber, setContactNumber] = useState('');
+    const [registrantName, setRegistrantName] = useState(user?.fullName || '');
+    const [contactNumber, setContactNumber] = useState(user?.mobileNumber || '');
+    const [towerNumber, setTowerNumber] = useState(user?.towerNumber || '');
+    const [flatNumber, setFlatNumber] = useState(user?.flatNumber || '');
+
+    useEffect(() => {
+        if (user) {
+            if (user.fullName) setRegistrantName(user.fullName);
+            if (user.mobileNumber) setContactNumber(user.mobileNumber);
+            if (user.towerNumber) setTowerNumber(user.towerNumber);
+            if (user.flatNumber) setFlatNumber(user.flatNumber);
+        }
+    }, [user]);
     const [selectedDates, setSelectedDates] = useState<string[]>([]);
     const [dateToAdd, setDateToAdd] = useState('');
     const [products, setProducts] = useState<Partial<StallRegistrationProduct>[]>([{ productName: '', price: undefined }]);
@@ -129,7 +142,7 @@ const StallRegistrationPage: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    registrantName, contactNumber, stallDates: selectedDates, 
+                    registrantName, contactNumber, towerNumber, flatNumber, stallDates: selectedDates, 
                     products: products.filter(p => p.productName && p.price),
                     needsElectricity, numberOfTables, paymentScreenshot,
                 }),
@@ -168,6 +181,10 @@ const StallRegistrationPage: React.FC = () => {
                         setRegistrantName={setRegistrantName}
                         contactNumber={contactNumber}
                         setContactNumber={setContactNumber}
+                        towerNumber={towerNumber}
+                        setTowerNumber={setTowerNumber}
+                        flatNumber={flatNumber}
+                        setFlatNumber={setFlatNumber}
                     />
 
                     <StallRequirementsSection

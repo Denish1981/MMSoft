@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CameraIcon } from './icons/CameraIcon';
 import { API_URL } from '../config';
 import { CloseIcon } from './icons/CloseIcon';
 import type { RegistrationFormField } from '../types/index';
 import CameraCapture from './CameraCapture';
+import { useAuth } from '../contexts/AuthContext';
 
 export interface PublicEvent {
     id: number;
@@ -22,6 +23,7 @@ interface RegistrationModalProps {
 }
 
 export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onClose }) => {
+    const { user } = useAuth();
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -31,6 +33,26 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     
     const [showProofUpload, setShowProofUpload] = useState(false);
+
+    useEffect(() => {
+        if (!user) return;
+        const initialData: Record<string, any> = {};
+        (event.registrationFormSchema || []).forEach(field => {
+            const fieldName = (field.name || '').toLowerCase();
+            const fieldLabel = (field.label || '').toLowerCase();
+
+            if (user.fullName && (fieldName.includes('name') || fieldLabel.includes('name'))) {
+                initialData[field.name] = user.fullName;
+            } else if (user.mobileNumber && (fieldName.includes('phone') || fieldName.includes('mobile') || fieldName.includes('contact') || fieldLabel.includes('phone') || fieldLabel.includes('mobile') || fieldLabel.includes('contact'))) {
+                initialData[field.name] = user.mobileNumber;
+            } else if (user.towerNumber && (fieldName.includes('tower') || fieldLabel.includes('tower'))) {
+                initialData[field.name] = user.towerNumber;
+            } else if (user.flatNumber && (fieldName.includes('flat') || fieldLabel.includes('flat'))) {
+                initialData[field.name] = user.flatNumber;
+            }
+        });
+        setFormData(prev => ({ ...initialData, ...prev }));
+    }, [user, event.registrationFormSchema]);
 
     const handleInputChange = (name: string, value: string | boolean) => {
         setFormData(prev => ({ ...prev, [name]: value }));

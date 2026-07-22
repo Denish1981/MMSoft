@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -60,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
     ];
     
     const navItems = [
+        { to: "/donor-portal", permission: 'page:donor-portal:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Member Updates" },
         { to: "/dashboard", permission: 'page:dashboard:view', icon: <DashboardIcon className="w-5 h-5" />, label: "Dashboard" },
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
         { to: "/participants", permission: 'page:participants:view', icon: <UsersIcon className="w-5 h-5" />, label: "Participants" },

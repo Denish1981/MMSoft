@@ -40,6 +40,7 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
             ) : null
         );
 
+        if (path.startsWith('/donor-portal')) return { title: 'Member Updates', button: null };
         if (path.startsWith('/dashboard')) return { title: 'Dashboard', button: null };
         if (path.startsWith('/contributions')) {
             const buttons = [];

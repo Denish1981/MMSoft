@@ -9,11 +9,15 @@ import { EventCard } from '../components/EventCard';
 import { StallFestivalCard } from '../components/StallFestivalCard';
 
 const PublicHomePage: React.FC = () => {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, hasPermission } = useAuth();
     const [events, setEvents] = useState<PublicEvent[]>([]);
     const [stallFestivals, setStallFestivals] = useState<PublicFestival[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
+
+    const dashboardTarget = isAuthenticated
+        ? (hasPermission('page:dashboard:view') ? "/dashboard" : "/donor-portal")
+        : "/login";
 
     useEffect(() => {
         const fetchPublicData = async () => {
@@ -49,7 +53,7 @@ const PublicHomePage: React.FC = () => {
                         </div>
                     </div>
                     <Link
-                        to={isAuthenticated ? "/dashboard" : "/login"}
+                        to={dashboardTarget}
                         className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                     >
                         {isAuthenticated ? "Go to Dashboard" : "Login"}
