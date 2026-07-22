@@ -1,17 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import SummaryCard from '../components/SummaryCard';
-import type { Contribution, Donor, Sponsor, Expense, Vendor } from '../types/index';
 import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
-import { AlertTriangleIcon } from '../components/icons/AlertTriangleIcon';
-import { CashIcon } from '../components/icons/CashIcon';
-import { HelpIcon } from '../components/icons/HelpIcon';
-import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
+import { DashboardHeader } from '../components/dashboard/DashboardHeader';
+import { OutstandingPaymentsWidget } from '../components/dashboard/OutstandingPaymentsWidget';
+import { CarryForwardBalanceWidget } from '../components/dashboard/CarryForwardBalanceWidget';
 
 const Dashboard: React.FC = () => {
-    const { contributions, campaigns, donors, sponsors, expenses, vendors, festivals, selectedCampaignId, setSelectedCampaignId } = useData();
+    const { contributions, campaigns, sponsors, expenses, vendors, festivals, selectedCampaignId, setSelectedCampaignId } = useData();
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
     
     // Auto-reset festival filter if campaign changes, or keep it if still valid
@@ -95,7 +92,6 @@ const Dashboard: React.FC = () => {
         return filteredExpenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
     }, [filteredExpenses]);
 
-
     const expenseBreakdown = useMemo(() => {
         const expenseMap = new Map<string, number>();
         filteredExpenses.forEach(expense => {
@@ -118,7 +114,7 @@ const Dashboard: React.FC = () => {
 
     const outstandingPayments = useMemo(() => {
         const vendorMap = new Map(vendors.map(v => [v.id, v.name]));
-        return filteredExpenses // Use filtered expenses here too
+        return filteredExpenses
             .filter(e => e.outstandingAmount && e.outstandingAmount > 0)
             .map(e => ({
                 ...e,
@@ -134,24 +130,6 @@ const Dashboard: React.FC = () => {
     const carryForwardBalance = useMemo(() => {
         return totalRaised - totalExpenses;
     }, [totalRaised, totalExpenses]);
-
-    const campaignFilterDropdown = (
-        <select
-            value={selectedCampaignId}
-            onChange={(e) => {
-                setSelectedCampaignId(e.target.value);
-                setSelectedFestivalId('all'); // Reset festival filter when campaign changes
-            }}
-            className="text-xs p-1 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-slate-50"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Filter by campaign"
-        >
-            <option value="all">All Campaigns</option>
-            {campaigns.map(c => (
-                <option key={c.id} value={c.id}>{c.name} ({c.financialYear})</option>
-            ))}
-        </select>
-    );
 
     const expenseFilterDropdown = (
         <select
@@ -170,25 +148,12 @@ const Dashboard: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
-                <div>
-                    <h2 className="text-lg font-bold text-slate-800 font-sans tracking-tight">Operational & Financial Overview</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Setup campaigns, record donations, monitor expenses, and manage festivals.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <Link 
-                        to="/documentation" 
-                        className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs rounded-lg border border-blue-200 transition-colors"
-                    >
-                        <HelpIcon className="w-4 h-4" />
-                        <span>System Guide & Help</span>
-                    </Link>
-                    <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
-                        <span className="font-semibold text-slate-500">Filter Campaign:</span>
-                        {campaignFilterDropdown}
-                    </div>
-                </div>
-            </div>
+            <DashboardHeader
+                selectedCampaignId={selectedCampaignId}
+                setSelectedCampaignId={setSelectedCampaignId}
+                setSelectedFestivalId={setSelectedFestivalId}
+                campaigns={campaigns}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <SummaryCard
@@ -206,78 +171,14 @@ const Dashboard: React.FC = () => {
                 />
             </div>
 
-            {/* Outstanding Payments Gadget */}
-            <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center">
-                        <div className="bg-yellow-100 text-yellow-600 p-3 rounded-full mr-4">
-                            <AlertTriangleIcon className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-slate-800">Outstanding Payments</h3>
-                            <p className="text-sm text-slate-500">
-                                {outstandingPayments.length > 0 ? `${outstandingPayments.length} pending payments` : 'All payments are up to date'}
-                            </p>
-                        </div>
-                    </div>
-                    {outstandingPayments.length > 0 && (
-                        <div className="text-right">
-                            <p className="text-sm font-medium text-slate-500">Total Outstanding</p>
-                            <p className="text-2xl font-bold text-red-600">
-                                {formatCurrency(totalOutstanding)}
-                            </p>
-                        </div>
-                    )}
-                </div>
-                
-                <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                    {outstandingPayments.length > 0 ? (
-                        outstandingPayments.map(payment => (
-                            <Link to="/expenses" key={payment.id} className="block p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold text-slate-700">{payment.name}</p>
-                                        <p className="text-xs text-slate-500">{payment.vendorName}</p>
-                                    </div>
-                                    <p className="font-bold text-red-600">
-                                        {formatCurrency(payment.outstandingAmount || 0)}
-                                    </p>
-                                </div>
-                            </Link>
-                        ))
-                    ) : (
-                        <div className="text-center py-10 text-slate-500">
-                            <p className="font-semibold">All Clear!</p>
-                            <p className="text-sm">No outstanding expense payments found.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <OutstandingPaymentsWidget
+                outstandingPayments={outstandingPayments}
+                totalOutstanding={totalOutstanding}
+            />
 
-            {/* Carry Forward Balance Widget */}
-            <div className={`p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 ${carryForwardBalance >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'} border`}>
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center">
-                        <div className={`${carryForwardBalance >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} p-4 rounded-full mr-4 shadow-sm`}>
-                            <CashIcon className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-800">Carry Forward Balance</h3>
-                            <p className="text-sm text-slate-500 font-medium">
-                                {carryForwardBalance >= 0 
-                                    ? 'Surplus funds available to be carried forward' 
-                                    : 'Net deficit for the selected period'}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="text-center md:text-right px-4 py-2 rounded-lg bg-white/50 border border-white/50 backdrop-blur-sm shadow-inner min-w-[200px]">
-                        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Estimated Balance</p>
-                        <p className={`text-4xl font-extrabold tracking-tight ${carryForwardBalance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {formatCurrency(carryForwardBalance)}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <CarryForwardBalanceWidget
+                carryForwardBalance={carryForwardBalance}
+            />
         </div>
     );
 };
