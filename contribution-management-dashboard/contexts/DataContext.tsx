@@ -1,42 +1,15 @@
-import React, { createContext, useState, useEffect, useMemo, useCallback, useContext } from 'react';
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, HistoryItem, Event, StallRegistration } from '../types/index';
-import { ContributionStatus } from '../types/index';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import type { 
+    Contribution, Campaign, Sponsor, Vendor, Expense, Quotation, 
+    Budget as BudgetType, Festival, Task, UserForManagement, StallRegistration 
+} from '../types/index';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../config';
+import type { DataContextType } from './data/types';
+import { useDerivedData } from './data/useDerivedData';
+import { useDataHandlers } from './data/useDataHandlers';
 
-interface DataContextType {
-    contributions: Contribution[];
-    campaigns: Campaign[];
-    sponsors: Sponsor[];
-    vendors: Vendor[];
-    expenses: Expense[];
-    quotations: Quotation[];
-    budgets: BudgetType[];
-    festivals: Festival[];
-    tasks: Task[];
-    users: UserForManagement[];
-    donors: Donor[];
-    stallRegistrations: StallRegistration[];
-    expenseHeads: string[];
-    festivalMap: Map<number, string>;
-    fetchData: () => Promise<void>;
-    handleContributionSubmit: (data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Contribution | null) => void;
-    handleSponsorSubmit: (data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => void;
-    handleVendorSubmit: (data: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Vendor | null) => void;
-    handleExpenseSubmit: (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'amountPaid' | 'outstandingAmount'>, itemToEdit: Expense | null) => void;
-    handleQuotationSubmit: (data: Omit<Quotation, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Quotation | null) => void;
-    handleBudgetSubmit: (data: Omit<BudgetType, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: BudgetType | null) => void;
-    handleFestivalSubmit: (data: Omit<Festival, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Festival | null) => void;
-    handleTaskSubmit: (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Task | null) => void;
-    handleEventSubmit: (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => Promise<void>;
-    handleCampaignSubmit: (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & { sourceCampaignId?: number }, itemToEdit: Campaign | null) => void;
-    handleDeleteClick: (id: number, type: string) => void;
-    handleRestore: (recordType: string, recordId: number) => Promise<void>;
-    eventDataVersion: number;
-    triggerEventRefetch: () => void;
-    selectedCampaignId: string;
-    setSelectedCampaignId: (id: string) => void;
-}
+export type { DataContextType };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -55,11 +28,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [stallRegistrations, setStallRegistrations] = useState<StallRegistration[]>([]);
     const [eventDataVersion, setEventDataVersion] = useState(0);
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
-
-    const getAuthHeaders = useCallback(() => ({
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-    }), [token]);
 
     const fetchData = useCallback(async () => {
         if (!isAuthenticated || !token) return;
@@ -91,7 +59,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setBudgets(data[6] || []);
             setFestivals(data[7] || []);
             setTasks(data[8] || []);
-            setUsers(data[9] || []); // If fetch fails (e.g., no permission), it will be null, defaulting to empty array.
+            setUsers(data[9] || []);
             setStallRegistrations(data[10] || []);
 
         } catch (error) {
@@ -103,217 +71,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchData();
     }, [fetchData]);
 
-    const donors = useMemo((): Donor[] => {
-        const donorMap = new Map<string, Donor>();
-        [...contributions].reverse().forEach(contribution => {
-            if (!contribution || !contribution.donorName || !contribution.towerNumber || !contribution.flatNumber) return;
-            const donorId = `${contribution.donorName.toLowerCase().replace(/\s/g, '-')}-${contribution.towerNumber}-${contribution.flatNumber}`;
-            let donor = donorMap.get(donorId);
-            if (!donor) {
-                donor = {
-                    id: donorId, name: contribution.donorName, towerNumber: contribution.towerNumber,
-                    flatNumber: contribution.flatNumber, totalContributed: 0, contributionCount: 0,
-                    email: contribution.donorEmail, mobileNumber: contribution.mobileNumber,
-                };
-            } else {
-                if (contribution.donorEmail) donor.email = contribution.donorEmail;
-                if (contribution.mobileNumber) donor.mobileNumber = contribution.mobileNumber;
-            }
-            donor.totalContributed += (Number(contribution.amount) || 0);
-            donor.contributionCount += 1;
-            donorMap.set(donorId, donor);
-        });
-        return Array.from(donorMap.values()).sort((a,b) => b.totalContributed - a.totalContributed);
-    }, [contributions]);
+    const { donors, expenseHeads, festivalMap } = useDerivedData(contributions, expenses, festivals);
 
-    const expenseHeads = useMemo(() => Array.from(new Set(expenses.map(e => e.expenseHead))), [expenses]);
-    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+    const handlers = useDataHandlers({
+        token,
+        logout,
+        hasPermission,
+        fetchData,
+        contributions,
+        sponsors,
+        expenses,
+        festivals,
+        setContributions,
+        setCampaigns,
+        setSponsors,
+        setVendors,
+        setExpenses,
+        setQuotations,
+        setBudgets,
+        setFestivals,
+        setTasks,
+        setEventDataVersion,
+    });
 
-    // --- Generic CRUD Handlers ---
-    const handleAdd = async <T extends { id: any }, C>(url: string, body: C, setData: React.Dispatch<React.SetStateAction<T[]>>) => {
-        try {
-            const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body) });
-            if (response.status === 401) { logout(); return; }
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to add item`);
-            }
-            const newItem: T = await response.json();
-            setData((prev: T[]) => [newItem, ...prev]);
-        } catch (error) {
-            console.error(`Failed to add item:`, error);
-            alert(error instanceof Error ? error.message : "An unknown error occurred.");
-        }
-    };
-
-    const handleUpdate = async <T extends {id: number}>(url: string, body: T, setData: React.Dispatch<React.SetStateAction<T[]>>) => {
-        try {
-            const response = await fetch(`${url}/${body.id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body) });
-            if (response.status === 401) { logout(); return; }
-            const updatedItem: T = await response.json();
-            setData((prev: T[]) => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-        } catch (error) {
-            console.error(`Failed to update item:`, error);
-        }
-    };
-
-    const handleDeleteClick = (id: number, type: string) => {
-        // This will be handled by ModalContext, but keeping the permission check here
-        if (!hasPermission('action:delete')) {
-            alert("You don't have permission to archive items.");
-            return;
-        }
-        // The modal context will call its own `setItemToDelete` and open the confirmation modal.
-    };
-
-    const handleRestore = async (recordType: string, recordId: number) => {
-        if (!hasPermission('action:restore')) {
-            alert("You don't have permission to restore items.");
-            return;
-        }
-        try {
-            const response = await fetch(`${API_URL}/${recordType}/${recordId}/restore`, {
-                method: 'POST', headers: getAuthHeaders()
-            });
-            if (response.status === 401) { logout(); return; }
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to restore item`);
-            }
-            await fetchData();
-        } catch (error) {
-            console.error('Failed to restore item:', error);
-            alert(error instanceof Error ? error.message : "An unknown error occurred.");
-        }
-    };
-
-    // --- Specific Submit Handlers ---
-    const handleContributionSubmit = (data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Contribution | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Contribution` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/contributions`, { ...itemToEdit, ...data }, setContributions);
-        else handleAdd(`${API_URL}/contributions`, data, setContributions);
-    };
-    const handleSponsorSubmit = (data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Sponsor` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
-        else handleAdd(`${API_URL}/sponsors`, data, setSponsors);
-    };
-    const handleVendorSubmit = (data: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Vendor | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Vendor` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/vendors`, { ...itemToEdit, ...data }, setVendors);
-        else handleAdd(`${API_URL}/vendors`, data, setVendors);
-    };
-    const handleExpenseSubmit = (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'amountPaid' | 'outstandingAmount'>, itemToEdit: Expense | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Expense` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/expenses`, { ...itemToEdit, ...data }, setExpenses);
-        else handleAdd(`${API_URL}/expenses`, data, setExpenses);
-    };
-    const handleQuotationSubmit = (data: Omit<Quotation, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Quotation | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Quotation` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/quotations`, { ...itemToEdit, ...data }, setQuotations);
-        else handleAdd(`${API_URL}/quotations`, data, setQuotations);
-    };
-    const handleBudgetSubmit = (data: Omit<BudgetType, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: BudgetType | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `BudgetType` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/budgets`, { ...itemToEdit, ...data }, setBudgets);
-        else handleAdd(`${API_URL}/budgets`, data, setBudgets);
-    };
-    const handleFestivalSubmit = (data: Omit<Festival, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Festival | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Festival` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/festivals`, { ...itemToEdit, ...data }, setFestivals);
-        else handleAdd(`${API_URL}/festivals`, data, setFestivals);
-    };
-    const handleTaskSubmit = (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Task | null) => {
-        // FIX: Spread `itemToEdit` to include all properties required by the `Task` type.
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/tasks`, { ...itemToEdit, ...data }, setTasks);
-        else handleAdd(`${API_URL}/tasks`, data, setTasks);
-    };
-    const handleCampaignSubmit = async (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & { sourceCampaignId?: number }, itemToEdit: Campaign | null) => {
-        if (itemToEdit && itemToEdit.id) {
-            handleUpdate(`${API_URL}/campaigns`, { ...itemToEdit, ...data }, setCampaigns);
-        } else {
-            const { sourceCampaignId, ...campaignData } = data;
-            
-            try {
-                const response = await fetch(`${API_URL}/campaigns`, { 
-                    method: 'POST', 
-                    headers: getAuthHeaders(), 
-                    body: JSON.stringify(campaignData) 
-                });
-                
-                if (response.status === 401) { logout(); return; }
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Failed to add campaign`);
-                }
-                
-                const newCampaign: Campaign = await response.json();
-                setCampaigns((prev) => [newCampaign, ...prev]);
-
-                // If sourceCampaignId is provided, calculate balance and add contribution
-                if (typeof sourceCampaignId === 'number') {
-                    const sourceContributions = contributions.filter(c => c.campaignId === sourceCampaignId);
-                    const sourceSponsors = sponsors.filter(s => s.campaignId === sourceCampaignId);
-                    const campaignFestivalIds = festivals.filter(f => f.campaignId === sourceCampaignId).map(f => f.id);
-                    const sourceExpenses = expenses.filter(e => e.festivalId && campaignFestivalIds.includes(e.festivalId));
-
-                    const totalRaised = sourceContributions.reduce((acc, c) => acc + (Number(c.amount) || 0), 0) +
-                                       sourceSponsors.reduce((acc, s) => acc + (Number(s.sponsorshipAmount) || 0), 0);
-                    
-                    const totalExpenses = sourceExpenses.reduce((acc, e) => acc + (Number(e.totalCost) || 0), 0);
-                    
-                    const balance = totalRaised - totalExpenses;
-                    
-                    console.log(`Carrying forward balance from campaign ${sourceCampaignId} to ${newCampaign.id}: ${balance}`);
-
-                    const broughtForwardContribution = {
-                        donorName: "Balance Brought Forward",
-                        towerNumber: "N/A",
-                        flatNumber: "N/A",
-                        amount: balance,
-                        numberOfCoupons: 0,
-                        campaignId: newCampaign.id,
-                        date: new Date().toISOString(),
-                        status: ContributionStatus.Completed,
-                        type: 'Online' as any,
-                        donorEmail: '',
-                        mobileNumber: ''
-                    };
-
-                    await handleAdd(`${API_URL}/contributions`, broughtForwardContribution, setContributions);
-                }
-            } catch (error) {
-                console.error(`Failed to process campaign submission:`, error);
-                alert(error instanceof Error ? error.message : "An unknown error occurred.");
-            }
-        }
-    };
-
-    const handleEventSubmit = async (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => {
-        const url = itemToEdit ? `${API_URL}/events/${itemToEdit.id}` : `${API_URL}/events`;
-        const method = itemToEdit ? 'PUT' : 'POST';
-        try {
-            const response = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(data) });
-            if (response.status === 401) { logout(); return; }
-            if (!response.ok) throw new Error('Failed to save event');
-            setEventDataVersion(v => v + 1);
-        } catch (error) {
-            console.error('Failed to save event:', error);
-            alert('Failed to save event.');
-        }
-    };
-    
     const triggerEventRefetch = useCallback(() => {
         setEventDataVersion(v => v + 1);
     }, []);
 
-    const value = {
+    const value: DataContextType = {
         contributions, campaigns, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users,
         donors, stallRegistrations, expenseHeads, festivalMap,
         fetchData,
-        handleContributionSubmit, handleSponsorSubmit, handleVendorSubmit, handleExpenseSubmit, handleQuotationSubmit,
-        handleBudgetSubmit, handleFestivalSubmit, handleTaskSubmit, handleEventSubmit, handleCampaignSubmit,
-        handleDeleteClick, handleRestore,
+        ...handlers,
         eventDataVersion,
         triggerEventRefetch,
         selectedCampaignId,

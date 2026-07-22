@@ -14,7 +14,7 @@ const connectionConfig = {
     user: process.env.PGUSER,
     password: process.env.PGPASSWORD, // Directly from .env
     database: process.env.PGDATABASE,
-    //options: '-c search_path=threemsc,public' 
+    options: '-c search_path=threemsc,public' 
 };
 
 // Environment-specific configuration
