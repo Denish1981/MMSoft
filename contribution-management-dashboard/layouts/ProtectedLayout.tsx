@@ -6,7 +6,7 @@ import Header from '../components/Header';
 import { useModal } from '../contexts/ModalContext';
 import { useData } from '../contexts/DataContext';
 
-import { ContributionModal } from '../components/DonationModal';
+import { ContributionModal } from '../components/ContributionModal';
 import { SponsorModal } from '../components/SponsorModal';
 import { VendorModal } from '../components/VendorModal';
 import { ExpenseModal } from '../components/ExpenseModal';

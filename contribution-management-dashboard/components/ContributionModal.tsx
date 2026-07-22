@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ContributionStatus, type Campaign, type Contribution, type ContributionType } from '../types/index';
+import { ContributionStatus, type Campaign, type Contribution } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
 import { CloseIcon } from './icons/CloseIcon';
-import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
+import { DonorFields } from './donation/DonorFields';
+import { ContributionFields } from './donation/ContributionFields';
+import { ImageUploadSection } from './donation/ImageUploadSection';
 
 interface ContributionModalProps {
     campaigns: Campaign[];
@@ -55,7 +57,6 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setImage(contributionToEdit.image);
             setImagePreview(contributionToEdit.image || null);
         } else {
-            // Reset form for new entry to prevent state leakage from a previous edit
             setDonorName('');
             setDonorEmail('');
             setMobileNumber('');
@@ -122,6 +123,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     };
     
     const isEditing = !!(contributionToEdit && contributionToEdit.id);
+    const isMiscellaneous = selectedDropdownType === 'Miscellaneous';
 
     return (
         <>
@@ -135,116 +137,44 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                         </button>
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">
-                                {selectedDropdownType === 'Miscellaneous' ? 'Name / Source' : 'Donor Name'}
-                            </label>
-                            <input type="text" id="donorName" value={donorName} onChange={e => setDonorName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="donorEmail" className="block text-sm font-medium text-slate-700">Donor Email (Optional)</label>
-                                <input type="email" id="donorEmail" value={donorEmail} onChange={e => setDonorEmail(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-                            </div>
-                            <div>
-                                <label htmlFor="mobileNumber" className="block text-sm font-medium text-slate-700">Mobile Number (Optional)</label>
-                                <input type="tel" id="mobileNumber" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-                            </div>
-                        </div>
-                        {selectedDropdownType !== 'Miscellaneous' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number</label>
-                                    <input type="text" id="towerNumber" value={towerNumber} onChange={e => setTowerNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
-                                </div>
-                                <div>
-                                    <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number</label>
-                                    <input type="text" id="flatNumber" value={flatNumber} onChange={e => setFlatNumber(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
-                                </div>
-                            </div>
-                        )}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="amount" className="block text-sm font-medium text-slate-700">Amount (₹)</label>
-                                <input type="number" id="amount" value={amount} onChange={e => setAmount(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required min="1" />
-                            </div>
-                            <div>
-                                <label htmlFor="contributionDate" className="block text-sm font-medium text-slate-700">Date</label>
-                                <input type="date" id="contributionDate" value={date} onChange={e => setDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required />
-                            </div>
-                        </div>
-                        <div className={`grid ${selectedDropdownType === 'Miscellaneous' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'} gap-4`}>
-                            {selectedDropdownType !== 'Miscellaneous' && (
-                                <div>
-                                    <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
-                                    <input type="number" id="numberOfCoupons" value={numberOfCoupons} onChange={e => setNumberOfCoupons(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required min="0" />
-                                </div>
-                            )}
-                            <div>
-                                <label htmlFor="type" className="block text-sm font-medium text-slate-700">Type</label>
-                                <select id="type" value={selectedDropdownType} onChange={e => setSelectedDropdownType(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                                    <option value="Online">Online</option>
-                                    <option value="Cash">Cash</option>
-                                    <option value="Donation Box">Donation Box</option>
-                                    <option value="Miscellaneous">Miscellaneous</option>
-                                    <option value="Other">Other...</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label htmlFor="status" className="block text-sm font-medium text-slate-700">Status</label>
-                                <select id="status" value={status} onChange={e => setStatus(e.target.value as ContributionStatus)} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                                    {Object.values(ContributionStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        {(selectedDropdownType === 'Other' || selectedDropdownType === 'Miscellaneous') && (
-                            <div>
-                                <label htmlFor="customType" className="block text-sm font-medium text-slate-700">
-                                    {selectedDropdownType === 'Miscellaneous' ? 'Specify Custom Income Type (Optional)' : 'Specify Custom Income Type'}
-                                </label>
-                                <input 
-                                    type="text" 
-                                    id="customType" 
-                                    value={customType} 
-                                    onChange={e => setCustomType(e.target.value)} 
-                                    placeholder={selectedDropdownType === 'Miscellaneous' ? "e.g., Stall Fee, Interest, Advertisement" : "e.g. Sponsorship, Sale of coupons, Tea Stall"} 
-                                    className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
-                                    required={selectedDropdownType === 'Other'} 
-                                />
-                            </div>
-                        )}
-                        <div>
-                            <label htmlFor="campaign" className="block text-sm font-medium text-slate-700">Campaign</label>
-                            <select id="campaign" value={campaignId || ''} onChange={e => setCampaignId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
-                                <option value="" disabled>Select a campaign</option>
-                                {campaigns.map(c => <option key={c.id} value={c.id}>{c.name} ({c.financialYear})</option>)}
-                            </select>
-                        </div>
+                        <DonorFields
+                            donorName={donorName}
+                            setDonorName={setDonorName}
+                            donorEmail={donorEmail}
+                            setDonorEmail={setDonorEmail}
+                            mobileNumber={mobileNumber}
+                            setMobileNumber={setMobileNumber}
+                            towerNumber={towerNumber}
+                            setTowerNumber={setTowerNumber}
+                            flatNumber={flatNumber}
+                            setFlatNumber={setFlatNumber}
+                            isMiscellaneous={isMiscellaneous}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Image (Optional)</label>
-                             <div className="mt-2 grid grid-cols-2 gap-4">
-                                <label htmlFor="imageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
-                                    Upload File
-                                    <input id="imageUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
-                                </label>
-                                <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
-                                    <CameraIcon className="w-5 h-5 mr-2" />
-                                    Capture Image
-                                </button>
-                            </div>
-                            {imagePreview && (
-                                <div className="mt-4">
-                                    <p className="text-sm font-medium text-slate-600 mb-2">Image Preview:</p>
-                                    <div className="relative">
-                                        <img src={imagePreview} alt="Contribution preview" className="max-h-40 rounded-md border border-slate-200 p-1" />
-                                         <button type="button" onClick={() => { setImage(undefined); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
-                                            <CloseIcon className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <ContributionFields
+                            amount={amount}
+                            setAmount={setAmount}
+                            date={date}
+                            setDate={setDate}
+                            numberOfCoupons={numberOfCoupons}
+                            setNumberOfCoupons={setNumberOfCoupons}
+                            selectedDropdownType={selectedDropdownType}
+                            setSelectedDropdownType={setSelectedDropdownType}
+                            customType={customType}
+                            setCustomType={setCustomType}
+                            status={status}
+                            setStatus={setStatus}
+                            campaignId={campaignId}
+                            setCampaignId={setCampaignId}
+                            campaigns={campaigns}
+                        />
+
+                        <ImageUploadSection
+                            imagePreview={imagePreview}
+                            onFileChange={handleFileChange}
+                            onOpenCamera={() => setIsCameraOpen(true)}
+                            onClearImage={() => { setImage(undefined); setImagePreview(null); }}
+                        />
 
                         <div className="flex justify-end pt-4 space-x-2">
                             <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition">Cancel</button>
