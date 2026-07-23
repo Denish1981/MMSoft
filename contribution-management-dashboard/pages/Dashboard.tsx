@@ -3,13 +3,23 @@ import SummaryCard from '../components/SummaryCard';
 import { ReceiptIcon } from '../components/icons/ReceiptIcon';
 import { CalculatorIcon } from '../components/icons/CalculatorIcon';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { ContributionStatus } from '../types/index';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { OutstandingPaymentsWidget } from '../components/dashboard/OutstandingPaymentsWidget';
 import { CarryForwardBalanceWidget } from '../components/dashboard/CarryForwardBalanceWidget';
+import { Clock, Check, X, ArrowRight, Building2, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-    const { contributions, campaigns, sponsors, expenses, vendors, festivals, selectedCampaignId, setSelectedCampaignId } = useData();
+    const { hasPermission } = useAuth();
+    const navigate = useNavigate();
+    const { 
+        contributions, campaigns, sponsors, expenses, vendors, festivals, 
+        selectedCampaignId, setSelectedCampaignId, handleApproveContribution, handleRejectContribution 
+    } = useData();
     const [selectedFestivalId, setSelectedFestivalId] = useState<string>('all');
+    const isManager = hasPermission('action:edit') || hasPermission('action:users:manage');
     
     // Auto-reset festival filter if campaign changes, or keep it if still valid
     const filteredFestivals = useMemo(() => {
@@ -18,11 +28,19 @@ const Dashboard: React.FC = () => {
         return festivals.filter(f => f.campaignId === campId);
     }, [festivals, selectedCampaignId]);
 
+    const pendingContributions = useMemo(() => {
+        return contributions.filter(c => c.status === ContributionStatus.Pending);
+    }, [contributions]);
+
+    const approvedContributions = useMemo(() => {
+        return contributions.filter(c => c.status === ContributionStatus.Completed || c.status === ContributionStatus.Approved);
+    }, [contributions]);
+
     const filteredContributions = useMemo(() => {
-        if (selectedCampaignId === 'all') return contributions;
+        if (selectedCampaignId === 'all') return approvedContributions;
         const campId = Number(selectedCampaignId);
-        return contributions.filter(c => c.campaignId === campId);
-    }, [contributions, selectedCampaignId]);
+        return approvedContributions.filter(c => c.campaignId === campId);
+    }, [approvedContributions, selectedCampaignId]);
 
     const filteredSponsors = useMemo(() => {
         if (selectedCampaignId === 'all') return sponsors;
@@ -154,6 +172,71 @@ const Dashboard: React.FC = () => {
                 setSelectedFestivalId={setSelectedFestivalId}
                 campaigns={campaigns}
             />
+
+            {/* Pending Contributions Widget for Managers */}
+            {isManager && pendingContributions.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-sm space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 bg-amber-500 text-white rounded-lg shadow-sm">
+                                <Clock className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900 text-base">
+                                    Pending Contributions Awaiting Approval ({pendingContributions.length})
+                                </h3>
+                                <p className="text-xs text-amber-800">
+                                    Review donor submissions before adding them to official contribution records.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/contributions?tab=pending')}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-200/80 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                        >
+                            View All Pending Queue <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                        {pendingContributions.slice(0, 3).map((c) => (
+                            <div key={c.id} className="bg-white p-3.5 rounded-lg border border-amber-200/80 shadow-sm flex flex-col justify-between space-y-2">
+                                <div>
+                                    <div className="flex justify-between items-start">
+                                        <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                            <User className="w-4 h-4 text-slate-400" /> {c.donorName}
+                                        </div>
+                                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                                            Pending
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" /> T-{c.towerNumber} / F-{c.flatNumber}
+                                    </div>
+                                    <div className="mt-2 text-emerald-700 font-extrabold text-lg">
+                                        ₹{Number(c.amount).toLocaleString()}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                                    <button
+                                        onClick={() => handleApproveContribution(c.id)}
+                                        className="flex-1 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-md shadow-sm transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <Check className="w-3.5 h-3.5" /> Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleRejectContribution(c.id)}
+                                        className="py-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-md border border-rose-200 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <X className="w-3.5 h-3.5" /> Reject
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <SummaryCard

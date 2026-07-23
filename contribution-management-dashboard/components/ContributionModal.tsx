@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type Campaign, type Contribution } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
+import { compressImageFile } from '../utils/imageUtils';
 import { CloseIcon } from './icons/CloseIcon';
 import CameraCapture from './CameraCapture';
 import { DonorFields } from './donation/DonorFields';
 import { ContributionFields } from './donation/ContributionFields';
 import { ImageUploadSection } from './donation/ImageUploadSection';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ContributionModalProps {
     campaigns: Campaign[];
@@ -15,6 +17,7 @@ interface ContributionModalProps {
 }
 
 export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns, contributionToEdit, onClose, onSubmit }) => {
+    const { user } = useAuth();
     const [donorName, setDonorName] = useState('');
     const [donorEmail, setDonorEmail] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
@@ -22,7 +25,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [flatNumber, setFlatNumber] = useState('');
     const [amount, setAmount] = useState('');
     const [numberOfCoupons, setNumberOfCoupons] = useState('');
-    const [campaignId, setCampaignId] = useState<number | null>(campaigns[0]?.id || null);
+    const defaultCampaignId = campaigns.find(c => c.isActive)?.id || campaigns[0]?.id || null;
+    const [campaignId, setCampaignId] = useState<number | null>(defaultCampaignId);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedDropdownType, setSelectedDropdownType] = useState<string>('Online');
     const [customType, setCustomType] = useState<string>('');
@@ -32,6 +36,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     useEffect(() => {
+        const activeCampId = campaigns.find(c => c.isActive)?.id || campaigns[0]?.id || null;
         if (contributionToEdit) {
             setDonorName(contributionToEdit.donorName || '');
             setDonorEmail(contributionToEdit.donorEmail || '');
@@ -40,7 +45,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setFlatNumber(contributionToEdit.flatNumber || '');
             setAmount(contributionToEdit.amount ? String(contributionToEdit.amount) : '');
             setNumberOfCoupons(contributionToEdit.numberOfCoupons ? String(contributionToEdit.numberOfCoupons) : '');
-            setCampaignId(contributionToEdit.campaignId || (campaigns[0]?.id || null));
+            setCampaignId(contributionToEdit.campaignId || activeCampId);
             setDate(formatDateForInput(contributionToEdit.date) || new Date().toISOString().split('T')[0]);
             const currentType = contributionToEdit.type || 'Online';
             if (['Online', 'Cash', 'Donation Box', 'Miscellaneous'].includes(currentType)) {
@@ -57,14 +62,14 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setImage(contributionToEdit.image);
             setImagePreview(contributionToEdit.image || null);
         } else {
-            setDonorName('');
-            setDonorEmail('');
-            setMobileNumber('');
-            setTowerNumber('');
-            setFlatNumber('');
+            setDonorName(user?.fullName || user?.email || '');
+            setDonorEmail(user?.email || '');
+            setMobileNumber(user?.mobileNumber || '');
+            setTowerNumber(user?.towerNumber || '');
+            setFlatNumber(user?.flatNumber || '');
             setAmount('');
             setNumberOfCoupons('');
-            setCampaignId(campaigns[0]?.id || null);
+            setCampaignId(activeCampId);
             setDate(new Date().toISOString().split('T')[0]);
             setSelectedDropdownType('Online');
             setCustomType('');
@@ -72,19 +77,21 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setImage(undefined);
             setImagePreview(null);
         }
-    }, [contributionToEdit, campaigns]);
+    }, [contributionToEdit]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
-                setImage(base64String);
-                setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            try {
+                const compressedString = await compressImageFile(file);
+                setImage(compressedString);
+                setImagePreview(compressedString);
+            } catch (err) {
+                console.error("Error compressing image file:", err);
+                alert("Failed to process image file. Please try selecting a different image.");
+            }
         }
+        e.target.value = '';
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {
@@ -124,6 +131,11 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     
     const isEditing = !!(contributionToEdit && contributionToEdit.id);
     const isMiscellaneous = selectedDropdownType === 'Miscellaneous';
+    const isDonorUser = Boolean(user && !user.permissions?.includes('action:users:manage'));
+
+    const disabledDonorName = isDonorUser && Boolean(donorName);
+    const disabledTowerNumber = isDonorUser && Boolean(towerNumber);
+    const disabledFlatNumber = isDonorUser && Boolean(flatNumber);
 
     return (
         <>
@@ -149,6 +161,9 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                             flatNumber={flatNumber}
                             setFlatNumber={setFlatNumber}
                             isMiscellaneous={isMiscellaneous}
+                            disabledDonorName={disabledDonorName}
+                            disabledTowerNumber={disabledTowerNumber}
+                            disabledFlatNumber={disabledFlatNumber}
                         />
 
                         <ContributionFields

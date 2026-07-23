@@ -190,4 +190,13 @@ router.get('/public/albums/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to fetch album details' }); }
 });
 
+router.get('/public/campaigns', async (req, res) => {
+    try {
+        const { rows } = await db.query(`SELECT id, name, financial_year AS "financialYear", goal, description, is_active AS "isActive" FROM campaigns WHERE deleted_at IS NULL ORDER BY financial_year DESC, name ASC`);
+        res.json(rows.map(c => ({ ...c, goal: parseFloat(c.goal), isActive: Boolean(c.isActive) })));
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch campaigns' });
+    }
+});
+
 module.exports = router;

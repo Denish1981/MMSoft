@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Festival as PublicFestival, StallRegistrationProduct } from '../types/index';
 import { API_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
+import { compressImageFile } from '../utils/imageUtils';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
@@ -14,8 +16,20 @@ interface StallRegistrationModalProps {
 }
 
 const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festival, onClose }) => {
-    const [registrantName, setRegistrantName] = useState('');
-    const [contactNumber, setContactNumber] = useState('');
+    const { user } = useAuth();
+    const [registrantName, setRegistrantName] = useState(user?.fullName || '');
+    const [contactNumber, setContactNumber] = useState(user?.mobileNumber || '');
+    const [towerNumber, setTowerNumber] = useState(user?.towerNumber || '');
+    const [flatNumber, setFlatNumber] = useState(user?.flatNumber || '');
+
+    useEffect(() => {
+        if (user) {
+            if (user.fullName) setRegistrantName(user.fullName);
+            if (user.mobileNumber) setContactNumber(user.mobileNumber);
+            if (user.towerNumber) setTowerNumber(user.towerNumber);
+            if (user.flatNumber) setFlatNumber(user.flatNumber);
+        }
+    }, [user]);
     const [selectedDates, setSelectedDates] = useState<string[]>([]);
     const [dateToAdd, setDateToAdd] = useState('');
     const [products, setProducts] = useState<Partial<StallRegistrationProduct>[]>([{ productName: '', price: undefined }]);
@@ -64,17 +78,18 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
     const addProduct = () => setProducts([...products, { productName: '', price: undefined }]);
     const removeProduct = (index: number) => setProducts(products.filter((_, i) => i !== index));
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
+            try {
+                const base64String = await compressImageFile(file);
                 setPaymentScreenshot(base64String);
                 setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error compressing payment screenshot:", err);
+            }
         }
+        e.target.value = '';
     };
     
     const handleCaptureComplete = (imageDataUrl: string) => {
@@ -109,7 +124,7 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    registrantName, contactNumber, stallDates: selectedDates, 
+                    registrantName, contactNumber, towerNumber, flatNumber, stallDates: selectedDates, 
                     products: finalProducts, needsElectricity, numberOfTables, paymentScreenshot,
                 }),
             });
@@ -146,19 +161,27 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
                             {/* Personal Details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="registrantName" className="block text-sm font-medium text-slate-700">Full Name</label>
+                                    <label htmlFor="registrantName" className="block text-sm font-medium text-slate-700">Full Name *</label>
                                     <input type="text" id="registrantName" value={registrantName} onChange={e => setRegistrantName(e.target.value)} required className="mt-1 block w-full input-style" />
                                 </div>
                                 <div>
-                                    <label htmlFor="contactNumber" className="block text-sm font-medium text-slate-700">Contact Number</label>
+                                    <label htmlFor="contactNumber" className="block text-sm font-medium text-slate-700">Contact Number *</label>
                                     <input type="tel" id="contactNumber" value={contactNumber} onChange={e => setContactNumber(e.target.value)} required className="mt-1 block w-full input-style" />
+                                </div>
+                                <div>
+                                    <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number</label>
+                                    <input type="text" id="towerNumber" value={towerNumber} onChange={e => setTowerNumber(e.target.value)} className="mt-1 block w-full input-style" />
+                                </div>
+                                <div>
+                                    <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number</label>
+                                    <input type="text" id="flatNumber" value={flatNumber} onChange={e => setFlatNumber(e.target.value)} className="mt-1 block w-full input-style" />
                                 </div>
                             </div>
                             {/* Stall Dates */}
                             <div>
                                 <label htmlFor="stallDate" className="block text-sm font-medium text-slate-700">Select Stall Dates</label>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <input type="date" id="stallDate" value={dateToAdd} onChange={e => setDateToAdd(e.target.value)} min={festival.stallStartDate} max={festival.stallEndDate} className="block w-full input-style" />
+                                    <input type="date" id="stallDate" value={dateToAdd} onChange={e => setDateToAdd(e.target.value)} min={festival.stallStartDate || undefined} max={festival.stallEndDate || undefined} className="block w-full input-style" />
                                     <button type="button" onClick={handleAddDate} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold">Add</button>
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-2 empty:mt-0">

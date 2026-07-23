@@ -12,6 +12,9 @@ interface DonorFieldsProps {
     flatNumber: string;
     setFlatNumber: (val: string) => void;
     isMiscellaneous: boolean;
+    disabledDonorName?: boolean;
+    disabledTowerNumber?: boolean;
+    disabledFlatNumber?: boolean;
 }
 
 export const DonorFields: React.FC<DonorFieldsProps> = ({
@@ -26,7 +29,13 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
     flatNumber,
     setFlatNumber,
     isMiscellaneous,
+    disabledDonorName = false,
+    disabledTowerNumber = false,
+    disabledFlatNumber = false,
 }) => {
+    const baseInputClass = "mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500";
+    const disabledInputClass = "bg-slate-100 text-slate-600 cursor-not-allowed";
+
     return (
         <div className="space-y-4">
             <div>
@@ -38,7 +47,9 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
                     id="donorName" 
                     value={donorName} 
                     onChange={e => setDonorName(e.target.value)} 
-                    className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                    disabled={disabledDonorName}
+                    readOnly={disabledDonorName}
+                    className={`${baseInputClass} ${disabledDonorName ? disabledInputClass : ''}`} 
                     required 
                 />
             </div>
@@ -50,7 +61,7 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
                         id="donorEmail" 
                         value={donorEmail} 
                         onChange={e => setDonorEmail(e.target.value)} 
-                        className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                        className={baseInputClass} 
                     />
                 </div>
                 <div>
@@ -60,7 +71,7 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
                         id="mobileNumber" 
                         value={mobileNumber} 
                         onChange={e => setMobileNumber(e.target.value)} 
-                        className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                        className={baseInputClass} 
                     />
                 </div>
             </div>
@@ -73,7 +84,9 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
                             id="towerNumber" 
                             value={towerNumber} 
                             onChange={e => setTowerNumber(e.target.value)} 
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                            disabled={disabledTowerNumber}
+                            readOnly={disabledTowerNumber}
+                            className={`${baseInputClass} ${disabledTowerNumber ? disabledInputClass : ''}`} 
                             required 
                         />
                     </div>
@@ -84,7 +97,9 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
                             id="flatNumber" 
                             value={flatNumber} 
                             onChange={e => setFlatNumber(e.target.value)} 
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                            disabled={disabledFlatNumber}
+                            readOnly={disabledFlatNumber}
+                            className={`${baseInputClass} ${disabledFlatNumber ? disabledInputClass : ''}`} 
                             required 
                         />
                     </div>

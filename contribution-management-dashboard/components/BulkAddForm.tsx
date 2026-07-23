@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type StagedContribution } from '../types/index';
+import { compressImageFile } from '../utils/imageUtils';
 import { PlusIcon } from './icons/PlusIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import { CloseIcon } from './icons/CloseIcon';
@@ -34,7 +35,8 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
 
     useEffect(() => {
         if (campaigns.length > 0 && !formData.campaignId) {
-            setFormData(prev => ({ ...prev, campaignId: campaigns[0]?.id || null }));
+            const activeCamp = campaigns.find(c => c.isActive) || campaigns[0];
+            setFormData(prev => ({ ...prev, campaignId: activeCamp?.id || null }));
         }
     }, [campaigns, formData.campaignId]);
 
@@ -48,17 +50,18 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
         }));
     };
     
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
+            try {
+                const base64String = await compressImageFile(file);
                 setFormData((prev: StagedContribution) => ({ ...prev, image: base64String }));
                 setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error processing image file:", err);
+            }
         }
+        e.target.value = '';
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {

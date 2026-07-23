@@ -17,6 +17,8 @@ export interface DataContextType {
     festivalMap: Map<number, string>;
     fetchData: () => Promise<void>;
     handleContributionSubmit: (data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Contribution | null) => void;
+    handleApproveContribution: (id: number) => Promise<void>;
+    handleRejectContribution: (id: number) => Promise<void>;
     handleSponsorSubmit: (data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => void;
     handleVendorSubmit: (data: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Vendor | null) => void;
     handleExpenseSubmit: (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'amountPaid' | 'outstandingAmount'>, itemToEdit: Expense | null) => void;

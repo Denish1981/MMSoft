@@ -41,7 +41,7 @@ const ROLES_CONFIG = {
         'page:donor-portal:view'
     ],
     'Donor': [
-        //'page:dashboard:view', 'page:contributions:view', 'page:events:view', 'page:festivals:view', 'page:donor-portal:view',
+        //'page:dashboard:view', 'page:contributions:view', 'page:campaigns:view', 'page:events:view', 'page:festivals:view', 'page:donor-portal:view',
         'page:donor-portal:view',
         'action:create'
     ]

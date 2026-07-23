@@ -13,7 +13,11 @@ router.get('/', authMiddleware, permissionMiddleware('page:contributions:view'),
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image, status } = req.body;
-    const contributionStatus = status || 'Completed';
+    
+    // Check if creator is Manager or Admin (has action:edit or action:users:manage)
+    const isManagerOrAdmin = req.user && req.user.permissions && (req.user.permissions.includes('action:edit') || req.user.permissions.includes('action:users:manage'));
+    const contributionStatus = isManagerOrAdmin ? (status || 'Completed') : 'Pending';
+
     const contributionDate = date || new Date().toISOString();
     const dbCampaignId = campaignId || null;
     const userId = req.user ? req.user.id : null;
@@ -86,6 +90,74 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
         await client.query('ROLLBACK');
         console.error("Update contribution error:", err)
         res.status(500).json({ error: 'Failed to update contribution' }); 
+    } finally { client.release(); }
+});
+
+router.put('/:id/approve', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { id } = req.params;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const oldDataRes = await client.query('SELECT * FROM contributions WHERE id=$1 FOR UPDATE', [id]);
+        if (oldDataRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Contribution not found' });
+        }
+
+        const result = await client.query(
+            `UPDATE contributions SET status='Completed', updated_at=NOW() WHERE id=$1 
+             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", 
+                       tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", 
+                       campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
+            [id]
+        );
+
+        await logChanges(client, {
+            historyTable: 'contributions_history', recordId: id, changedByUserId: req.user.id,
+            oldData: oldDataRes.rows[0], newData: { ...oldDataRes.rows[0], status: 'Completed' },
+            fieldMapping: { status: 'status' }
+        });
+
+        await client.query('COMMIT');
+        res.json(result.rows[0]);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Approve contribution error:", err);
+        res.status(500).json({ error: 'Failed to approve contribution' });
+    } finally { client.release(); }
+});
+
+router.put('/:id/reject', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { id } = req.params;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const oldDataRes = await client.query('SELECT * FROM contributions WHERE id=$1 FOR UPDATE', [id]);
+        if (oldDataRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Contribution not found' });
+        }
+
+        const result = await client.query(
+            `UPDATE contributions SET status='Failed', updated_at=NOW() WHERE id=$1 
+             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", 
+                       tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", 
+                       campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
+            [id]
+        );
+
+        await logChanges(client, {
+            historyTable: 'contributions_history', recordId: id, changedByUserId: req.user.id,
+            oldData: oldDataRes.rows[0], newData: { ...oldDataRes.rows[0], status: 'Failed' },
+            fieldMapping: { status: 'status' }
+        });
+
+        await client.query('COMMIT');
+        res.json(result.rows[0]);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error("Reject contribution error:", err);
+        res.status(500).json({ error: 'Failed to reject contribution' });
     } finally { client.release(); }
 });
 

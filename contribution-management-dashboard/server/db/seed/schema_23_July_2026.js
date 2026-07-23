@@ -64,13 +64,11 @@ const applySchema = async (client) => {
             financial_year VARCHAR(20),
             goal NUMERIC(15, 2) NOT NULL,
             description TEXT,
-            is_active BOOLEAN DEFAULT false,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
         )`,
         `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS financial_year VARCHAR(20)`,
-        `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false`,
         `CREATE TABLE IF NOT EXISTS contributions (
             id SERIAL PRIMARY KEY,
             donor_name VARCHAR(255) NOT NULL,
@@ -251,8 +249,6 @@ const applySchema = async (client) => {
             festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,
             registrant_name VARCHAR(255) NOT NULL,
             contact_number VARCHAR(20) NOT NULL,
-            tower_number VARCHAR(50),
-            flat_number VARCHAR(50),
             stall_dates DATE[] NOT NULL,
             products JSONB,
             needs_electricity BOOLEAN DEFAULT false,
@@ -288,8 +284,6 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
-    await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50);');
-    await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS stall_registration_id INTEGER REFERENCES stall_registrations(id) ON DELETE CASCADE;');
 };

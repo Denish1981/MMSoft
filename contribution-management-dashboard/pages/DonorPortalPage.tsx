@@ -67,6 +67,7 @@ const DonorPortalPage: React.FC = () => {
     const [stallRegistrations, setStallRegistrations] = useState<StallRegistrationItem[]>([]);
     const [eventRegistrations, setEventRegistrations] = useState<EventRegistrationItem[]>([]);
     const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
 
     const fetchPortalData = useCallback(async () => {
         if (!token) return;
@@ -105,7 +106,9 @@ const DonorPortalPage: React.FC = () => {
     const approvedStalls = stallRegistrations.filter(s => s.status === 'Approved');
     const rejectedStalls = stallRegistrations.filter(s => s.status === 'Rejected');
 
-    const totalDonated = contributions.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+    const totalDonated = contributions
+        .filter(c => c.status === 'Completed' || c.status === 'Approved')
+        .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -394,6 +397,7 @@ const DonorPortalPage: React.FC = () => {
                                                 <th className="p-3">Amount</th>
                                                 <th className="p-3">Coupons</th>
                                                 <th className="p-3">Date</th>
+                                                <th className="p-3">Proof</th>
                                                 <th className="p-3">Status</th>
                                             </tr>
                                         </thead>
@@ -409,8 +413,25 @@ const DonorPortalPage: React.FC = () => {
                                                         {new Date(c.date).toLocaleDateString()}
                                                     </td>
                                                     <td className="p-3">
-                                                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                                                            {c.status || 'Completed'}
+                                                        {c.image ? (
+                                                            <button
+                                                                onClick={() => setViewingImage(c.image!)}
+                                                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors"
+                                                            >
+                                                                <img src={c.image} alt="Proof thumbnail" className="w-5 h-5 rounded object-cover" />
+                                                                View Proof
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-400">None</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                                            c.status === 'Pending' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                                            c.status === 'Failed' || c.status === 'Rejected' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                                                            'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        }`}>
+                                                            {c.status === 'Pending' ? 'Pending Approval' : c.status === 'Failed' || c.status === 'Rejected' ? 'Rejected' : 'Approved'}
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -489,6 +510,22 @@ const DonorPortalPage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {viewingImage && (
+                <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4" onClick={() => setViewingImage(null)}>
+                    <div className="relative max-w-2xl w-full bg-white rounded-2xl p-4 overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center pb-3 mb-3 border-b border-slate-200">
+                            <h3 className="font-bold text-slate-800 text-sm">Payment Proof / Receipt</h3>
+                            <button onClick={() => setViewingImage(null)} className="text-slate-400 hover:text-slate-600 font-bold text-sm bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center">
+                                ✕
+                            </button>
+                        </div>
+                        <div className="max-h-[75vh] overflow-auto flex justify-center bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <img src={viewingImage} alt="Contribution payment proof" className="max-h-[70vh] object-contain rounded-lg shadow-sm" />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

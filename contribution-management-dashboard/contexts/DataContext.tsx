@@ -71,6 +71,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchData();
     }, [fetchData]);
 
+    useEffect(() => {
+        if (campaigns.length > 0) {
+            const active = campaigns.find(c => c.isActive);
+            if (active && selectedCampaignId === 'all') {
+                setSelectedCampaignId(String(active.id));
+            }
+        }
+    }, [campaigns]);
+
     const { donors, expenseHeads, festivalMap } = useDerivedData(contributions, expenses, festivals);
 
     const handlers = useDataHandlers({

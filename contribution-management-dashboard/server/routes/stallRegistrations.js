@@ -7,6 +7,7 @@ const router = express.Router();
 // Get all stall registrations
 router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
     try {
+        await db.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50), ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
         const { rows } = await db.query(`
             SELECT 
                 sr.id, sr.festival_id as "festivalId", sr.registrant_name as "registrantName", sr.contact_number as "contactNumber",

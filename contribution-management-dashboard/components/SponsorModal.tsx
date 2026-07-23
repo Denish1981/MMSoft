@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Sponsor } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
+import { compressImageFile } from '../utils/imageUtils';
 import { CloseIcon } from './icons/CloseIcon';
 import { CameraIcon } from './icons/CameraIcon';
 import CameraCapture from './CameraCapture';
@@ -55,25 +56,27 @@ export const SponsorModal: React.FC<SponsorModalProps> = ({ sponsorToEdit, onClo
             setBusinessInfo('');
             setSponsorshipAmount('');
             setSponsorshipType('');
-            setCampaignId('');
+            const activeCamp = campaigns.find(c => c.isActive);
+            setCampaignId(activeCamp ? activeCamp.id : (campaigns[0]?.id || ''));
             setDatePaid(new Date().toISOString().split('T')[0]);
             setPaymentReceivedBy('');
             setImage(undefined);
             setImagePreview(null);
         }
-    }, [sponsorToEdit]);
+    }, [sponsorToEdit, campaigns]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
+            try {
+                const base64String = await compressImageFile(file);
                 setImage(base64String);
                 setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error compressing image:", err);
+            }
         }
+        e.target.value = '';
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {

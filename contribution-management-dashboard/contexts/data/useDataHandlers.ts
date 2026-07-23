@@ -113,6 +113,44 @@ export function useDataHandlers({
         else handleAdd(`${API_URL}/contributions`, data, setContributions);
     }, [handleUpdate, handleAdd, setContributions]);
 
+    const handleApproveContribution = useCallback(async (id: number) => {
+        try {
+            const headers = getAuthHeaders();
+            const response = await fetch(`${API_URL}/contributions/${id}/approve`, {
+                method: 'PUT',
+                headers,
+            });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to approve contribution');
+            }
+            await fetchData();
+        } catch (error) {
+            console.error('Approve contribution error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to approve contribution');
+        }
+    }, [getAuthHeaders, logout, fetchData]);
+
+    const handleRejectContribution = useCallback(async (id: number) => {
+        try {
+            const headers = getAuthHeaders();
+            const response = await fetch(`${API_URL}/contributions/${id}/reject`, {
+                method: 'PUT',
+                headers,
+            });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to reject contribution');
+            }
+            await fetchData();
+        } catch (error) {
+            console.error('Reject contribution error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to reject contribution');
+        }
+    }, [getAuthHeaders, logout, fetchData]);
+
     const handleSponsorSubmit = useCallback((data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => {
         if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
         else handleAdd(`${API_URL}/sponsors`, data, setSponsors);
@@ -224,6 +262,8 @@ export function useDataHandlers({
         handleDeleteClick,
         handleRestore,
         handleContributionSubmit,
+        handleApproveContribution,
+        handleRejectContribution,
         handleSponsorSubmit,
         handleVendorSubmit,
         handleExpenseSubmit,

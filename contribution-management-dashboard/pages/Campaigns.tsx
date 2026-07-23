@@ -27,7 +27,14 @@ const Campaigns: React.FC = () => {
                 <div key={c.id} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800">{c.name}</h3>
+                            <div className="flex items-center space-x-2">
+                                <h3 className="text-xl font-bold text-slate-800">{c.name}</h3>
+                                {c.isActive && (
+                                    <span className="text-xs font-bold bg-green-100 text-green-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-green-200">
+                                        Active
+                                    </span>
+                                )}
+                            </div>
                             <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase tracking-wider">{c.financialYear}</span>
                         </div>
                     </div>

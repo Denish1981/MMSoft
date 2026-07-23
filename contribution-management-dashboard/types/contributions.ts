@@ -1,5 +1,6 @@
 export enum ContributionStatus {
   Completed = 'Completed',
+  Approved = 'Approved',
   Pending = 'Pending',
   Failed = 'Failed',
 }
@@ -11,7 +12,8 @@ export interface Campaign {
   name: string;
   financialYear: string;
   goal: number;
-  description:string;
+  description: string;
+  isActive?: boolean;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;

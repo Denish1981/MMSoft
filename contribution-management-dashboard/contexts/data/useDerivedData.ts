@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Contribution, Expense, Festival, Donor } from '../../types/index';
+import { ContributionStatus } from '../../types/index';
 
 export function useDerivedData(
     contributions: Contribution[],
@@ -9,7 +10,7 @@ export function useDerivedData(
     const donors = useMemo((): Donor[] => {
         const donorMap = new Map<string, Donor>();
         [...contributions].reverse().forEach(contribution => {
-            if (!contribution || !contribution.donorName || !contribution.towerNumber || !contribution.flatNumber) return;
+            if (!contribution || (contribution.status !== ContributionStatus.Completed && contribution.status !== ContributionStatus.Approved) || !contribution.donorName || !contribution.towerNumber || !contribution.flatNumber) return;
             const donorId = `${contribution.donorName.toLowerCase().replace(/\s/g, '-')}-${contribution.towerNumber}-${contribution.flatNumber}`;
             let donor = donorMap.get(donorId);
             if (!donor) {

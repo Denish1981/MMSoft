@@ -43,7 +43,8 @@ export const FestivalModal: React.FC<FestivalModalProps> = ({ festivalToEdit, ca
             setDescription('');
             setStartDate('');
             setEndDate('');
-            setCampaignId(campaigns[0]?.id || null);
+            const activeCamp = campaigns.find(c => c.isActive) || campaigns[0];
+            setCampaignId(activeCamp?.id || null);
             setStallPricePerTablePerDay('');
             setStallElectricityCostPerDay('');
             setStallStartDate('');

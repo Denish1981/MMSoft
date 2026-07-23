@@ -14,6 +14,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({ campaignToEdit, ca
     const [goal, setGoal] = useState('');
     const [description, setDescription] = useState('');
     const [financialYear, setFinancialYear] = useState('');
+    const [isActive, setIsActive] = useState(false);
     const [sourceCampaignId, setSourceCampaignId] = useState<string>('');
 
     const isEditing = !!campaignToEdit;
@@ -34,13 +35,15 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({ campaignToEdit, ca
             setGoal(String(campaignToEdit.goal));
             setDescription(campaignToEdit.description);
             setFinancialYear(campaignToEdit.financialYear || financialYears[1]); // Default to current FY if missing
+            setIsActive(Boolean(campaignToEdit.isActive));
         } else {
             setName('');
             setGoal('');
             setDescription('');
             setFinancialYear(financialYears[1]); // Current FY
+            setIsActive(campaigns.length === 0);
         }
-    }, [campaignToEdit, financialYears]);
+    }, [campaignToEdit, financialYears, campaigns]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,6 +56,7 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({ campaignToEdit, ca
             goal: parseFloat(goal),
             description,
             financialYear,
+            isActive,
             sourceCampaignId: sourceCampaignId ? parseInt(sourceCampaignId) : undefined,
         });
     };
@@ -113,6 +117,18 @@ export const CampaignModal: React.FC<CampaignModalProps> = ({ campaignToEdit, ca
                     <div>
                         <label htmlFor="description" className="block text-sm font-medium text-slate-700">Description</label>
                         <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={4} className="mt-1 block w-full input-style" required />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                        <input
+                            type="checkbox"
+                            id="isActive"
+                            checked={isActive}
+                            onChange={e => setIsActive(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                        />
+                        <label htmlFor="isActive" className="text-sm font-medium text-slate-700 cursor-pointer">
+                            Active Campaign (Default entry in selection dropdowns)
+                        </label>
                     </div>
                     <div className="flex justify-end pt-4 space-x-2">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition">Cancel</button>
