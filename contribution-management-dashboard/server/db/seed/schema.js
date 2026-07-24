@@ -292,6 +292,22 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS stall_registration_id INTEGER REFERENCES stall_registrations(id) ON DELETE CASCADE;');
+
+    // Performance Indexes
+    await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_deleted_status_date ON contributions (deleted_at, status, date DESC);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_campaign ON contributions (campaign_id) WHERE deleted_at IS NULL;');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_stall_reg ON contributions (stall_registration_id) WHERE deleted_at IS NULL;');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions (token, expires_at);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_expenses_deleted_date ON expenses (deleted_at, bill_date DESC);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_expense_payments_expense ON expense_payments (expense_id) WHERE deleted_at IS NULL;');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_expense_images_expense ON expense_images (expense_id);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_sponsors_deleted ON sponsors (deleted_at);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_quotations_deleted ON quotations (deleted_at);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_festivals_deleted ON festivals (deleted_at);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks (deleted_at);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_stall_registrations_status ON stall_registrations (status, submitted_at DESC);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_user_roles_user ON user_roles (user_id);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions (role_id);');
 };
 
 module.exports = { applySchema };

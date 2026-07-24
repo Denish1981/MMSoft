@@ -6,14 +6,27 @@ const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:quotations:view'), async (req, res) => {
     try {
-        const quotationsResult = await db.query('SELECT id, quotation_for AS "quotationFor", vendor_id AS "vendorId", cost, date, festival_id as "festivalId", created_at AS "createdAt", updated_at AS "updatedAt" FROM quotations WHERE deleted_at IS NULL ORDER BY date DESC');
-        const quotations = quotationsResult.rows;
-        for (const quote of quotations) {
-            const imagesResult = await db.query('SELECT image_data FROM quotation_images WHERE quotation_id = $1', [quote.id]);
-            quote.quotationImages = imagesResult.rows.map(row => row.image_data);
-        }
-        res.json(quotations);
-    } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
+        const query = `
+            SELECT 
+                q.id, q.quotation_for AS "quotationFor", q.vendor_id AS "vendorId", q.cost, q.date, 
+                q.festival_id AS "festivalId", q.created_at AS "createdAt", q.updated_at AS "updatedAt",
+                COALESCE(
+                    (
+                        SELECT json_agg(qi.image_data)
+                        FROM quotation_images qi
+                        WHERE qi.quotation_id = q.id
+                    ), '[]'::json
+                ) AS "quotationImages"
+            FROM quotations q
+            WHERE q.deleted_at IS NULL
+            ORDER BY q.date DESC
+        `;
+        const { rows } = await db.query(query);
+        res.json(rows);
+    } catch (err) { 
+        console.error('Error fetching quotations:', err);
+        res.status(500).json({ error: 'Internal server error' }); 
+    }
 });
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {

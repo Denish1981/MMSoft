@@ -100,7 +100,7 @@ const LoginPage: React.FC = () => {
                 <div className="text-center">
                     <h1 className="text-3xl font-bold text-slate-800 tracking-wider">Contribution OS</h1>
                     <p className="mt-2 text-slate-500 text-sm">
-                        {mode === 'login' ? 'Sign in to access your portal & updates' : 'Register as a donor user'}
+                        {mode === 'login' ? 'Sign in to access your portal & updates' : 'Register as a member user'}
                     </p>
                 </div>
 
@@ -122,7 +122,7 @@ const LoginPage: React.FC = () => {
                             mode === 'register' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                     >
-                        Donor Registration
+                        Member Registration
                     </button>
                 </div>
 

@@ -1,5 +1,7 @@
 const db = require('../db');
 
+const sessionCache = new Map();
+
 const getUserPermissions = async (userId) => {
     const { rows } = await db.query(
         `SELECT DISTINCT p.name FROM permissions p
@@ -18,22 +20,42 @@ const authMiddleware = async (req, res, next) => {
     }
     const token = authHeader.split(' ')[1];
 
-    const sessionRes = await db.query('SELECT user_id FROM user_sessions WHERE token = $1 AND expires_at > NOW()', [token]);
-    if (sessionRes.rows.length === 0) {
-        return res.status(401).json({ message: 'Authentication failed: Invalid or expired token.' });
+    const now = Date.now();
+    const cached = sessionCache.get(token);
+    if (cached && cached.expires > now) {
+        req.user = cached.user;
+        return next();
     }
-    const userId = sessionRes.rows[0].user_id;
 
-    const userRes = await db.query('SELECT id, username FROM users WHERE id = $1', [userId]);
-    if (userRes.rows.length === 0) {
-        return res.status(401).json({ message: 'Authentication failed: User not found.' });
+    try {
+        const { rows } = await db.query(
+            `SELECT u.id, u.username, ARRAY_AGG(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL) AS permissions
+             FROM user_sessions s
+             JOIN users u ON u.id = s.user_id
+             LEFT JOIN user_roles ur ON ur.user_id = u.id
+             LEFT JOIN role_permissions rp ON rp.role_id = ur.role_id
+             LEFT JOIN permissions p ON p.id = rp.permission_id
+             WHERE s.token = $1 AND s.expires_at > NOW()
+             GROUP BY u.id, u.username`,
+            [token]
+        );
+
+        if (rows.length === 0) {
+            sessionCache.delete(token);
+            return res.status(401).json({ message: 'Authentication failed: Invalid or expired token.' });
+        }
+
+        const user = rows[0];
+        const userObj = { id: user.id, email: user.username, permissions: user.permissions || [] };
+
+        sessionCache.set(token, { user: userObj, expires: now + 30000 });
+
+        req.user = userObj;
+        next();
+    } catch (err) {
+        console.error('Auth middleware error:', err);
+        return res.status(500).json({ message: 'Internal server error during authentication.' });
     }
-    
-    const user = userRes.rows[0];
-    const permissions = await getUserPermissions(userId);
-    
-    req.user = { id: user.id, email: user.username, permissions };
-    next();
 };
 
 const permissionMiddleware = (permission) => (req, res, next) => {

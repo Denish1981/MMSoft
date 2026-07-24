@@ -7,14 +7,15 @@ const router = express.Router();
 // Get all stall registrations
 router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
     try {
-        await db.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50), ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
         const { rows } = await db.query(`
             SELECT 
                 sr.id, sr.festival_id as "festivalId", sr.registrant_name as "registrantName", sr.contact_number as "contactNumber",
                 sr.tower_number as "towerNumber", sr.flat_number as "flatNumber",
                 sr.stall_dates::TEXT[] as "stallDates", sr.products,
                 sr.needs_electricity as "needsElectricity", sr.number_of_tables as "numberOfTables",
-                sr.total_payment as "totalPayment", sr.payment_screenshot as "paymentScreenshot", sr.submitted_at as "submittedAt",
+                sr.total_payment as "totalPayment", 
+                CASE WHEN sr.payment_screenshot IS NOT NULL AND sr.payment_screenshot != '' THEN CONCAT('/api/stall-registrations/', sr.id, '/image') ELSE NULL END as "paymentScreenshot",
+                sr.submitted_at as "submittedAt",
                 sr.status, sr.rejection_reason as "rejectionReason", sr.reviewed_at as "reviewedAt", u.username as "reviewedBy"
             FROM stall_registrations sr
             LEFT JOIN users u ON sr.reviewed_by_user_id = u.id
@@ -23,6 +24,30 @@ router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), asy
         res.json(rows);
     } catch (err) {
         console.error('Error fetching all stall registrations:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+router.get('/:id/image', authMiddleware, async (req, res) => {
+    try {
+        const { rows } = await db.query('SELECT payment_screenshot FROM stall_registrations WHERE id = $1', [req.params.id]);
+        if (rows.length === 0 || !rows[0].payment_screenshot) {
+            return res.status(404).json({ error: 'Image not found' });
+        }
+        const img = rows[0].payment_screenshot;
+        if (typeof img === 'string' && img.startsWith('data:')) {
+            const matches = img.match(/^data:(.+);base64,(.+)$/);
+            if (matches) {
+                const contentType = matches[1];
+                const buffer = Buffer.from(matches[2], 'base64');
+                res.setHeader('Content-Type', contentType);
+                res.setHeader('Cache-Control', 'public, max-age=86400');
+                return res.send(buffer);
+            }
+        }
+        res.json({ image: img });
+    } catch (err) {
+        console.error('Error serving stall registration image:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

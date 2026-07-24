@@ -6,21 +6,55 @@ const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:expenses:view'), async (req, res) => {
     try {
-        const expensesResult = await db.query('SELECT id, name, vendor_id AS "vendorId", total_cost, bill_date AS "billDate", expense_head AS "expenseHead", expense_by AS "expenseBy", festival_id as "festivalId", has_multiple_payments as "hasMultiplePayments", created_at AS "createdAt", updated_at AS "updatedAt" FROM expenses WHERE deleted_at IS NULL ORDER BY bill_date DESC');
-        const expenses = expensesResult.rows.map(e => ({ ...e, totalCost: parseFloat(e.total_cost) }));
-
-        for (const expense of expenses) {
-            const paymentsResult = await db.query(
-                'SELECT id, amount, payment_date AS "paymentDate", payment_method AS "paymentMethod", notes, image_data as "image", expense_id as "expenseId", created_at as "createdAt", updated_at as "updatedAt" FROM expense_payments WHERE expense_id = $1 AND deleted_at IS NULL ORDER BY payment_date ASC',
-                [expense.id]
-            );
-            expense.payments = paymentsResult.rows.map(p => ({ ...p, amount: parseFloat(p.amount) }));
-            expense.amountPaid = expense.payments.reduce((sum, p) => sum + p.amount, 0);
-            expense.outstandingAmount = expense.totalCost - expense.amountPaid;
-
-            const imagesResult = await db.query('SELECT image_data FROM expense_images WHERE expense_id = $1', [expense.id]);
-            expense.billReceipts = imagesResult.rows.map(row => row.image_data);
-        }
+        const query = `
+            SELECT 
+                e.id, e.name, e.vendor_id AS "vendorId", e.total_cost AS "totalCost", 
+                e.bill_date AS "billDate", e.expense_head AS "expenseHead", e.expense_by AS "expenseBy", 
+                e.festival_id AS "festivalId", e.has_multiple_payments AS "hasMultiplePayments", 
+                e.created_at AS "createdAt", e.updated_at AS "updatedAt",
+                COALESCE(
+                    (
+                        SELECT json_agg(json_build_object(
+                            'id', p.id,
+                            'amount', p.amount,
+                            'paymentDate', p.payment_date,
+                            'paymentMethod', p.payment_method,
+                            'notes', p.notes,
+                            'image', p.image_data,
+                            'expenseId', p.expense_id,
+                            'createdAt', p.created_at,
+                            'updatedAt', p.updated_at
+                        ) ORDER BY p.payment_date ASC)
+                        FROM expense_payments p
+                        WHERE p.expense_id = e.id AND p.deleted_at IS NULL
+                    ), '[]'::json
+                ) AS payments,
+                COALESCE(
+                    (
+                        SELECT json_agg(img.image_data)
+                        FROM expense_images img
+                        WHERE img.expense_id = e.id
+                    ), '[]'::json
+                ) AS "billReceipts"
+            FROM expenses e
+            WHERE e.deleted_at IS NULL
+            ORDER BY e.bill_date DESC
+        `;
+        const { rows } = await db.query(query);
+        const expenses = rows.map(e => {
+            const totalCost = parseFloat(e.totalCost || 0);
+            const payments = (e.payments || []).map((p) => ({ ...p, amount: parseFloat(p.amount || 0) }));
+            const amountPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+            const outstandingAmount = totalCost - amountPaid;
+            return {
+                ...e,
+                totalCost,
+                payments,
+                amountPaid,
+                outstandingAmount,
+                billReceipts: e.billReceipts || []
+            };
+        });
         res.json(expenses);
     } catch (err) { 
         console.error('Error fetching expenses:', err);
