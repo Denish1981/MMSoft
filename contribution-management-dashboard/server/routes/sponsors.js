@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
-const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint } = require('../db/helpers');
+const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint, serveImageString } = require('../db/helpers');
 const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:sponsors:view'), async (req, res) => {
@@ -12,7 +12,7 @@ router.get('/', authMiddleware, permissionMiddleware('page:sponsors:view'), asyn
                 business_category AS "businessCategory", business_info AS "businessInfo", 
                 sponsorship_amount AS "sponsorshipAmount", sponsorship_type AS "sponsorshipType", 
                 campaign_id AS "campaignId", date_paid as "datePaid", payment_received_by as "paymentReceivedBy", 
-                CASE WHEN image IS NOT NULL AND image != '' THEN CONCAT('/api/sponsors/', id, '/image') ELSE NULL END AS image, 
+                CASE WHEN image IS NOT NULL AND image != '' THEN CASE WHEN image LIKE '/api/%' OR image LIKE 'http://%' OR image LIKE 'https://%' THEN image ELSE CONCAT('/api/sponsors/', id, '/image') END ELSE NULL END AS image, 
                 created_at AS "createdAt", updated_at AS "updatedAt" 
             FROM sponsors 
             WHERE deleted_at IS NULL 
@@ -22,24 +22,13 @@ router.get('/', authMiddleware, permissionMiddleware('page:sponsors:view'), asyn
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.get('/:id/image', authMiddleware, async (req, res) => {
+router.get('/:id/image', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT image FROM sponsors WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
         if (rows.length === 0 || !rows[0].image) {
             return res.status(404).json({ error: 'Image not found' });
         }
-        const img = rows[0].image;
-        if (typeof img === 'string' && img.startsWith('data:')) {
-            const matches = img.match(/^data:(.+);base64,(.+)$/);
-            if (matches) {
-                const contentType = matches[1];
-                const buffer = Buffer.from(matches[2], 'base64');
-                res.setHeader('Content-Type', contentType);
-                res.setHeader('Cache-Control', 'public, max-age=86400');
-                return res.send(buffer);
-            }
-        }
-        res.json({ image: img });
+        return serveImageString(rows[0].image, res);
     } catch (err) {
         console.error('Error serving sponsor image:', err);
         res.status(500).json({ error: 'Internal server error' });

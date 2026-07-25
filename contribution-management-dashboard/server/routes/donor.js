@@ -21,10 +21,28 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
         const contribRes = await db.query(
             `SELECT c.id, c.donor_name AS "donorName", c.amount, c.number_of_coupons AS "numberOfCoupons", 
                     c.date, c.status, c.type, c.tower_number AS "towerNumber", c.flat_number AS "flatNumber", 
-                    c.image, cmp.name AS "campaignName" 
+                    CASE WHEN c.image IS NOT NULL AND c.image != '' THEN CASE WHEN c.image LIKE '/api/%' OR c.image LIKE 'http://%' OR c.image LIKE 'https://%' THEN c.image ELSE CONCAT('/api/contributions/', c.id, '/image') END ELSE NULL END AS image, 
+                    cmp.name AS "campaignName" 
              FROM contributions c 
              LEFT JOIN campaigns cmp ON c.campaign_id = cmp.id 
-             WHERE (c.user_id = $1 OR (c.tower_number = $2 AND c.flat_number = $3 AND $2 != '')) AND c.deleted_at IS NULL 
+             WHERE (
+                 c.user_id = $1 
+                 OR (
+                     $2 != '' AND $3 != '' AND (
+                         (LOWER(TRIM(c.tower_number)) = LOWER(TRIM($2)) AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($3)))
+                         OR (REPLACE(LOWER(TRIM(c.tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($2)), 'tower', '') AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($3)))
+                         OR (REGEXP_REPLACE(LOWER(c.tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($2), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(c.flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($3), '[^0-9a-z]', '', 'g'))
+                     )
+                 )
+                 OR (
+                     $2 != '' AND $3 != '' AND c.user_id IN (
+                         SELECT id FROM users 
+                         WHERE (LOWER(TRIM(tower_number)) = LOWER(TRIM($2)) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($3)))
+                            OR (REPLACE(LOWER(TRIM(tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($2)), 'tower', '') AND LOWER(TRIM(flat_number)) = LOWER(TRIM($3)))
+                            OR (REGEXP_REPLACE(LOWER(tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($2), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($3), '[^0-9a-z]', '', 'g'))
+                     )
+                 )
+             ) AND c.deleted_at IS NULL 
              ORDER BY c.date DESC`,
             [userId, tower, flat]
         );

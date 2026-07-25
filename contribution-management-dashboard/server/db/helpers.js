@@ -65,8 +65,58 @@ const createSoftDeleteEndpoint = (tableName) => async (req, res) => {
     }
 };
 
+const serveImageString = (img, res) => {
+    if (!img || typeof img !== 'string') {
+        return res.status(404).json({ error: 'Image not found' });
+    }
+    const trimmed = img.trim();
+    if (!trimmed || trimmed.startsWith('/api/')) {
+        return res.status(404).json({ error: 'No valid image data' });
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return res.redirect(trimmed);
+    }
+
+    let contentType = 'image/jpeg';
+    let base64Data = trimmed;
+
+    if (trimmed.startsWith('data:')) {
+        const commaIdx = trimmed.indexOf(',');
+        if (commaIdx !== -1) {
+            const header = trimmed.substring(0, commaIdx);
+            base64Data = trimmed.substring(commaIdx + 1);
+            const mimeMatch = header.match(/data:([^;]+)/);
+            if (mimeMatch && mimeMatch[1]) {
+                contentType = mimeMatch[1];
+            }
+        }
+    }
+
+    const cleanBase64 = base64Data.replace(/\s/g, '');
+    if (!cleanBase64) {
+        return res.status(404).json({ error: 'Empty image payload' });
+    }
+
+    if (contentType === 'image/jpeg') {
+        if (cleanBase64.startsWith('iVBORw0KG')) contentType = 'image/png';
+        else if (cleanBase64.startsWith('R0lGOD')) contentType = 'image/gif';
+        else if (cleanBase64.startsWith('UklGR')) contentType = 'image/webp';
+    }
+
+    try {
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+    } catch (err) {
+        console.error('Error in serveImageString:', err);
+        return res.status(500).json({ error: 'Failed to process image' });
+    }
+};
+
 module.exports = {
     logChanges,
     createHistoryEndpoint,
-    createSoftDeleteEndpoint
+    createSoftDeleteEndpoint,
+    serveImageString
 };

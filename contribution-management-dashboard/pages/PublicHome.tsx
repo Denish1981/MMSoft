@@ -9,11 +9,12 @@ import { EventCard } from '../components/EventCard';
 import { StallFestivalCard } from '../components/StallFestivalCard';
 
 const PublicHomePage: React.FC = () => {
-    const { isAuthenticated, hasPermission } = useAuth();
+    const { user, token, isAuthenticated, hasPermission } = useAuth();
     const [events, setEvents] = useState<PublicEvent[]>([]);
     const [stallFestivals, setStallFestivals] = useState<PublicFestival[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
+    const [hasApprovedContribution, setHasApprovedContribution] = useState<boolean>(false);
 
     const dashboardTarget = isAuthenticated
         ? (hasPermission('page:dashboard:view') ? "/dashboard" : "/donor-portal")
@@ -36,6 +37,32 @@ const PublicHomePage: React.FC = () => {
         };
         fetchPublicData();
     }, []);
+
+    useEffect(() => {
+        const checkContributionStatus = async () => {
+            try {
+                const queryParams = new URLSearchParams();
+                if (user?.towerNumber) queryParams.append('towerNumber', user.towerNumber);
+                if (user?.flatNumber) queryParams.append('flatNumber', user.flatNumber);
+                if (user?.email) queryParams.append('email', user.email);
+                if (user?.mobileNumber) queryParams.append('mobileNumber', user.mobileNumber);
+
+                const headers: Record<string, string> = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const res = await fetch(`${API_URL}/public/check-contribution?${queryParams.toString()}`, { headers });
+                if (res.ok) {
+                    const data = await res.json();
+                    setHasApprovedContribution(!!data.hasApprovedContribution);
+                } else {
+                    setHasApprovedContribution(false);
+                }
+            } catch {
+                setHasApprovedContribution(false);
+            }
+        };
+        checkContributionStatus();
+    }, [user, token]);
 
     const handleEventRegisterClick = (event: PublicEvent) => setSelectedEvent(event);
     const handleCloseModal = () => {
@@ -70,7 +97,7 @@ const PublicHomePage: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {stallFestivals.map((festival) => (
-                                <StallFestivalCard key={festival.id} festival={festival} />
+                                <StallFestivalCard key={festival.id} festival={festival} hasApprovedContribution={hasApprovedContribution} />
                             ))}
                         </div>
                     </section>
@@ -87,7 +114,7 @@ const PublicHomePage: React.FC = () => {
                     ) : events.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {events.map((event) => (
-                                <EventCard key={event.id} event={event} onRegisterClick={handleEventRegisterClick} />
+                                <EventCard key={event.id} event={event} onRegisterClick={handleEventRegisterClick} hasApprovedContribution={hasApprovedContribution} />
                             ))}
                         </div>
                     ) : (

@@ -110,6 +110,8 @@ const DonorPortalPage: React.FC = () => {
         .filter(c => c.status === 'Completed' || c.status === 'Approved')
         .reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
+    const hasApprovedContribution = contributions.some(c => c.status === 'Completed' || c.status === 'Approved');
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header Profile Card */}
@@ -146,12 +148,24 @@ const DonorPortalPage: React.FC = () => {
                         >
                             <PlusCircle className="w-5 h-5" /> Make Contribution
                         </button>
-                        <button
-                            onClick={() => navigate('/')}
-                            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-4 py-2.5 rounded-xl border border-white/20 transition-all"
-                        >
-                            <Store className="w-5 h-5" /> Register Stall / Event
-                        </button>
+                        <div className="relative group" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
+                            <button
+                                onClick={() => { if (hasApprovedContribution) navigate('/'); }}
+                                disabled={!hasApprovedContribution}
+                                className={`flex items-center gap-2 font-medium px-4 py-2.5 rounded-xl border transition-all ${
+                                    hasApprovedContribution
+                                        ? "bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer"
+                                        : "bg-white/5 text-slate-400 border-white/10 cursor-not-allowed opacity-60"
+                                }`}
+                            >
+                                <Store className="w-5 h-5" /> Register Stall / Event
+                            </button>
+                            {!hasApprovedContribution && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-xs rounded py-1.5 px-3 z-20 whitespace-nowrap shadow-lg text-center pointer-events-none">
+                                    You need to contribute to Register for Stall / Events
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -293,12 +307,24 @@ const DonorPortalPage: React.FC = () => {
                                     <Store className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <p className="text-slate-600 font-medium">No stall registrations found.</p>
                                     <p className="text-xs text-slate-400 mt-1">Register a stall for upcoming festivals on the home page.</p>
-                                    <button
-                                        onClick={() => navigate('/')}
-                                        className="mt-4 px-4 py-2 bg-blue-600 text-white font-medium text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                                    >
-                                        Browse Festival Stalls
-                                    </button>
+                                    <div className="relative group inline-block mt-4" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
+                                        <button
+                                            onClick={() => { if (hasApprovedContribution) navigate('/'); }}
+                                            disabled={!hasApprovedContribution}
+                                            className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
+                                                hasApprovedContribution
+                                                    ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                                                    : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                                            }`}
+                                        >
+                                            Browse Festival Stalls
+                                        </button>
+                                        {!hasApprovedContribution && (
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-xs rounded py-1.5 px-3 z-20 whitespace-nowrap shadow-lg text-center pointer-events-none">
+                                                You need to contribute to Register for Stall / Events
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">

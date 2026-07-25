@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
+const { serveImageString } = require('../db/helpers');
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), asy
                 sr.stall_dates::TEXT[] as "stallDates", sr.products,
                 sr.needs_electricity as "needsElectricity", sr.number_of_tables as "numberOfTables",
                 sr.total_payment as "totalPayment", 
-                CASE WHEN sr.payment_screenshot IS NOT NULL AND sr.payment_screenshot != '' THEN CONCAT('/api/stall-registrations/', sr.id, '/image') ELSE NULL END as "paymentScreenshot",
+                CASE WHEN sr.payment_screenshot IS NOT NULL AND sr.payment_screenshot != '' THEN CASE WHEN sr.payment_screenshot LIKE '/api/%' OR sr.payment_screenshot LIKE 'http://%' OR sr.payment_screenshot LIKE 'https://%' THEN sr.payment_screenshot ELSE CONCAT('/api/stall-registrations/', sr.id, '/image') END ELSE NULL END as "paymentScreenshot",
                 sr.submitted_at as "submittedAt",
                 sr.status, sr.rejection_reason as "rejectionReason", sr.reviewed_at as "reviewedAt", u.username as "reviewedBy"
             FROM stall_registrations sr
@@ -28,24 +29,13 @@ router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), asy
     }
 });
 
-router.get('/:id/image', authMiddleware, async (req, res) => {
+router.get('/:id/image', async (req, res) => {
     try {
         const { rows } = await db.query('SELECT payment_screenshot FROM stall_registrations WHERE id = $1', [req.params.id]);
         if (rows.length === 0 || !rows[0].payment_screenshot) {
             return res.status(404).json({ error: 'Image not found' });
         }
-        const img = rows[0].payment_screenshot;
-        if (typeof img === 'string' && img.startsWith('data:')) {
-            const matches = img.match(/^data:(.+);base64,(.+)$/);
-            if (matches) {
-                const contentType = matches[1];
-                const buffer = Buffer.from(matches[2], 'base64');
-                res.setHeader('Content-Type', contentType);
-                res.setHeader('Cache-Control', 'public, max-age=86400');
-                return res.send(buffer);
-            }
-        }
-        res.json({ image: img });
+        return serveImageString(rows[0].payment_screenshot, res);
     } catch (err) {
         console.error('Error serving stall registration image:', err);
         res.status(500).json({ error: 'Internal server error' });

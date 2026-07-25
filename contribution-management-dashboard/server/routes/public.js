@@ -15,6 +15,90 @@ const getUserIdFromReq = async (req) => {
     }
 };
 
+const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, email, mobileNumber }) => {
+    try {
+        let userTower = towerNumber ? String(towerNumber).trim() : null;
+        let userFlat = flatNumber ? String(flatNumber).trim() : null;
+        let userEmail = email ? String(email).trim() : null;
+        let userMobile = mobileNumber ? String(mobileNumber).trim() : null;
+
+        if (userId) {
+            const userRes = await db.query('SELECT username, mobile_number, tower_number, flat_number FROM users WHERE id = $1', [userId]);
+            if (userRes.rows.length > 0) {
+                const u = userRes.rows[0];
+                if (!userEmail && u.username) userEmail = String(u.username).trim();
+                if (!userMobile && u.mobile_number) userMobile = String(u.mobile_number).trim();
+                if (!userTower && u.tower_number) userTower = String(u.tower_number).trim();
+                if (!userFlat && u.flat_number) userFlat = String(u.flat_number).trim();
+            }
+        }
+
+        let conditions = [];
+        let params = [];
+        let paramIdx = 1;
+
+        if (userId) {
+            conditions.push(`c.user_id = $${paramIdx++}`);
+            params.push(userId);
+        }
+
+        if (userTower && userFlat) {
+            conditions.push(`(
+                (
+                    (LOWER(TRIM(c.tower_number)) = LOWER(TRIM($${paramIdx})) AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($${paramIdx + 1})))
+                    OR (REPLACE(LOWER(TRIM(c.tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($${paramIdx})), 'tower', '') AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($${paramIdx + 1})))
+                    OR (REGEXP_REPLACE(LOWER(c.tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx}), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(c.flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx + 1}), '[^0-9a-z]', '', 'g'))
+                )
+                OR c.user_id IN (
+                    SELECT id FROM users 
+                    WHERE (LOWER(TRIM(tower_number)) = LOWER(TRIM($${paramIdx})) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($${paramIdx + 1})))
+                       OR (REPLACE(LOWER(TRIM(tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($${paramIdx})), 'tower', '') AND LOWER(TRIM(flat_number)) = LOWER(TRIM($${paramIdx + 1})))
+                       OR (REGEXP_REPLACE(LOWER(tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx}), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx + 1}), '[^0-9a-z]', '', 'g'))
+                )
+            )`);
+            params.push(userTower, userFlat);
+            paramIdx += 2;
+        }
+
+        if (userEmail) {
+            conditions.push(`(
+                LOWER(TRIM(c.donor_email)) = LOWER(TRIM($${paramIdx})) 
+                OR c.user_id IN (SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($${paramIdx})))
+            )`);
+            params.push(userEmail);
+            paramIdx++;
+        }
+
+        if (userMobile) {
+            conditions.push(`(
+                c.mobile_number = $${paramIdx} 
+                OR REPLACE(c.mobile_number, ' ', '') = REPLACE($${paramIdx}, ' ', '')
+                OR c.user_id IN (SELECT id FROM users WHERE mobile_number = $${paramIdx} OR REPLACE(mobile_number, ' ', '') = REPLACE($${paramIdx}, ' ', ''))
+            )`);
+            params.push(userMobile);
+            paramIdx++;
+        }
+
+        if (conditions.length === 0) {
+            return false;
+        }
+
+        const query = `
+            SELECT 1 FROM contributions c
+            WHERE c.deleted_at IS NULL 
+              AND c.status IN ('Approved', 'Completed') 
+              AND (${conditions.join(' OR ')})
+            LIMIT 1
+        `;
+
+        const { rows } = await db.query(query, params);
+        return rows.length > 0;
+    } catch (err) {
+        console.error('Error in checkApprovedContribution:', err);
+        return false;
+    }
+};
+
 router.get('/public/events', async (req, res) => {
     try {
         const { rows } = await db.query(`
@@ -31,15 +115,35 @@ router.post('/public/events/:id/register', async (req, res) => {
     const { id } = req.params;
     const { formData, paymentProofImage } = req.body;
     
-    if (!formData || !formData.name || !formData.phone_number) {
+    if (!formData || !formData.name || (!formData.phone_number && !formData.mobile_number && !formData.contact_number && !formData.phone)) {
         return res.status(400).json({ error: 'Name and phone number are required.' });
     }
 
     try {
         const userId = await getUserIdFromReq(req);
+
+        const towerNumber = formData.tower_number || formData.towerNumber || formData.tower || null;
+        const flatNumber = formData.flat_number || formData.flatNumber || formData.flat || null;
+        const email = formData.email || formData.donor_email || null;
+        const mobileNumber = formData.phone_number || formData.mobile_number || formData.contact_number || formData.phone || null;
+
+        const hasApproved = await checkApprovedContribution({
+            userId,
+            towerNumber: towerNumber ? String(towerNumber).trim() : null,
+            flatNumber: flatNumber ? String(flatNumber).trim() : null,
+            email: email ? String(email).trim() : null,
+            mobileNumber: mobileNumber ? String(mobileNumber).trim() : null
+        });
+
+        if (!hasApproved) {
+            return res.status(403).json({
+                error: 'Registration failed: You must have at least one approved contribution to register for events, festivals, or stalls.'
+            });
+        }
+
         await db.query(
             'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
-            [id, formData.name, formData.email, formData, paymentProofImage, userId]
+            [id, formData.name, formData.email || email, formData, paymentProofImage, userId]
         );
         res.status(201).json({ message: 'Registration successful' });
     } catch (err) {
@@ -49,12 +153,20 @@ router.post('/public/events/:id/register', async (req, res) => {
 });
 
 router.get('/public/check-contribution', async (req, res) => {
-    const { towerNumber, flatNumber } = req.query;
-    if (!towerNumber || !flatNumber) return res.status(400).json({ error: 'Tower and flat number are required.' });
+    const { towerNumber, flatNumber, email, mobileNumber } = req.query;
     try {
-        const { rows } = await db.query('SELECT 1 FROM contributions WHERE tower_number = $1 AND flat_number = $2 AND deleted_at IS NULL LIMIT 1', [towerNumber, flatNumber]);
-        res.json({ contributionExists: rows.length > 0 });
-    } catch (err) { res.status(500).json({ error: 'Database query failed' }); }
+        const userId = await getUserIdFromReq(req);
+        const hasApproved = await checkApprovedContribution({
+            userId,
+            towerNumber: towerNumber ? String(towerNumber).trim() : null,
+            flatNumber: flatNumber ? String(flatNumber).trim() : null,
+            email: email ? String(email).trim() : null,
+            mobileNumber: mobileNumber ? String(mobileNumber).trim() : null
+        });
+        res.json({ contributionExists: hasApproved, hasApprovedContribution: hasApproved });
+    } catch (err) { 
+        res.status(500).json({ error: 'Database query failed' }); 
+    }
 });
 
 router.get('/public/festivals', async (req, res) => {
@@ -113,49 +225,69 @@ router.post('/public/festivals/:id/register-stall', async (req, res) => {
     if (!registrantName || !contactNumber || !stallDates || stallDates.length === 0 || !products || products.length === 0 || !paymentScreenshot) {
         return res.status(400).json({ error: 'Missing required fields for stall registration.' });
     }
-    
-    const client = await db.getPool().connect();
-    try {
-        await client.query('BEGIN');
-        await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50), ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
 
-        const festRes = await client.query('SELECT stall_price_per_table_per_day, stall_electricity_cost_per_day, max_stalls FROM festivals WHERE id=$1', [id]);
-        if (festRes.rows.length === 0) return res.status(404).json({ error: 'Festival not found' });
-        const { stall_price_per_table_per_day, stall_electricity_cost_per_day, max_stalls } = festRes.rows[0];
-        
-        if (max_stalls) {
-            const approvedCountsQuery = `
-                SELECT d::date, COUNT(id)
-                FROM stall_registrations, unnest(stall_dates) AS d
-                WHERE festival_id = $1 AND status = 'Approved' AND d = ANY($2::date[])
-                GROUP BY d;
-            `;
-            const { rows: approvedCounts } = await client.query(approvedCountsQuery, [id, stallDates]);
-            for (const count of approvedCounts) {
-                if (count.count >= max_stalls) {
-                    await client.query('ROLLBACK');
-                    return res.status(409).json({ error: `Sorry, the date ${new Date(count.d).toLocaleDateString()} is now fully booked.`});
+    try {
+        const userId = await getUserIdFromReq(req);
+        const hasApproved = await checkApprovedContribution({
+            userId,
+            towerNumber: towerNumber ? String(towerNumber).trim() : null,
+            flatNumber: flatNumber ? String(flatNumber).trim() : null,
+            mobileNumber: contactNumber ? String(contactNumber).trim() : null
+        });
+
+        if (!hasApproved) {
+            return res.status(403).json({
+                error: 'Stall registration failed: You must have at least one approved contribution to register for stalls or festivals.'
+            });
+        }
+
+        const client = await db.getPool().connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50), ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
+
+            const festRes = await client.query('SELECT stall_price_per_table_per_day, stall_electricity_cost_per_day, max_stalls FROM festivals WHERE id=$1', [id]);
+            if (festRes.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Festival not found' });
+            }
+            const { stall_price_per_table_per_day, stall_electricity_cost_per_day, max_stalls } = festRes.rows[0];
+            
+            if (max_stalls) {
+                const approvedCountsQuery = `
+                    SELECT d::date, COUNT(id)
+                    FROM stall_registrations, unnest(stall_dates) AS d
+                    WHERE festival_id = $1 AND status = 'Approved' AND d = ANY($2::date[])
+                    GROUP BY d;
+                `;
+                const { rows: approvedCounts } = await client.query(approvedCountsQuery, [id, stallDates]);
+                for (const count of approvedCounts) {
+                    if (count.count >= max_stalls) {
+                        await client.query('ROLLBACK');
+                        return res.status(409).json({ error: `Sorry, the date ${new Date(count.d).toLocaleDateString()} is now fully booked.`});
+                    }
                 }
             }
+            
+            const tableCost = stallDates.length * numberOfTables * (stall_price_per_table_per_day || 0);
+            const electricityCost = needsElectricity ? (stallDates.length * numberOfTables * (stall_electricity_cost_per_day || 0)) : 0;
+            const totalPayment = tableCost + electricityCost;
+            
+            await client.query(
+                'INSERT INTO stall_registrations (festival_id, registrant_name, contact_number, tower_number, flat_number, stall_dates, products, needs_electricity, number_of_tables, total_payment, payment_screenshot, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+                [id, registrantName, contactNumber, towerNumber || null, flatNumber || null, stallDates, JSON.stringify(products), needsElectricity, numberOfTables, totalPayment, paymentScreenshot, userId]
+            );
+            await client.query('COMMIT');
+            res.status(201).json({ message: 'Stall registration submitted successfully' });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
         }
-        
-        const tableCost = stallDates.length * numberOfTables * (stall_price_per_table_per_day || 0);
-        const electricityCost = needsElectricity ? (stallDates.length * numberOfTables * (stall_electricity_cost_per_day || 0)) : 0;
-        const totalPayment = tableCost + electricityCost;
-        
-        const userId = await getUserIdFromReq(req);
-        await client.query(
-            'INSERT INTO stall_registrations (festival_id, registrant_name, contact_number, tower_number, flat_number, stall_dates, products, needs_electricity, number_of_tables, total_payment, payment_screenshot, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
-            [id, registrantName, contactNumber, towerNumber || null, flatNumber || null, stallDates, JSON.stringify(products), needsElectricity, numberOfTables, totalPayment, paymentScreenshot, userId]
-        );
-        await client.query('COMMIT');
-        res.status(201).json({ message: 'Stall registration submitted successfully' });
     } catch (err) {
-        await client.query('ROLLBACK');
         console.error('Error submitting stall registration:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    } finally {
-        client.release();
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });
 

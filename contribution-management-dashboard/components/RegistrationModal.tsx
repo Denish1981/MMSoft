@@ -23,7 +23,7 @@ interface RegistrationModalProps {
 }
 
 export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onClose }) => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -31,8 +31,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
     const [paymentProofImage, setPaymentProofImage] = useState<string | undefined>();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
-    
-    const [showProofUpload, setShowProofUpload] = useState(false);
+    const showProofUpload = true;
 
     useEffect(() => {
         if (!user) return;
@@ -82,41 +81,48 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
         setIsLoading(true);
         setError('');
 
-        const towerNumber = formData['tower_number'];
-        const flatNumber = formData['flat_number'];
-        
-        let contributionExists = false;
-        // Only check if tower/flat numbers are provided.
-        if (towerNumber && flatNumber) {
-            try {
-                const response = await fetch(`${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(towerNumber)}&flatNumber=${encodeURIComponent(flatNumber)}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    contributionExists = data.contributionExists;
-                }
-            } catch (error) {
-                console.error("Failed to check contribution status", error);
+        const towerNumber = formData['tower_number'] || formData['towerNumber'] || user?.towerNumber;
+        const flatNumber = formData['flat_number'] || formData['flatNumber'] || user?.flatNumber;
+        const email = formData['email'] || user?.email;
+        const mobileNumber = formData['phone_number'] || formData['mobile_number'] || formData['contact_number'] || user?.mobileNumber;
+
+        let hasApprovedContribution = false;
+        try {
+            const queryParams = new URLSearchParams();
+            if (towerNumber) queryParams.append('towerNumber', towerNumber);
+            if (flatNumber) queryParams.append('flatNumber', flatNumber);
+            if (email) queryParams.append('email', email);
+            if (mobileNumber) queryParams.append('mobileNumber', mobileNumber);
+
+            const headers: Record<string, string> = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const checkRes = await fetch(`${API_URL}/public/check-contribution?${queryParams.toString()}`, { headers });
+            if (checkRes.ok) {
+                const data = await checkRes.json();
+                hasApprovedContribution = !!data.hasApprovedContribution;
             }
+        } catch (error) {
+            console.error("Failed to check contribution status", error);
         }
 
-        if (!contributionExists && !paymentProofImage) {
-            // Contribution doesn't exist, and no proof provided.
-            // Show the upload field and stop submission.
-            setShowProofUpload(true);
-            setError("We couldn't find a contribution record for your residence. Please upload a payment screenshot to complete registration.");
+        if (!hasApprovedContribution) {
+            setError("Registration is restricted to residents with at least one approved contribution. No approved contribution was found for your residence or account details.");
             setIsLoading(false);
             return;
         }
-        
-        // If we reach here, we are ready to submit.
+
         try {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const submissionBody = {
                 formData,
-                paymentProofImage: contributionExists ? undefined : paymentProofImage,
+                paymentProofImage
             };
             const response = await fetch(`${API_URL}/public/events/${event.id}/register`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(submissionBody),
             });
             if (!response.ok) {

@@ -16,7 +16,7 @@ interface StallRegistrationModalProps {
 }
 
 const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festival, onClose }) => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [registrantName, setRegistrantName] = useState(user?.fullName || '');
     const [contactNumber, setContactNumber] = useState(user?.mobileNumber || '');
     const [towerNumber, setTowerNumber] = useState(user?.towerNumber || '');
@@ -119,10 +119,33 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
         }
 
         setIsLoading(true);
+
         try {
+            const queryParams = new URLSearchParams();
+            if (towerNumber) queryParams.append('towerNumber', towerNumber);
+            if (flatNumber) queryParams.append('flatNumber', flatNumber);
+            if (contactNumber) queryParams.append('mobileNumber', contactNumber);
+            if (user?.email) queryParams.append('email', user.email);
+
+            const checkHeaders: Record<string, string> = {};
+            if (token) checkHeaders['Authorization'] = `Bearer ${token}`;
+
+            const checkRes = await fetch(`${API_URL}/public/check-contribution?${queryParams.toString()}`, { headers: checkHeaders });
+            if (checkRes.ok) {
+                const checkData = await checkRes.json();
+                if (!checkData.hasApprovedContribution) {
+                    setError('Stall registration is restricted to residents with at least one approved contribution. No approved contribution was found for your account or residence details.');
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const response = await fetch(`${API_URL}/public/festivals/${festival.id}/register-stall`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     registrantName, contactNumber, towerNumber, flatNumber, stallDates: selectedDates, 
                     products: finalProducts, needsElectricity, numberOfTables, paymentScreenshot,
