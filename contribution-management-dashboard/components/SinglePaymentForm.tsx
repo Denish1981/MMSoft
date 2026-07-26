@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Payment, PaymentMethod } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
+import { compressImageFile } from '../utils/imageUtils';
 import { CameraIcon } from './icons/CameraIcon';
 import { CloseIcon } from './icons/CloseIcon';
 import CameraCapture from './CameraCapture';
@@ -41,17 +42,18 @@ export const SinglePaymentForm: React.FC<SinglePaymentFormProps> = ({ totalCost,
         });
     }, [totalCost, paymentDate, paymentMethod, notes, image, onPaymentChange]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
+            try {
+                const base64String = await compressImageFile(file);
                 setImage(base64String);
                 setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error processing payment image:", err);
+            }
         }
+        e.target.value = '';
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {

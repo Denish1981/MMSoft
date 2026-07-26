@@ -15,6 +15,10 @@ export interface StallRegistrationProduct {
 
 export interface StallRegistration {
     id: number;
+    userId?: number | null;
+    email?: string;
+    towerNumber?: string;
+    flatNumber?: string;
     festivalId: number;
     registrantName: string;
     contactNumber: string;

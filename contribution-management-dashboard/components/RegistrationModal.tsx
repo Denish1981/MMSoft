@@ -5,6 +5,7 @@ import { CloseIcon } from './icons/CloseIcon';
 import type { RegistrationFormField } from '../types/index';
 import CameraCapture from './CameraCapture';
 import { useAuth } from '../contexts/AuthContext';
+import { compressImageFile } from '../utils/imageUtils';
 
 export interface PublicEvent {
     id: number;
@@ -57,17 +58,18 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
+            try {
+                const base64String = await compressImageFile(file);
                 setPaymentProofImage(base64String);
                 setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error processing payment proof image:", err);
+            }
         }
+        e.target.value = '';
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {

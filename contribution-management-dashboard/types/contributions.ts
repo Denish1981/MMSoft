@@ -21,6 +21,7 @@ export interface Campaign {
 
 export interface Contribution {
   id: number;
+  userId?: number | null;
   donorName: string;
   donorEmail?: string;
   mobileNumber?: string;
@@ -71,3 +72,4 @@ export interface Sponsor {
 }
 
 export type StagedContribution = Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+

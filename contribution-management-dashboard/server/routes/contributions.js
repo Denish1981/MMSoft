@@ -80,11 +80,24 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
     let dbTowerNumber = towerNumber;
     let dbFlatNumber = flatNumber;
     try {
-        if (userId && (!dbTowerNumber || !dbFlatNumber)) {
-            const userRes = await db.query('SELECT tower_number, flat_number FROM users WHERE id = $1', [userId]);
+        if (userId) {
+            const userRes = await db.query('SELECT tower_number, flat_number, mobile_number, full_name FROM users WHERE id = $1', [userId]);
             if (userRes.rows.length > 0) {
                 if (!dbTowerNumber) dbTowerNumber = userRes.rows[0].tower_number;
                 if (!dbFlatNumber) dbFlatNumber = userRes.rows[0].flat_number;
+            }
+
+            // Save supplied profile info to user account for future auto-fills
+            if (towerNumber || flatNumber || mobileNumber || donorName) {
+                await db.query(
+                    `UPDATE users SET 
+                        tower_number = COALESCE(NULLIF($1, ''), tower_number),
+                        flat_number = COALESCE(NULLIF($2, ''), flat_number),
+                        mobile_number = COALESCE(NULLIF($3, ''), mobile_number),
+                        full_name = CASE WHEN $4 != '' AND $4 NOT LIKE '%@%' THEN $4 ELSE full_name END
+                     WHERE id = $5`,
+                    [towerNumber || '', flatNumber || '', mobileNumber || '', donorName || '', userId]
+                );
             }
         }
 

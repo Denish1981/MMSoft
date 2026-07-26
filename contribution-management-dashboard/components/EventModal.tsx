@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router';
 import type { Event, EventContactPerson, RegistrationFormField } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
+import { compressImageFile } from '../utils/imageUtils';
 import { CloseIcon } from './icons/CloseIcon';
 import CameraCapture from './CameraCapture';
 import { EventBasicDetailsSection } from './event-modal/EventBasicDetailsSection';
@@ -106,17 +107,18 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
         }
     };
     
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
+            try {
+                const base64String = await compressImageFile(file);
                 setImage(base64String);
                 setImagePreview(base64String);
-            };
-            reader.readAsDataURL(file);
+            } catch (err) {
+                console.error("Error processing event image:", err);
+            }
         }
+        e.target.value = '';
     };
 
     const handleCaptureComplete = (imageDataUrl: string) => {

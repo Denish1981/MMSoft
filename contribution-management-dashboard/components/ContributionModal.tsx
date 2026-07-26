@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ContributionStatus, type Campaign, type Festival, type Contribution } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
 import { compressImageFile } from '../utils/imageUtils';
@@ -8,6 +9,7 @@ import { DonorFields } from './donation/DonorFields';
 import { ContributionFields } from './donation/ContributionFields';
 import { ImageUploadSection } from './donation/ImageUploadSection';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { API_URL } from '../config';
 
 interface ContributionModalProps {
@@ -20,6 +22,23 @@ interface ContributionModalProps {
 
 export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals = [], campaigns = [], contributionToEdit, onClose, onSubmit }) => {
     const { user, token } = useAuth();
+    const { contributions: globalContributions, stallRegistrations = [] } = useData();
+    const location = useLocation();
+    const isDonorPortalPage = location.pathname.startsWith('/donor-portal');
+
+    const initialLoadDoneRef = useRef<boolean>(false);
+    const lastContributionIdRef = useRef<number | null | undefined>(undefined);
+
+    const isManagerOrAdmin = Boolean(
+        user && (
+            user.permissions?.includes('action:users:manage') ||
+            user.permissions?.includes('action:edit') ||
+            user.roles?.includes('Admin') ||
+            user.roles?.includes('Manager')
+        )
+    );
+    const isDonorUser = !isManagerOrAdmin;
+
     const [fetchedFestivals, setFetchedFestivals] = useState<Festival[]>([]);
     const [donorName, setDonorName] = useState('');
     const [donorEmail, setDonorEmail] = useState('');
@@ -56,6 +75,13 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     useEffect(() => {
+        const currentEditId = contributionToEdit ? contributionToEdit.id : null;
+        if (initialLoadDoneRef.current && lastContributionIdRef.current === currentEditId) {
+            return;
+        }
+        initialLoadDoneRef.current = true;
+        lastContributionIdRef.current = currentEditId;
+
         const defaultFestId = activeFestivals[0]?.id || null;
         if (contributionToEdit) {
             setDonorName(contributionToEdit.donorName || '');
@@ -89,11 +115,46 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             setImage(contributionToEdit.image);
             setImagePreview(contributionToEdit.image || null);
         } else {
-            setDonorName(user?.fullName || user?.email || '');
-            setDonorEmail(user?.email || '');
-            setMobileNumber(user?.mobileNumber || '');
-            setTowerNumber(user?.towerNumber || '');
-            setFlatNumber(user?.flatNumber || '');
+            // ONLY pre-fill user profile info if opened on the Donor Portal & Updates page
+            if (isDonorPortalPage) {
+                const userEmail = user?.email?.toLowerCase()?.trim();
+                const userId = user?.id;
+                const userName = user?.fullName?.toLowerCase()?.trim();
+
+                // Find latest contribution for this user as fallback
+                const myLatestContribution = globalContributions.find(c => 
+                    (userId && c.userId === userId) || 
+                    (userEmail && c.donorEmail?.toLowerCase()?.trim() === userEmail) ||
+                    (userName && userName !== userEmail && c.donorName?.toLowerCase()?.trim() === userName)
+                );
+
+                // Find latest stall registration for this user as fallback
+                const myLatestStall = stallRegistrations.find(s =>
+                    (userId && s.userId === userId) ||
+                    (userEmail && s.email?.toLowerCase()?.trim() === userEmail)
+                );
+
+                const prefName = (user?.fullName && !user.fullName.includes('@')) 
+                    ? user.fullName 
+                    : (myLatestContribution?.donorName || myLatestStall?.registrantName || user?.fullName || user?.email || '');
+
+                const prefEmail = user?.email || myLatestContribution?.donorEmail || myLatestStall?.email || '';
+                const prefMobile = user?.mobileNumber || myLatestContribution?.mobileNumber || myLatestStall?.contactNumber || '';
+                const prefTower = user?.towerNumber || myLatestContribution?.towerNumber || myLatestStall?.towerNumber || '';
+                const prefFlat = user?.flatNumber || myLatestContribution?.flatNumber || myLatestStall?.flatNumber || '';
+
+                setDonorName(prefName);
+                setDonorEmail(prefEmail);
+                setMobileNumber(prefMobile);
+                setTowerNumber(prefTower);
+                setFlatNumber(prefFlat);
+            } else {
+                setDonorName('');
+                setDonorEmail('');
+                setMobileNumber('');
+                setTowerNumber('');
+                setFlatNumber('');
+            }
             setAmount('');
             setNumberOfCoupons('');
             setFestivalId(defaultFestId);
@@ -104,7 +165,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             setImage(undefined);
             setImagePreview(null);
         }
-    }, [contributionToEdit, activeFestivals]);
+    }, [contributionToEdit, activeFestivals, isDonorPortalPage, user, globalContributions, stallRegistrations]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -163,11 +224,10 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     
     const isEditing = !!(contributionToEdit && contributionToEdit.id);
     const isMiscellaneous = selectedDropdownType === 'Miscellaneous';
-    const isDonorUser = Boolean(user && !user.permissions?.includes('action:users:manage'));
-
-    const disabledDonorName = isDonorUser && Boolean(donorName);
-    const disabledTowerNumber = isDonorUser && Boolean(towerNumber);
-    const disabledFlatNumber = isDonorUser && Boolean(flatNumber);
+    // Disable donor profile fields ONLY for standard Donors on the Donor Portal page when fields are pre-filled
+    const disabledDonorName = isDonorUser && isDonorPortalPage && Boolean(user?.fullName || user?.email);
+    const disabledTowerNumber = isDonorUser && isDonorPortalPage && Boolean(user?.towerNumber);
+    const disabledFlatNumber = isDonorUser && isDonorPortalPage && Boolean(user?.flatNumber);
 
     return (
         <>
