@@ -38,7 +38,7 @@ import FestivalPhotosPage from './pages/FestivalPhotosPage';
 import PhotoAlbumsListPage from './pages/PhotoAlbumsListPage';
 import UniqueParticipantsPage from './pages/UniqueParticipantsPage';
 import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
-import StallRegistrationsPage from './pages/StallRegistrationsPage';
+import StallRegistrationsPage from './pages/StallRegistrationsPage/index';
 import StallRegistrationPage from './pages/StallRegistrationPage';
 import DonorPortalPage from './pages/DonorPortalPage';
 

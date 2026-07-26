@@ -78,7 +78,7 @@ const Festivals: React.FC = () => {
                                         <Link to={`/festivals/${festival.id}/events`} className="text-blue-600 hover:text-blue-900" title="Manage Events">
                                             <CalendarDaysIcon className="w-4 h-4" />
                                         </Link>
-                                         <Link to={`/festivals/${festival.id}/stall-registrations`} className="text-green-600 hover:text-green-900" title="Manage Stalls">
+                                         <Link to={`/festivals/${festival.id}/stall-registrations`} className="text-green-600 hover:text-green-900" title="Manage Stall Registrations">
                                             <StoreIcon className="w-4 h-4" />
                                         </Link>
                                         <Link to={`/festivals/${festival.id}/photos`} className="text-purple-600 hover:text-purple-900" title="Manage Photos">

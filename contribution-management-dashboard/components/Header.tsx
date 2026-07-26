@@ -40,7 +40,7 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
             ) : null
         );
 
-        if (path.startsWith('/donor-portal')) return { title: 'Member Updates', button: null };
+        if (path.startsWith('/donor-portal')) return { title: 'Donor Portal & Updates', button: null };
         if (path.startsWith('/dashboard')) return { title: 'Dashboard', button: null };
         if (path.startsWith('/contributions')) {
             const buttons = [];
@@ -72,6 +72,7 @@ const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
         if (path.startsWith('/campaigns')) return { title: 'Campaigns', button: createButton(() => openCampaignModal(), 'Add Campaign') };
         if (path.match(/^\/festivals\/\d+\/events$/)) return { title: 'Festival Events', button: createButton(() => openEventModal(), 'Add Event') };
         if (path.match(/^\/festivals\/\d+\/photos$/)) return { title: 'Festival Photos', button: null };
+        if (path.match(/^\/festivals\/\d+\/stall-registrations$/)) return { title: 'Manage Stall Registrations', button: null };
         if (path.startsWith('/festivals')) return { title: 'Festivals', button: createButton(() => openFestivalModal(), 'Add Festival') };
         if (path.match(/^\/participants\/.+\/.+$/)) return { title: 'Registration History', button: null };
         if (path.startsWith('/participants')) return { title: 'Unique Participants', button: null };
