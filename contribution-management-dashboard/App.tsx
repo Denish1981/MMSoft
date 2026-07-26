@@ -41,6 +41,7 @@ import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
 import StallRegistrationsPage from './pages/StallRegistrationsPage/index';
 import StallRegistrationPage from './pages/StallRegistrationPage';
 import DonorPortalPage from './pages/DonorPortalPage';
+import TrustDetailsPage from './pages/TrustDetailsPage';
 import { Schedules } from './pages/Schedules';
 
 
@@ -63,6 +64,7 @@ const App: React.FC = () => {
                             <Routes>
                                 {/* Public Routes */}
                                 <Route path="/" element={<PublicHomePage />} />
+                                <Route path="/trust-details" element={<TrustDetailsPage />} />
                                 <Route path="/photos" element={<PhotoAlbumsListPage />} />
                                 <Route path="/album/:id" element={<PhotoAlbumPage />} />
                                 <Route path="/festivals/:id/register-stall" element={<StallRegistrationPage />} />

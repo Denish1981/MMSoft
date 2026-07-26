@@ -64,13 +64,13 @@ export const PublicHomePage: React.FC = () => {
         <div className="bg-slate-50 min-h-screen flex flex-col justify-between">
             <header className="bg-white shadow-sm border-b border-slate-100">
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center space-x-8">
+                    <div className="flex items-center space-x-6">
                         <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">
-                            Gold Towers Mitra Mandal
+                            Gold Towers Mitra Mandal Trust
                         </Link>
-                        <div className="hidden md:flex items-center space-x-6">
-                            <Link to="/photos" className="text-base font-medium text-slate-600 hover:text-orange-600 transition-colors">
-                                Photo Albums
+                        <div className="flex items-center space-x-6">
+                            <Link to="/trust-details" className="text-sm md:text-base font-medium text-slate-600 hover:text-orange-600 transition-colors">
+                                Trust Details
                             </Link>
                         </div>
                     </div>
@@ -166,8 +166,17 @@ export const PublicHomePage: React.FC = () => {
                 )}
             </main>
 
-            <footer className="text-center py-6 text-sm text-slate-400 border-t border-slate-200">
-                © {new Date().getFullYear()} GTMM Trust. All rights reserved.
+            <footer className="py-6 text-sm text-slate-500 border-t border-slate-200 bg-white">
+                <div className="container mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-center sm:text-left">
+                    <div>
+                        © {new Date().getFullYear()} GTMM Trust. All rights reserved.
+                    </div>
+                    <div className="flex items-center space-x-6">
+                        <Link to="/trust-details" className="text-slate-600 hover:text-orange-600 font-medium transition-colors">
+                            Trust Details
+                        </Link>
+                    </div>
+                </div>
             </footer>
         </div>
     );

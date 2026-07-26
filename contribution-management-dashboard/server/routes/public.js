@@ -381,4 +381,37 @@ router.get('/public/schedules/active', async (req, res) => {
     }
 });
 
+router.get('/public/trust-details', async (req, res) => {
+    try {
+        const trustDetails = {
+            name: "Gold Towers Mitra Mandal Trust",
+            registrationNumber: "MH 1311 / 2026 Pune",
+            registrationDate: "22-July-2026",
+            address: "Amanora Gold Towers, Amanora Park Town, Hadapsar, Pune - 411028, Maharashtra, India",
+            contactNumber: "+91 98201 12345 / +91 98202 67890",
+            email: "gtmmtrust@gmail.com / gtmm.amanora@gmail.com",
+            members: [
+                { id:  1, name: "Dr. Jagdish Vaidya", designation: "President", contactNumber: "" },
+                { id:  2, name: "Amit Shinde", designation: "Vice President", contactNumber: "" },
+                { id:  3, name: "Denish Patel", designation: "Secretary", contactNumber: "" },
+                { id:  4, name: "Pavan Kand", designation: "Assistant Secretary", contactNumber: "" },
+                { id:  5, name: "Sachin Kolapkar", designation: "Treasurer (Maker)", contactNumber: "" },
+                { id:  6, name: "Sachendra Waghmare", designation: "Treasurer (Checker)", contactNumber: "" },
+                { id:  7, name: "Atharv Bhujbal", designation: "Treasurer (Additional)", contactNumber: "" },
+                { id:  8, name: "Shashank Mishra", designation: "Executive Member", contactNumber: "" },
+                { id:  9, name: "Harshad Shete", designation: "Executive Member", contactNumber: "" },
+                { id: 10, name: "Ajay Shah", designation: "Executive Member", contactNumber: "" },
+                { id: 11, name: "Ravindra Kanade", designation: "Executive Member", contactNumber: "" },
+                { id: 12, name: "Sujeet Kumbhar", designation: "Executive Member", contactNumber: "" },
+                { id: 13, name: "Avinash Kulkarni", designation: "Executive Member", contactNumber: "" },
+                { id: 14, name: "Prasad Wani", designation: "Executive Member", contactNumber: "" },
+            ]
+        };
+        res.json(trustDetails);
+    } catch (err) {
+        console.error('Error fetching public trust details:', err);
+        res.status(500).json({ error: 'Failed to fetch trust details' });
+    }
+});
+
 module.exports = router;

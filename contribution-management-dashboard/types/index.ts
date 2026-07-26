@@ -5,3 +5,4 @@ export * from './events';
 export * from './participants';
 export * from './archive';
 export * from './schedules';
+export * from './trust';
