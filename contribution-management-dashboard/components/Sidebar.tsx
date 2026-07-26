@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { HomeIcon } from './icons/HomeIcon';
 import { ContributionIcon } from './icons/DonateIcon';
@@ -54,10 +54,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileOpen, onMobileClose }) => {
     const { hasPermission } = useAuth();
-    const location = useLocation();
-    const isDonorPortalPage = location.pathname === '/donor-portal';
     
-    const publicNavItems = isDonorPortalPage ? [] : [
+    const publicNavItems = [
         { to: "/", icon: <HomeIcon className="w-5 h-5" />, label: "Home" },
     ];
     
