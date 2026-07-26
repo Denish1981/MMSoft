@@ -26,9 +26,10 @@ const participantRoutes = require('./routes/participants');
 const eventRegistrationRoutes = require('./routes/eventRegistrations');
 const stallRegistrationRoutes = require('./routes/stallRegistrations');
 const donorRoutes = require('./routes/donor');
+const scheduleRoutes = require('./routes/schedules');
 
 const app = express();
-const port = process.env.PORT || 4001;
+const port = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
 // --- Middleware ---
@@ -61,6 +62,7 @@ app.use('/api/participants', participantRoutes);
 app.use('/api/event-registrations', eventRegistrationRoutes);
 app.use('/api/stall-registrations', stallRegistrationRoutes);
 app.use('/api/donor', donorRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 
 // --- Server Start ---

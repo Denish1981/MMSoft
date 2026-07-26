@@ -41,6 +41,7 @@ import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
 import StallRegistrationsPage from './pages/StallRegistrationsPage/index';
 import StallRegistrationPage from './pages/StallRegistrationPage';
 import DonorPortalPage from './pages/DonorPortalPage';
+import { Schedules } from './pages/Schedules';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -83,6 +84,7 @@ const App: React.FC = () => {
                                     <Route path="/budget" element={<ProtectedRoute permission="page:budget:view"><Budget /></ProtectedRoute>} />
                                     <Route path="/campaigns" element={<ProtectedRoute permission="page:campaigns:view"><Campaigns /></ProtectedRoute>} />
                                     <Route path="/festivals" element={<ProtectedRoute permission="page:festivals:view"><Festivals /></ProtectedRoute>} />
+                                    <Route path="/schedules" element={<ProtectedRoute permission="page:schedules:view"><Schedules /></ProtectedRoute>} />
                                     <Route path="/festivals/:id/photos" element={<ProtectedRoute permission="page:festivals:view"><FestivalPhotosPage /></ProtectedRoute>} />
                                     <Route path="/festivals/:id/events" element={<ProtectedRoute permission="page:events:view"><Events /></ProtectedRoute>} />
                                     <Route path="/festivals/:id/stall-registrations" element={<ProtectedRoute permission="page:festivals:view"><StallRegistrationsPage /></ProtectedRoute>} />

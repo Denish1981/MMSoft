@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import type { 
     Contribution, Campaign, Sponsor, Vendor, Expense, Quotation, 
-    Budget as BudgetType, Festival, Task, UserForManagement, StallRegistration 
+    Budget as BudgetType, Festival, Task, UserForManagement, StallRegistration, ScheduleMaster 
 } from '../types/index';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../config';
@@ -26,6 +26,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [tasks, setTasks] = useState<Task[]>([]);
     const [users, setUsers] = useState<UserForManagement[]>([]);
     const [stallRegistrations, setStallRegistrations] = useState<StallRegistration[]>([]);
+    const [schedules, setSchedules] = useState<ScheduleMaster[]>([]);
     const [eventDataVersion, setEventDataVersion] = useState(0);
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
 
@@ -39,7 +40,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 fetch(`${API_URL}/expenses`, { headers }), fetch(`${API_URL}/quotations`, { headers }),
                 fetch(`${API_URL}/budgets`, { headers }), fetch(`${API_URL}/festivals`, { headers }),
                 fetch(`${API_URL}/tasks`, { headers }), fetch(`${API_URL}/users/management`, { headers }),
-                fetch(`${API_URL}/stall-registrations`, { headers })
+                fetch(`${API_URL}/stall-registrations`, { headers }), fetch(`${API_URL}/schedules`, { headers })
             ];
             const responses = await Promise.all(resPromises);
             
@@ -61,6 +62,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setTasks(data[8] || []);
             setUsers(data[9] || []);
             setStallRegistrations(data[10] || []);
+            setSchedules(data[11] || []);
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
@@ -100,6 +102,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setBudgets,
         setFestivals,
         setTasks,
+        setSchedules,
         setEventDataVersion,
     });
 
@@ -109,7 +112,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const value: DataContextType = {
         contributions, campaigns, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users,
-        donors, stallRegistrations, expenseHeads, festivalMap,
+        donors, stallRegistrations, schedules, expenseHeads, festivalMap,
         fetchData,
         ...handlers,
         eventDataVersion,

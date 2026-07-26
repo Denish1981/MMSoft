@@ -4,3 +4,4 @@ export * from './finance';
 export * from './events';
 export * from './participants';
 export * from './archive';
+export * from './schedules';

@@ -331,4 +331,54 @@ router.get('/public/campaigns', async (req, res) => {
     }
 });
 
+router.get('/public/schedules/active', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                s.id, 
+                s.festival_id as "festivalId", 
+                f.name as "festivalName", 
+                s.title, 
+                s.start_date as "startDate", 
+                s.end_date as "endDate", 
+                s.is_active as "isActive"
+            FROM schedules s
+            JOIN festivals f ON s.festival_id = f.id
+            WHERE s.deleted_at IS NULL AND s.is_active = true AND f.deleted_at IS NULL
+            ORDER BY s.start_date ASC
+        `;
+        const { rows: schedules } = await db.query(query);
+        
+        if (schedules.length === 0) {
+            return res.json([]);
+        }
+
+        const ids = schedules.map(s => s.id);
+        const { rows: entries } = await db.query(
+            `SELECT id, schedule_id as "scheduleId", event_date as "eventDate", day, event, timings
+             FROM schedule_entries
+             WHERE schedule_id = ANY($1::int[])
+             ORDER BY event_date ASC, timings ASC`,
+            [ids]
+        );
+
+        const entriesBySchedule = {};
+        for (const entry of entries) {
+            if (!entriesBySchedule[entry.scheduleId]) {
+                entriesBySchedule[entry.scheduleId] = [];
+            }
+            entriesBySchedule[entry.scheduleId].push(entry);
+        }
+
+        for (const sched of schedules) {
+            sched.entries = entriesBySchedule[sched.id] || [];
+        }
+
+        res.json(schedules);
+    } catch (err) {
+        console.error('Error fetching public active schedules:', err);
+        res.status(500).json({ error: 'Failed to fetch active schedules' });
+    }
+});
+
 module.exports = router;

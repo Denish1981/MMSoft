@@ -63,6 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
         { to: "/donor-portal", permission: 'page:donor-portal:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Donor Portal & Updates" },
         { to: "/dashboard", permission: 'page:dashboard:view', icon: <DashboardIcon className="w-5 h-5" />, label: "Dashboard" },
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
+        { to: "/schedules", permission: 'page:schedules:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Schedules" },
         { to: "/participants", permission: 'page:participants:view', icon: <UsersIcon className="w-5 h-5" />, label: "Participants" },
         { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },
         { to: "/contributions", permission: 'page:contributions:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Contributions" },

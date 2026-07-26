@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { 
     Contribution, Campaign, Sponsor, Vendor, Expense, Quotation, 
-    Budget as BudgetType, Festival, Task, Event 
+    Budget as BudgetType, Festival, Task, Event, ScheduleMaster
 } from '../../types/index';
 import { ContributionStatus } from '../../types/index';
 import { API_URL } from '../../config';
@@ -24,6 +24,7 @@ interface UseDataHandlersParams {
     setBudgets: React.Dispatch<React.SetStateAction<BudgetType[]>>;
     setFestivals: React.Dispatch<React.SetStateAction<Festival[]>>;
     setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+    setSchedules: React.Dispatch<React.SetStateAction<ScheduleMaster[]>>;
     setEventDataVersion: React.Dispatch<React.SetStateAction<number>>;
 }
 
@@ -45,6 +46,7 @@ export function useDataHandlers({
     setBudgets,
     setFestivals,
     setTasks,
+    setSchedules,
     setEventDataVersion,
 }: UseDataHandlersParams) {
 
@@ -262,6 +264,43 @@ export function useDataHandlers({
         }
     }, [getAuthHeaders, logout, setEventDataVersion]);
 
+    const handleScheduleSubmit = useCallback(async (data: Omit<ScheduleMaster, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: ScheduleMaster | null) => {
+        try {
+            const url = itemToEdit && itemToEdit.id ? `${API_URL}/schedules/${itemToEdit.id}` : `${API_URL}/schedules`;
+            const method = itemToEdit && itemToEdit.id ? 'PUT' : 'POST';
+            const response = await fetch(url, {
+                method,
+                headers: getAuthHeaders(),
+                body: JSON.stringify(data)
+            });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to save schedule');
+            }
+            await fetchData();
+        } catch (error) {
+            console.error('Schedule submit error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to save schedule');
+        }
+    }, [getAuthHeaders, logout, fetchData]);
+
+    const handleToggleScheduleActive = useCallback(async (id: number, isActive: boolean) => {
+        try {
+            const response = await fetch(`${API_URL}/schedules/${id}/toggle-active`, {
+                method: 'PATCH',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ isActive })
+            });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) throw new Error('Failed to update schedule status');
+            await fetchData();
+        } catch (error) {
+            console.error('Toggle schedule active error:', error);
+            alert('Failed to update schedule status.');
+        }
+    }, [getAuthHeaders, logout, fetchData]);
+
     return {
         handleDeleteClick,
         handleRestore,
@@ -277,5 +316,7 @@ export function useDataHandlers({
         handleTaskSubmit,
         handleCampaignSubmit,
         handleEventSubmit,
+        handleScheduleSubmit,
+        handleToggleScheduleActive,
     };
 }

@@ -1,4 +1,4 @@
-import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, Event, StallRegistration } from '../../types/index';
+import type { Contribution, Campaign, Donor, Sponsor, Vendor, Expense, Quotation, Budget as BudgetType, Festival, Task, UserForManagement, Event, StallRegistration, ScheduleMaster } from '../../types/index';
 
 export interface DataContextType {
     contributions: Contribution[];
@@ -13,6 +13,7 @@ export interface DataContextType {
     users: UserForManagement[];
     donors: Donor[];
     stallRegistrations: StallRegistration[];
+    schedules: ScheduleMaster[];
     expenseHeads: string[];
     festivalMap: Map<number, string>;
     fetchData: () => Promise<void>;
@@ -28,6 +29,8 @@ export interface DataContextType {
     handleTaskSubmit: (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Task | null) => void;
     handleEventSubmit: (data: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Event | null) => Promise<void>;
     handleCampaignSubmit: (data: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & { sourceCampaignId?: number }, itemToEdit: Campaign | null) => void;
+    handleScheduleSubmit: (data: Omit<ScheduleMaster, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: ScheduleMaster | null) => Promise<void>;
+    handleToggleScheduleActive: (id: number, isActive: boolean) => Promise<void>;
     handleDeleteClick: (id: number, type: string) => void;
     handleRestore: (recordType: string, recordId: number) => Promise<void>;
     eventDataVersion: number;

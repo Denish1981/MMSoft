@@ -266,9 +266,29 @@ const applySchema = async (client) => {
             reviewed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
             reviewed_at TIMESTAMPTZ
         )`,
+        `CREATE TABLE IF NOT EXISTS schedules (
+            id SERIAL PRIMARY KEY,
+            festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,
+            title VARCHAR(255),
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            is_active BOOLEAN DEFAULT false,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
+        `CREATE TABLE IF NOT EXISTS schedule_entries (
+            id SERIAL PRIMARY KEY,
+            schedule_id INTEGER REFERENCES schedules(id) ON DELETE CASCADE,
+            event_date DATE NOT NULL,
+            day VARCHAR(100),
+            event VARCHAR(255) NOT NULL,
+            timings VARCHAR(100) NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`,
 
         // History Tables
-        ...['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events', 'campaigns'].map(table => 
+        ...['contributions', 'sponsors', 'vendors', 'expenses', 'quotations', 'budgets', 'festivals', 'tasks', 'events', 'campaigns', 'schedules'].map(table => 
         `CREATE TABLE IF NOT EXISTS ${table}_history (
             id SERIAL PRIMARY KEY,
             record_id INTEGER NOT NULL,
