@@ -13,6 +13,16 @@ const getUserPermissions = async (userId) => {
     return rows.map(r => r.name);
 };
 
+const getUserRoles = async (userId) => {
+    const { rows } = await db.query(
+        `SELECT DISTINCT r.name FROM roles r
+         JOIN user_roles ur ON r.id = ur.role_id
+         WHERE ur.user_id = $1`,
+        [userId]
+    );
+    return rows.map(r => r.name);
+};
+
 const authMiddleware = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -29,10 +39,13 @@ const authMiddleware = async (req, res, next) => {
 
     try {
         const { rows } = await db.query(
-            `SELECT u.id, u.username, ARRAY_AGG(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL) AS permissions
+            `SELECT u.id, u.username, 
+                    ARRAY_AGG(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL) AS roles,
+                    ARRAY_AGG(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL) AS permissions
              FROM user_sessions s
              JOIN users u ON u.id = s.user_id
              LEFT JOIN user_roles ur ON ur.user_id = u.id
+             LEFT JOIN roles r ON r.id = ur.role_id
              LEFT JOIN role_permissions rp ON rp.role_id = ur.role_id
              LEFT JOIN permissions p ON p.id = rp.permission_id
              WHERE s.token = $1 AND s.expires_at > NOW()
@@ -46,7 +59,7 @@ const authMiddleware = async (req, res, next) => {
         }
 
         const user = rows[0];
-        const userObj = { id: user.id, email: user.username, permissions: user.permissions || [] };
+        const userObj = { id: user.id, email: user.username, roles: user.roles || [], permissions: user.permissions || [] };
 
         sessionCache.set(token, { user: userObj, expires: now + 30000 });
 
@@ -72,4 +85,4 @@ const permissionMiddleware = (permission) => (req, res, next) => {
     next();
 };
 
-module.exports = { authMiddleware, permissionMiddleware, getUserPermissions };
+module.exports = { authMiddleware, permissionMiddleware, getUserPermissions, getUserRoles };

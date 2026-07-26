@@ -3,7 +3,7 @@ import React from 'react';
 // FIX: Split imports between react-router and react-router-dom to fix export resolution issues.
 import { Route, Routes, Navigate, HashRouter } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { ModalProvider } from './contexts/ModalContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -44,6 +44,12 @@ import DonorPortalPage from './pages/DonorPortalPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
+
+const DefaultRedirect: React.FC = () => {
+    const { user } = useAuth();
+    const isDonor = user?.roles?.includes('Donor') || (!user?.permissions?.includes('action:users:manage') && user?.permissions?.includes('page:donor-portal:view'));
+    return <Navigate to={isDonor ? "/donor-portal" : "/dashboard"} replace />;
+};
 
 const App: React.FC = () => {
     return (
@@ -91,7 +97,7 @@ const App: React.FC = () => {
                                     <Route path="/forbidden" element={<ForbiddenPage />} />
 
                                     {/* Default redirect for authenticated users */}
-                                    <Route path="*" element={<Navigate to="/dashboard" />} />
+                                    <Route path="*" element={<DefaultRedirect />} />
                                 </Route>
                             </Routes>
                         </HashRouter>

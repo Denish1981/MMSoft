@@ -28,6 +28,7 @@ export interface Contribution {
   flatNumber: string;
   amount: number;
   numberOfCoupons: number;
+  festivalId?: number | null;
   campaignId: number | null;
   date: string; // ISO string
   status: ContributionStatus;
@@ -70,4 +71,3 @@ export interface Sponsor {
 }
 
 export type StagedContribution = Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
-

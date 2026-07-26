@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
-const { serveImageString } = require('../db/helpers');
+const { serveImageString, logManagerApproval } = require('../db/helpers');
 
 const router = express.Router();
 
@@ -83,8 +83,8 @@ router.put('/:id/status', authMiddleware, permissionMiddleware('action:edit'), a
                 await db.query(`
                     INSERT INTO contributions (
                         donor_name, donor_email, mobile_number, tower_number, flat_number, 
-                        amount, number_of_coupons, campaign_id, date, status, type, stall_registration_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                        amount, number_of_coupons, festival_id, campaign_id, date, status, type, stall_registration_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 `, [
                     registration.registrant_name,
                     null,
@@ -93,12 +93,29 @@ router.put('/:id/status', authMiddleware, permissionMiddleware('action:edit'), a
                     registration.flat_number || 'N/A',
                     registration.total_payment,
                     0,
-                    registration.campaign_id,
+                    registration.festival_id || null,
+                    registration.campaign_id || null,
                     registration.submitted_at || new Date(),
                     'Completed',
                     'Stall Fee',
                     id
                 ]);
+
+                // Record audit log for Manager approval
+                await logManagerApproval(db, {
+                    userId,
+                    entityType: 'Stall Registration',
+                    entityId: id,
+                    action: 'Approved',
+                    details: {
+                        registrantName: registration.registrant_name,
+                        contactNumber: registration.contact_number,
+                        festivalId: registration.festival_id,
+                        totalPayment: registration.total_payment,
+                        numberOfTables: registration.number_of_tables,
+                        stallDates: registration.stall_dates
+                    }
+                });
             }
         }
         

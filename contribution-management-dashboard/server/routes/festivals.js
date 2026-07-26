@@ -5,14 +5,14 @@ const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
 const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint } = require('../db/helpers');
 const router = express.Router();
 
-router.get('/', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
     try {
         const { rows } = await db.query('SELECT id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", stall_price_per_table_per_day as "stallPricePerTablePerDay", stall_electricity_cost_per_day as "stallElectricityCostPerDay", stall_start_date as "stallStartDate", stall_end_date as "stallEndDate", max_stalls as "maxStalls", created_at as "createdAt", updated_at as "updatedAt" FROM festivals WHERE deleted_at IS NULL ORDER BY start_date DESC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Internal server error' }); }
 });
 
-router.get('/:id', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
     try {
         const { rows } = await db.query('SELECT id, name, description, start_date AS "startDate", end_date AS "endDate", campaign_id AS "campaignId", stall_price_per_table_per_day as "stallPricePerTablePerDay", stall_electricity_cost_per_day as "stallElectricityCostPerDay", stall_start_date as "stallStartDate", stall_end_date as "stallEndDate", max_stalls as "maxStalls", created_at as "createdAt", updated_at as "updatedAt" FROM festivals WHERE id=$1 AND deleted_at IS NULL', [req.params.id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Festival not found' });

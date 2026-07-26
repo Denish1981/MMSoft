@@ -1,5 +1,7 @@
+
+
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { HomeIcon } from './icons/HomeIcon';
 import { ContributionIcon } from './icons/DonateIcon';
@@ -52,13 +54,15 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileOpen, onMobileClose }) => {
     const { hasPermission } = useAuth();
+    const location = useLocation();
+    const isDonorPortalPage = location.pathname === '/donor-portal';
     
-    const publicNavItems = [
+    const publicNavItems = isDonorPortalPage ? [] : [
         { to: "/", icon: <HomeIcon className="w-5 h-5" />, label: "Home" },
     ];
     
     const navItems = [
-        { to: "/donor-portal", permission: 'page:donor-portal:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Member Updates" },
+        { to: "/donor-portal", permission: 'page:donor-portal:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Donor Portal & Updates" },
         { to: "/dashboard", permission: 'page:dashboard:view', icon: <DashboardIcon className="w-5 h-5" />, label: "Dashboard" },
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
         { to: "/participants", permission: 'page:participants:view', icon: <UsersIcon className="w-5 h-5" />, label: "Participants" },
@@ -80,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
         <div className={`fixed top-0 left-0 h-full bg-slate-800 text-white flex flex-col transition-transform duration-300 ease-in-out z-30 ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-64 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
             <div className={`flex items-center justify-center py-6 px-4 border-b border-slate-700 flex-shrink-0 ${showCollapsedContent ? 'h-[65px]' : ''}`}>
                 <h1 className={`font-bold text-white tracking-wider transition-all duration-300 ${showCollapsedContent ? 'text-lg' : 'text-2xl'}`}>
-                    {showCollapsedContent ? 'C-OS' : 'Contribution OS'}
+                    {showCollapsedContent ? 'C-OS' : 'Gold Towers Mitra Mandal'}
                 </h1>
             </div>
             <nav className="flex-1 space-y-2 p-4 pt-4 overflow-y-auto">
@@ -91,7 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
                     </NavItem>
                 ))}
                 
-                <hr className="border-slate-700 my-2" />
+                {publicNavItems.length > 0 && <hr className="border-slate-700 my-2" />}
                 
                 {navItems.map(item => hasPermission(item.permission) && (
                     <NavItem key={item.to} to={item.to} isCollapsed={showCollapsedContent} onClick={onMobileClose}>

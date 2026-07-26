@@ -21,9 +21,10 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
         const contribRes = await db.query(
             `SELECT c.id, c.donor_name AS "donorName", c.amount, c.number_of_coupons AS "numberOfCoupons", 
                     c.date, c.status, c.type, c.tower_number AS "towerNumber", c.flat_number AS "flatNumber", 
-                    CASE WHEN c.image IS NOT NULL AND c.image != '' THEN CASE WHEN c.image LIKE '/api/%' OR c.image LIKE 'http://%' OR c.image LIKE 'https://%' THEN c.image ELSE CONCAT('/api/contributions/', c.id, '/image') END ELSE NULL END AS image, 
-                    cmp.name AS "campaignName" 
+                    c.festival_id AS "festivalId", f.name AS "festivalName", cmp.name AS "campaignName",
+                    CASE WHEN c.image IS NOT NULL AND c.image != '' THEN CASE WHEN c.image LIKE '/api/%' OR c.image LIKE 'http://%' OR c.image LIKE 'https://%' THEN c.image ELSE CONCAT('/api/contributions/', c.id, '/image') END ELSE NULL END AS image 
              FROM contributions c 
+             LEFT JOIN festivals f ON c.festival_id = f.id
              LEFT JOIN campaigns cmp ON c.campaign_id = cmp.id 
              WHERE (
                  c.user_id = $1 

@@ -80,6 +80,7 @@ const applySchema = async (client) => {
             flat_number VARCHAR(50) NOT NULL,
             amount NUMERIC(10, 2) NOT NULL,
             number_of_coupons INTEGER NOT NULL DEFAULT 0,
+            festival_id INTEGER REFERENCES festivals(id),
             campaign_id INTEGER REFERENCES campaigns(id),
             date DATE NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'Completed',
@@ -276,7 +277,19 @@ const applySchema = async (client) => {
             new_value TEXT,
             changed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
             changed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-        )`)
+        )`),
+
+        // Manager Approval Audit Table
+        `CREATE TABLE IF NOT EXISTS manager_approval_audit (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            user_role VARCHAR(100),
+            entity_type VARCHAR(50) NOT NULL,
+            entity_id INTEGER NOT NULL,
+            action VARCHAR(50) NOT NULL DEFAULT 'Approved',
+            details JSONB,
+            approved_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        )`
     ];
 
     for (const query of queries) {
@@ -287,6 +300,7 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50);');
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
+    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS festival_id INTEGER REFERENCES festivals(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50);');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
@@ -295,6 +309,7 @@ const applySchema = async (client) => {
 
     // Performance Indexes
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_deleted_status_date ON contributions (deleted_at, status, date DESC);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_festival ON contributions (festival_id) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_campaign ON contributions (campaign_id) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_stall_reg ON contributions (stall_registration_id) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions (token, expires_at);');
@@ -308,6 +323,8 @@ const applySchema = async (client) => {
     await client.query('CREATE INDEX IF NOT EXISTS idx_stall_registrations_status ON stall_registrations (status, submitted_at DESC);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_user_roles_user ON user_roles (user_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions (role_id);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_manager_approval_audit_user ON manager_approval_audit (user_id);');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_manager_approval_audit_entity ON manager_approval_audit (entity_type, entity_id);');
 };
 
 module.exports = { applySchema };

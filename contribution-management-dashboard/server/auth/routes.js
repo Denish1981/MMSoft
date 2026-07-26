@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const db = require('../db');
-const { authMiddleware, getUserPermissions } = require('./middleware');
+const { authMiddleware, getUserPermissions, getUserRoles } = require('./middleware');
 
 const router = express.Router();
 const googleClient = new OAuth2Client();
@@ -62,6 +62,7 @@ router.post('/register', async (req, res) => {
 
         const token = await createSession(userId);
         const permissions = await getUserPermissions(userId);
+        const roles = await getUserRoles(userId);
         await logLoginHistory(userId, 'registration', req);
 
         res.status(201).json({
@@ -73,6 +74,7 @@ router.post('/register', async (req, res) => {
                 mobileNumber: mobileNumber || '',
                 towerNumber: towerNumber || '',
                 flatNumber: flatNumber || '',
+                roles,
                 permissions
             },
             token
@@ -96,6 +98,7 @@ router.post('/login', async (req, res) => {
         if (result.rows.length > 0) {
             const user = result.rows[0];
             const permissions = await getUserPermissions(user.id);
+            const roles = await getUserRoles(user.id);
             if (permissions.length === 0) return res.status(403).json({ message: 'Login failed. Your account has not been assigned any roles.' });
             
             const token = await createSession(user.id);
@@ -108,6 +111,7 @@ router.post('/login', async (req, res) => {
                     mobileNumber: user.mobileNumber || '',
                     towerNumber: user.towerNumber || '',
                     flatNumber: user.flatNumber || '',
+                    roles,
                     permissions 
                 }, 
                 token 
@@ -166,6 +170,7 @@ router.post('/google', async (req, res) => {
         }
 
         const permissions = await getUserPermissions(user.id);
+        const roles = await getUserRoles(user.id);
         if (permissions.length === 0) return res.status(403).json({ message: 'Access denied. Your account has no assigned roles.' });
 
         const sessionToken = await createSession(user.id);
@@ -178,6 +183,7 @@ router.post('/google', async (req, res) => {
                 mobileNumber: user.mobileNumber || '',
                 towerNumber: user.towerNumber || '',
                 flatNumber: user.flatNumber || '',
+                roles,
                 permissions 
             }, 
             token: sessionToken 

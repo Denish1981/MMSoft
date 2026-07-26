@@ -5,13 +5,13 @@ export const OverviewSection: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="border-b border-slate-200 pb-4">
-                <h2 className="text-2xl font-bold text-slate-800">Welcome to Contribution OS</h2>
+                <h2 className="text-2xl font-bold text-slate-800">Welcome to Gold Towers Mitra Mandal Trust</h2>
                 <p className="text-slate-500 mt-1">A unified financial management, volunteer operations, and public interaction portal.</p>
             </div>
 
             <div className="prose prose-slate max-w-none space-y-4">
                 <p className="text-slate-650 leading-relaxed">
-                    <strong>Contribution OS</strong> is an offline-first, highly responsive platform tailored for non-profits, associations, and community groups. It is designed to manage capital campaigns, major festivals, operations, expenses, volunteer tasks, and public facing features (such as event registrations, photo albums, and public stall bookings).
+                    <strong>GTMM Application</strong> is an offline-first, highly responsive platform tailored for hte Gold Towers Mitra Mandal Trust (GTMM). It is designed to manage capital campaigns, major festivals, operations, expenses, volunteer tasks, and public facing features (such as event registrations, photo albums, and public stall bookings).
                 </p>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mt-4">

@@ -1,7 +1,7 @@
 {
   "name": "contribution-os-frontend",
   "version": "1.0.0",
-  "description": "Frontend for the Contribution OS application.",
+  "description": "Frontend for the GTMM Trust application.",
   "private": true,
   "type": "module",
   "scripts": {

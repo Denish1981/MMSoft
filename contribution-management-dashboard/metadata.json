@@ -1,5 +1,5 @@
 {
-  "name": "Contribution Management Dashboard",
+  "name": "GTMM Trust",
   "description": "An intelligent dashboard for managing, tracking, and analyzing charitable contributions. Features AI-powered insights and reporting to help understand contribution trends and engage with donors.",
   "requestFramePermissions": [
     "camera"

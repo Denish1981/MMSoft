@@ -2,7 +2,7 @@
 {
   "name": "contribution-os-server",
   "version": "1.0.0",
-  "description": "Backend server for the Contribution OS application.",
+  "description": "Backend server for the GTMM Trust application.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

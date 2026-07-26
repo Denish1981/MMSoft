@@ -5,7 +5,7 @@ import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
-    const { isAuthenticated, isLoading: authLoading, login, registerDonor, googleLogin } = useAuth();
+    const { isAuthenticated, isLoading: authLoading, login, registerDonor, googleLogin, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     
@@ -25,11 +25,20 @@ const LoginPage: React.FC = () => {
 
     useEffect(() => {
         if (!authLoading && isAuthenticated) {
-            const from = (location.state as any)?.from?.pathname || '/donor-portal';
-            const target = from === '/login' ? '/donor-portal' : from;
+            const from = (location.state as any)?.from?.pathname;
+            const isDonor = user?.roles?.includes('Donor') || (!user?.permissions?.includes('action:users:manage') && user?.permissions?.includes('page:donor-portal:view'));
+            
+            let target = '/donor-portal';
+            if (isDonor) {
+                target = '/donor-portal';
+            } else if (from && from !== '/login') {
+                target = from;
+            } else {
+                target = '/dashboard';
+            }
             navigate(target, { replace: true });
         }
-    }, [isAuthenticated, authLoading, navigate, location]);
+    }, [isAuthenticated, authLoading, navigate, location, user]);
 
     if (authLoading) {
         return (
@@ -98,9 +107,9 @@ const LoginPage: React.FC = () => {
         <div className="flex items-center justify-center min-h-screen bg-slate-100 py-12 px-4">
             <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow-xl border border-slate-100">
                 <div className="text-center">
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-wider">Contribution OS</h1>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-wider">GTMM Trust</h1>
                     <p className="mt-2 text-slate-500 text-sm">
-                        {mode === 'login' ? 'Sign in to access your portal & updates' : 'Register as a member user'}
+                        {mode === 'login' ? 'Sign in to access your portal & updates' : 'Register as a donor user'}
                     </p>
                 </div>
 
@@ -122,7 +131,7 @@ const LoginPage: React.FC = () => {
                             mode === 'register' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                     >
-                        Member Registration
+                        Donor Registration
                     </button>
                 </div>
 
@@ -243,7 +252,7 @@ const LoginPage: React.FC = () => {
                 </form>
 
                 <div className="text-center text-xs text-slate-400">
-                     © {new Date().getFullYear()} Contribution OS. All rights reserved.
+                     © {new Date().getFullYear()} GTMM Trust. All rights reserved.
                 </div>
             </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ContributionStatus, type Campaign, type Contribution } from '../types/index';
+import { ContributionStatus, type Campaign, type Festival, type Contribution } from '../types/index';
 import { formatDateForInput } from '../utils/formatting';
 import { compressImageFile } from '../utils/imageUtils';
 import { CloseIcon } from './icons/CloseIcon';
@@ -8,16 +8,19 @@ import { DonorFields } from './donation/DonorFields';
 import { ContributionFields } from './donation/ContributionFields';
 import { ImageUploadSection } from './donation/ImageUploadSection';
 import { useAuth } from '../contexts/AuthContext';
+import { API_URL } from '../config';
 
 interface ContributionModalProps {
-    campaigns: Campaign[];
+    festivals?: Festival[];
+    campaigns?: Campaign[];
     contributionToEdit: Contribution | null;
     onClose: () => void;
     onSubmit: (contribution: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt'>) => void;
 }
 
-export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns, contributionToEdit, onClose, onSubmit }) => {
-    const { user } = useAuth();
+export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals = [], campaigns = [], contributionToEdit, onClose, onSubmit }) => {
+    const { user, token } = useAuth();
+    const [fetchedFestivals, setFetchedFestivals] = useState<Festival[]>([]);
     const [donorName, setDonorName] = useState('');
     const [donorEmail, setDonorEmail] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
@@ -25,8 +28,25 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [flatNumber, setFlatNumber] = useState('');
     const [amount, setAmount] = useState('');
     const [numberOfCoupons, setNumberOfCoupons] = useState('');
-    const defaultCampaignId = campaigns.find(c => c.isActive)?.id || campaigns[0]?.id || null;
-    const [campaignId, setCampaignId] = useState<number | null>(defaultCampaignId);
+    
+    useEffect(() => {
+        if (festivals.length === 0) {
+            fetch(`${API_URL}/festivals`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            })
+            .then(res => res.ok ? res.json() : [])
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setFetchedFestivals(data);
+                }
+            })
+            .catch(err => console.error("Error fetching festivals in ContributionModal:", err));
+        }
+    }, [festivals, token]);
+
+    const activeFestivals = festivals.length > 0 ? festivals : fetchedFestivals;
+    const defaultFestivalId = activeFestivals[0]?.id || null;
+    const [festivalId, setFestivalId] = useState<number | null>(defaultFestivalId);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedDropdownType, setSelectedDropdownType] = useState<string>('Online');
     const [customType, setCustomType] = useState<string>('');
@@ -36,7 +56,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     useEffect(() => {
-        const activeCampId = campaigns.find(c => c.isActive)?.id || campaigns[0]?.id || null;
+        const defaultFestId = activeFestivals[0]?.id || null;
         if (contributionToEdit) {
             setDonorName(contributionToEdit.donorName || '');
             setDonorEmail(contributionToEdit.donorEmail || '');
@@ -45,7 +65,14 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setFlatNumber(contributionToEdit.flatNumber || '');
             setAmount(contributionToEdit.amount ? String(contributionToEdit.amount) : '');
             setNumberOfCoupons(contributionToEdit.numberOfCoupons ? String(contributionToEdit.numberOfCoupons) : '');
-            setCampaignId(contributionToEdit.campaignId || activeCampId);
+            
+            let targetFestId = contributionToEdit.festivalId;
+            if (!targetFestId && contributionToEdit.campaignId) {
+                const matchFest = activeFestivals.find(f => f.campaignId === contributionToEdit.campaignId);
+                if (matchFest) targetFestId = matchFest.id;
+            }
+            setFestivalId(targetFestId || defaultFestId);
+
             setDate(formatDateForInput(contributionToEdit.date) || new Date().toISOString().split('T')[0]);
             const currentType = contributionToEdit.type || 'Online';
             if (['Online', 'Cash', 'Donation Box', 'Miscellaneous'].includes(currentType)) {
@@ -69,7 +96,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setFlatNumber(user?.flatNumber || '');
             setAmount('');
             setNumberOfCoupons('');
-            setCampaignId(activeCampId);
+            setFestivalId(defaultFestId);
             setDate(new Date().toISOString().split('T')[0]);
             setSelectedDropdownType('Online');
             setCustomType('');
@@ -77,7 +104,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             setImage(undefined);
             setImagePreview(null);
         }
-    }, [contributionToEdit]);
+    }, [contributionToEdit, activeFestivals]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -103,7 +130,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const isMisc = selectedDropdownType === 'Miscellaneous';
-        if (!donorName || !amount || !campaignId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date) {
+        if (!donorName || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date) {
             alert('Please fill out all required fields.');
             return;
         }
@@ -112,6 +139,10 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             : (selectedDropdownType === 'Miscellaneous' && customType.trim())
                 ? `Miscellaneous: ${customType.trim()}`
                 : selectedDropdownType;
+        
+        const selectedFest = activeFestivals.find(f => f.id === festivalId);
+        const derivedCampaignId = selectedFest?.campaignId || (contributionToEdit?.campaignId ?? null);
+
         const submissionData: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt'> = {
             donorName,
             donorEmail,
@@ -120,7 +151,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
             flatNumber: isMisc ? 'N/A' : flatNumber,
             amount: parseFloat(amount),
             numberOfCoupons: isMisc ? 0 : parseInt(numberOfCoupons, 10),
-            campaignId,
+            festivalId,
+            campaignId: derivedCampaignId,
             date: date,
             type: finalType,
             image,
@@ -179,9 +211,9 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ campaigns,
                             setCustomType={setCustomType}
                             status={status}
                             setStatus={setStatus}
-                            campaignId={campaignId}
-                            setCampaignId={setCampaignId}
-                            campaigns={campaigns}
+                            festivalId={festivalId}
+                            setFestivalId={setFestivalId}
+                            festivals={activeFestivals}
                         />
 
                         <ImageUploadSection

@@ -114,9 +114,38 @@ const serveImageString = (img, res) => {
     }
 };
 
+const logManagerApproval = async (clientOrDb, { userId, entityType, entityId, action = 'Approved', details = {} }) => {
+    try {
+        if (!userId) return;
+
+        const { rows: userRoles } = await clientOrDb.query(
+            `SELECT r.name 
+             FROM roles r 
+             JOIN user_roles ur ON r.id = ur.role_id 
+             WHERE ur.user_id = $1`,
+            [userId]
+        );
+
+        const roleNames = userRoles.map(r => r.name);
+        const isManager = roleNames.includes('Manager') || roleNames.includes('Admin');
+
+        if (isManager) {
+            const userRole = roleNames.includes('Manager') ? 'Manager' : (roleNames[0] || 'Manager');
+            await clientOrDb.query(
+                `INSERT INTO manager_approval_audit (user_id, user_role, entity_type, entity_id, action, details)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [userId, userRole, entityType, entityId, action, JSON.stringify(details)]
+            );
+        }
+    } catch (err) {
+        console.error('Failed to log manager approval audit:', err);
+    }
+};
+
 module.exports = {
     logChanges,
     createHistoryEndpoint,
     createSoftDeleteEndpoint,
-    serveImageString
+    serveImageString,
+    logManagerApproval
 };

@@ -1,12 +1,15 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useModal } from '../contexts/ModalContext';
+import { useData } from '../contexts/DataContext';
 import { API_URL } from '../config';
 import { 
     Heart, Calendar, Store, Bell, CheckCircle2, XCircle, Clock, 
-    ChevronRight, RefreshCw, FileText, PlusCircle, Building2, Phone, User as UserIcon 
+    RefreshCw, PlusCircle, Building2, Phone, User as UserIcon, X
 } from 'lucide-react';
+import StallRegistrationModal from '../components/StallRegistrationModal';
+import { RegistrationModal, PublicEvent } from '../components/RegistrationModal';
+import type { Festival as PublicFestival } from '../types/index';
 
 interface ContributionItem {
     id: number;
@@ -53,12 +56,14 @@ interface UpcomingEvent {
     eventDate: string;
     startTime?: string;
     venue: string;
+    registrationFormSchema?: any[];
 }
 
 const DonorPortalPage: React.FC = () => {
     const { user, token } = useAuth();
-    const { openContributionModal } = useModal();
-    const navigate = useNavigate();
+    const { openContributionModal, isContributionModalOpen } = useModal();
+    const { contributions: globalContributions } = useData();
+    const prevModalOpenRef = useRef(isContributionModalOpen);
 
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'stalls' | 'contributions' | 'events' | 'announcements'>('stalls');
@@ -68,6 +73,16 @@ const DonorPortalPage: React.FC = () => {
     const [eventRegistrations, setEventRegistrations] = useState<EventRegistrationItem[]>([]);
     const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+    // Modals for Stall and Event Registration directly from Donor Portal
+    const [selectedFestivalForStall, setSelectedFestivalForStall] = useState<PublicFestival | null>(null);
+    const [selectedEventForRegister, setSelectedEventForRegister] = useState<PublicEvent | null>(null);
+    
+    const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
+    const [choiceTab, setChoiceTab] = useState<'stall' | 'event'>('stall');
+    const [publicFestivals, setPublicFestivals] = useState<PublicFestival[]>([]);
+    const [publicEventsList, setPublicEventsList] = useState<PublicEvent[]>([]);
+    const [isFetchingChoiceData, setIsFetchingChoiceData] = useState(false);
 
     const fetchPortalData = useCallback(async () => {
         if (!token) return;
@@ -90,9 +105,41 @@ const DonorPortalPage: React.FC = () => {
         }
     }, [token]);
 
+    const openChoiceModal = useCallback(async (tab: 'stall' | 'event' = 'stall') => {
+        setChoiceTab(tab);
+        setIsChoiceModalOpen(true);
+        setIsFetchingChoiceData(true);
+        try {
+            const [festRes, evtRes] = await Promise.all([
+                fetch(`${API_URL}/public/festivals`),
+                fetch(`${API_URL}/public/events`)
+            ]);
+            if (festRes.ok) {
+                const festData = await festRes.json();
+                setPublicFestivals(festData || []);
+            }
+            if (evtRes.ok) {
+                const evtData = await evtRes.json();
+                setPublicEventsList(evtData || []);
+            }
+        } catch (err) {
+            console.error('Failed to load festivals or events for choice modal:', err);
+        } finally {
+            setIsFetchingChoiceData(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (prevModalOpenRef.current && !isContributionModalOpen) {
+            setActiveTab('contributions');
+            fetchPortalData();
+        }
+        prevModalOpenRef.current = isContributionModalOpen;
+    }, [isContributionModalOpen, fetchPortalData]);
+
     useEffect(() => {
         fetchPortalData();
-    }, [fetchPortalData]);
+    }, [fetchPortalData, globalContributions]);
 
     if (isLoading) {
         return (
@@ -150,7 +197,7 @@ const DonorPortalPage: React.FC = () => {
                         </button>
                         <div className="relative group" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
                             <button
-                                onClick={() => { if (hasApprovedContribution) navigate('/'); }}
+                                onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
                                 disabled={!hasApprovedContribution}
                                 className={`flex items-center gap-2 font-medium px-4 py-2.5 rounded-xl border transition-all ${
                                     hasApprovedContribution
@@ -291,25 +338,38 @@ const DonorPortalPage: React.FC = () => {
                     {/* Tab 1: Stall Registrations */}
                     {activeTab === 'stalls' && (
                         <div className="space-y-4">
-                            <div className="flex justify-between items-center mb-2">
+                            <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                                 <h3 className="font-bold text-slate-800 text-lg">Stall Registration & Approval Statuses</h3>
-                                <button
-                                    onClick={fetchPortalData}
-                                    className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                                    title="Refresh"
-                                >
-                                    <RefreshCw className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
+                                        disabled={!hasApprovedContribution}
+                                        className={`px-3 py-1.5 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors ${
+                                            hasApprovedContribution
+                                                ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-sm"
+                                                : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                        }`}
+                                    >
+                                        <PlusCircle className="w-4 h-4" /> Register New Stall
+                                    </button>
+                                    <button
+                                        onClick={fetchPortalData}
+                                        className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                                        title="Refresh"
+                                    >
+                                        <RefreshCw className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
 
                             {stallRegistrations.length === 0 ? (
                                 <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                                     <Store className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <p className="text-slate-600 font-medium">No stall registrations found.</p>
-                                    <p className="text-xs text-slate-400 mt-1">Register a stall for upcoming festivals on the home page.</p>
+                                    <p className="text-xs text-slate-400 mt-1">Register a stall for upcoming festivals directly from your donor portal.</p>
                                     <div className="relative group inline-block mt-4" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
                                         <button
-                                            onClick={() => { if (hasApprovedContribution) navigate('/'); }}
+                                            onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
                                             disabled={!hasApprovedContribution}
                                             className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
                                                 hasApprovedContribution
@@ -472,11 +532,36 @@ const DonorPortalPage: React.FC = () => {
                     {/* Tab 3: My Event Registrations */}
                     {activeTab === 'events' && (
                         <div className="space-y-4">
-                            <h3 className="font-bold text-slate-800 text-lg mb-2">My Event Registrations</h3>
+                            <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                                <h3 className="font-bold text-slate-800 text-lg">My Event Registrations</h3>
+                                <button
+                                    onClick={() => { if (hasApprovedContribution) openChoiceModal('event'); }}
+                                    disabled={!hasApprovedContribution}
+                                    className={`px-3 py-1.5 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors ${
+                                        hasApprovedContribution
+                                            ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-sm"
+                                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                    }`}
+                                >
+                                    <PlusCircle className="w-4 h-4" /> Register for Event
+                                </button>
+                            </div>
+
                             {eventRegistrations.length === 0 ? (
                                 <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                                     <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <p className="text-slate-600 font-medium">You haven't registered for any events yet.</p>
+                                    <button
+                                        onClick={() => { if (hasApprovedContribution) openChoiceModal('event'); }}
+                                        disabled={!hasApprovedContribution}
+                                        className={`mt-3 px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
+                                            hasApprovedContribution
+                                                ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                                                : "bg-slate-300 text-slate-500 cursor-not-allowed"
+                                        }`}
+                                    >
+                                        Register for an Event
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -513,7 +598,7 @@ const DonorPortalPage: React.FC = () => {
                             ) : (
                                 <div className="space-y-3">
                                     {upcomingEvents.map((event) => (
-                                        <div key={event.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:shadow-md transition-shadow flex justify-between items-center">
+                                        <div key={event.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:shadow-md transition-shadow flex justify-between items-center gap-4">
                                             <div>
                                                 <h4 className="font-bold text-slate-800 text-base">{event.name}</h4>
                                                 <p className="text-xs text-slate-500 mt-1">{event.description}</p>
@@ -523,10 +608,49 @@ const DonorPortalPage: React.FC = () => {
                                                 </div>
                                             </div>
                                             <button
-                                                onClick={() => navigate('/')}
-                                                className="px-3.5 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1"
+                                                onClick={async () => {
+                                                    if (!hasApprovedContribution) return;
+                                                    if (event.registrationFormSchema) {
+                                                        setSelectedEventForRegister(event as unknown as PublicEvent);
+                                                    } else {
+                                                        try {
+                                                            const res = await fetch(`${API_URL}/public/events`);
+                                                            if (res.ok) {
+                                                                const eventsList: PublicEvent[] = await res.json();
+                                                                const fullEvt: PublicEvent = eventsList.find(e => e.id === event.id) || {
+                                                                    id: event.id,
+                                                                    name: event.name,
+                                                                    description: event.description || '',
+                                                                    eventDate: event.eventDate,
+                                                                    startTime: event.startTime || '18:00',
+                                                                    endTime: null,
+                                                                    venue: event.venue,
+                                                                    registrationFormSchema: []
+                                                                };
+                                                                setSelectedEventForRegister(fullEvt);
+                                                            }
+                                                        } catch {
+                                                            setSelectedEventForRegister({
+                                                                id: event.id,
+                                                                name: event.name,
+                                                                description: event.description || '',
+                                                                eventDate: event.eventDate,
+                                                                startTime: event.startTime || '18:00',
+                                                                endTime: null,
+                                                                venue: event.venue,
+                                                                registrationFormSchema: []
+                                                            });
+                                                        }
+                                                    }
+                                                }}
+                                                disabled={!hasApprovedContribution}
+                                                className={`px-3.5 py-1.5 font-semibold text-xs rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap ${
+                                                    hasApprovedContribution
+                                                        ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-sm"
+                                                        : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                                }`}
                                             >
-                                                View <ChevronRight className="w-3.5 h-3.5" />
+                                                Register Now
                                             </button>
                                         </div>
                                     ))}
@@ -537,6 +661,7 @@ const DonorPortalPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Proof Viewing Modal */}
             {viewingImage && (
                 <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4" onClick={() => setViewingImage(null)}>
                     <div className="relative max-w-2xl w-full bg-white rounded-2xl p-4 overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -551,6 +676,131 @@ const DonorPortalPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Choice Modal for Stall or Event Registration */}
+            {isChoiceModalOpen && (
+                <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4" onClick={() => setIsChoiceModalOpen(false)}>
+                    <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-xl">Register for Stall or Event</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">Select what you would like to register for below</p>
+                            </div>
+                            <button onClick={() => setIsChoiceModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Choice Tabs */}
+                        <div className="flex border-b border-slate-200 mt-4">
+                            <button
+                                onClick={() => setChoiceTab('stall')}
+                                className={`px-4 py-2.5 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
+                                    choiceTab === 'stall' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Store className="w-4 h-4" /> Festival Stalls ({publicFestivals.length})
+                            </button>
+                            <button
+                                onClick={() => setChoiceTab('event')}
+                                className={`px-4 py-2.5 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
+                                    choiceTab === 'event' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Calendar className="w-4 h-4" /> Events ({publicEventsList.length})
+                            </button>
+                        </div>
+
+                        {/* Choice List Content */}
+                        <div className="p-4 overflow-y-auto flex-1 space-y-4">
+                            {isFetchingChoiceData ? (
+                                <div className="py-12 text-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                                    <p className="text-xs text-slate-500 mt-2">Loading available registrations...</p>
+                                </div>
+                            ) : choiceTab === 'stall' ? (
+                                publicFestivals.length === 0 ? (
+                                    <div className="py-8 text-center text-slate-500 text-sm">
+                                        No active festivals available for stall registration at this time.
+                                    </div>
+                                ) : (
+                                    publicFestivals.map(fest => (
+                                        <div key={fest.id} className="p-4 rounded-xl border border-slate-200 hover:border-blue-300 bg-slate-50/50 hover:bg-blue-50/30 transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 text-base">{fest.name}</h4>
+                                                <p className="text-xs text-slate-600 mt-1">{fest.description}</p>
+                                                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-500 font-medium">
+                                                    <span>📅 Stall Dates: {fest.stallStartDate ? new Date(fest.stallStartDate).toLocaleDateString() : 'TBA'} - {fest.stallEndDate ? new Date(fest.stallEndDate).toLocaleDateString() : 'TBA'}</span>
+                                                    <span>💰 ₹{fest.stallPricePerTablePerDay || 0}/table/day</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setIsChoiceModalOpen(false);
+                                                    setSelectedFestivalForStall(fest);
+                                                }}
+                                                className="px-4 py-2 bg-blue-600 text-white font-semibold text-xs rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+                                            >
+                                                Register Stall
+                                            </button>
+                                        </div>
+                                    ))
+                                )
+                            ) : (
+                                publicEventsList.length === 0 ? (
+                                    <div className="py-8 text-center text-slate-500 text-sm">
+                                        No upcoming events available for registration at this time.
+                                    </div>
+                                ) : (
+                                    publicEventsList.map(evt => (
+                                        <div key={evt.id} className="p-4 rounded-xl border border-slate-200 hover:border-blue-300 bg-slate-50/50 hover:bg-blue-50/30 transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 text-base">{evt.name}</h4>
+                                                <p className="text-xs text-slate-600 mt-1">{evt.description}</p>
+                                                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-500 font-medium">
+                                                    <span>📅 Date: {evt.eventDate ? new Date(evt.eventDate).toLocaleDateString() : 'TBA'} ({evt.startTime || 'TBA'})</span>
+                                                    <span>📍 Venue: {evt.venue || 'Main Grounds'}</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setIsChoiceModalOpen(false);
+                                                    setSelectedEventForRegister(evt);
+                                                }}
+                                                className="px-4 py-2 bg-blue-600 text-white font-semibold text-xs rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+                                            >
+                                                Register for Event
+                                            </button>
+                                        </div>
+                                    ))
+                                )
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Stall Registration Modal */}
+            {selectedFestivalForStall && (
+                <StallRegistrationModal
+                    festival={selectedFestivalForStall}
+                    onClose={() => {
+                        setSelectedFestivalForStall(null);
+                        fetchPortalData();
+                    }}
+                />
+            )}
+
+            {/* Event Registration Modal */}
+            {selectedEventForRegister && (
+                <RegistrationModal
+                    event={selectedEventForRegister}
+                    onClose={() => {
+                        setSelectedEventForRegister(null);
+                        fetchPortalData();
+                    }}
+                />
             )}
         </div>
     );

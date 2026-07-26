@@ -1,5 +1,5 @@
 import React from 'react';
-import { ContributionStatus, type Campaign } from '../../types/index';
+import { ContributionStatus, type Festival } from '../../types/index';
 
 interface ContributionFieldsProps {
     amount: string;
@@ -14,9 +14,9 @@ interface ContributionFieldsProps {
     setCustomType: (val: string) => void;
     status: ContributionStatus;
     setStatus: (val: ContributionStatus) => void;
-    campaignId: number | null;
-    setCampaignId: (val: number) => void;
-    campaigns: Campaign[];
+    festivalId: number | null;
+    setFestivalId: (val: number | null) => void;
+    festivals: Festival[];
 }
 
 export const ContributionFields: React.FC<ContributionFieldsProps> = ({
@@ -32,9 +32,9 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
     setCustomType,
     status,
     setStatus,
-    campaignId,
-    setCampaignId,
-    campaigns,
+    festivalId,
+    setFestivalId,
+    festivals,
 }) => {
     const isMisc = selectedDropdownType === 'Miscellaneous';
 
@@ -129,16 +129,16 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
             )}
 
             <div>
-                <label htmlFor="campaign" className="block text-sm font-medium text-slate-700">Campaign</label>
+                <label htmlFor="festival" className="block text-sm font-medium text-slate-700">Festival</label>
                 <select 
-                    id="campaign" 
-                    value={campaignId || ''} 
-                    onChange={e => setCampaignId(Number(e.target.value))} 
+                    id="festival" 
+                    value={festivalId || ''} 
+                    onChange={e => setFestivalId(e.target.value ? Number(e.target.value) : null)} 
                     className="mt-1 block w-full px-3 py-2 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                     required
                 >
-                    <option value="" disabled>Select a campaign</option>
-                    {campaigns.map(c => <option key={c.id} value={c.id}>{c.name} {c.financialYear ? `(${c.financialYear})` : ''}</option>)}
+                    <option value="" disabled>Select a festival</option>
+                    {festivals.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
             </div>
         </div>

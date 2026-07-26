@@ -11,6 +11,7 @@ interface ContributionsTableProps {
     activeTab: 'individual' | 'miscellaneous';
     paginatedContributions: Contribution[];
     campaignMap: Map<number, string>;
+    festivalMap?: Map<number, string>;
     onGenerateNote: (contribution: Contribution) => void;
     onViewHistory: (contribution: Contribution) => void;
     onEdit: (contribution: Contribution) => void;
@@ -23,6 +24,7 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
     activeTab,
     paginatedContributions,
     campaignMap,
+    festivalMap,
     onGenerateNote,
     onViewHistory,
     onEdit,
@@ -43,7 +45,7 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                         {activeTab === 'individual' && (
                             <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Coupons</th>
                         )}
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Campaign</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Festival / Campaign</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Image</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
@@ -64,7 +66,7 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
                                 )}
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                    {(contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}
+                                    {(contribution.festivalId && festivalMap?.get(contribution.festivalId)) || (contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(contribution.date)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center">

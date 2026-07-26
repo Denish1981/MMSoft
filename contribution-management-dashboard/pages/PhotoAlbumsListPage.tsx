@@ -38,7 +38,7 @@ const PhotoAlbumsListPage: React.FC = () => {
             <header className="bg-white shadow-sm">
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-8">
-                        <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">Contribution OS</Link>
+                        <Link to="/" className="text-2xl font-bold text-slate-800 tracking-wider">GTMM Trust</Link>
                         <div className="hidden md:flex items-center space-x-6">
                             <Link to="/" className="text-base font-medium text-slate-600 hover:text-blue-600">Home</Link>
                             <Link to="/photos" className="text-base font-medium text-blue-600 border-b-2 border-blue-600 pb-1">Photo Albums</Link>
@@ -86,7 +86,7 @@ const PhotoAlbumsListPage: React.FC = () => {
                 )}
             </main>
              <footer className="text-center py-6 text-sm text-slate-400">
-                © {new Date().getFullYear()} Contribution OS. All rights reserved.
+                © {new Date().getFullYear()} GTMM Trust. All rights reserved.
             </footer>
         </div>
     );

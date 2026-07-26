@@ -17,7 +17,7 @@ import { Clock, AlertTriangle } from 'lucide-react';
 
 const Contributions: React.FC = () => {
     const { token, hasPermission } = useAuth();
-    const { contributions, campaigns, handleApproveContribution, handleRejectContribution } = useData();
+    const { contributions, campaigns, festivals, handleApproveContribution, handleRejectContribution } = useData();
     const { openContributionModal, openConfirmationModal, openHistoryModal } = useModal();
     
     const [searchParams, setSearchParams] = useSearchParams();
@@ -39,6 +39,7 @@ const Contributions: React.FC = () => {
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
 
     const pendingContributions = useMemo(() => {
         return contributions.filter(c => c.status === ContributionStatus.Pending);
@@ -185,6 +186,7 @@ const Contributions: React.FC = () => {
                         <PendingContributionsTable
                             pendingContributions={pendingContributions}
                             campaignMap={campaignMap}
+                            festivalMap={festivalMap}
                             onApprove={handleApproveContribution}
                             onReject={handleRejectContribution}
                             onViewImage={(url) => setViewingImage(url)}
@@ -220,6 +222,7 @@ const Contributions: React.FC = () => {
                             activeTab={activeTab}
                             paginatedContributions={paginatedContributions}
                             campaignMap={campaignMap}
+                            festivalMap={festivalMap}
                             onGenerateNote={handleGenerateNote}
                             onViewHistory={(contribution) => openHistoryModal('contributions', contribution.id, `History for ${contribution.donorName}'s contribution`)}
                             onEdit={(contribution) => openContributionModal(contribution)}

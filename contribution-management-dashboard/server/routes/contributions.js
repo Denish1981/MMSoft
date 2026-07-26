@@ -1,39 +1,41 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
-const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint, serveImageString } = require('../db/helpers');
+const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint, serveImageString, logManagerApproval } = require('../db/helpers');
 const router = express.Router();
 
 router.get('/', authMiddleware, permissionMiddleware('page:contributions:view'), async (req, res) => {
     try {
         const { rows } = await db.query(`
             SELECT 
-                id, 
-                donor_name AS "donorName", 
-                donor_email AS "donorEmail", 
-                mobile_number AS "mobileNumber", 
-                tower_number AS "towerNumber", 
-                flat_number AS "flatNumber", 
-                amount, 
-                number_of_coupons AS "numberOfCoupons", 
-                campaign_id AS "campaignId", 
-                date, 
-                status, 
-                type, 
+                c.id, 
+                c.donor_name AS "donorName", 
+                c.donor_email AS "donorEmail", 
+                c.mobile_number AS "mobileNumber", 
+                c.tower_number AS "towerNumber", 
+                c.flat_number AS "flatNumber", 
+                c.amount, 
+                c.number_of_coupons AS "numberOfCoupons", 
+                c.festival_id AS "festivalId",
+                COALESCE(c.campaign_id, f.campaign_id) AS "campaignId", 
+                c.date, 
+                c.status, 
+                c.type, 
                 CASE 
-                    WHEN image IS NOT NULL AND image != '' THEN 
+                    WHEN c.image IS NOT NULL AND c.image != '' THEN 
                         CASE 
-                            WHEN image LIKE '/api/%' OR image LIKE 'http://%' OR image LIKE 'https://%' THEN image 
-                            ELSE CONCAT('/api/contributions/', id, '/image') 
+                            WHEN c.image LIKE '/api/%' OR c.image LIKE 'http://%' OR c.image LIKE 'https://%' THEN c.image 
+                            ELSE CONCAT('/api/contributions/', c.id, '/image') 
                         END 
                     ELSE NULL 
                 END AS image, 
-                stall_registration_id AS "stallRegistrationId", 
-                created_at AS "createdAt", 
-                updated_at AS "updatedAt" 
-            FROM contributions 
-            WHERE deleted_at IS NULL 
-            ORDER BY date DESC
+                c.stall_registration_id AS "stallRegistrationId", 
+                c.created_at AS "createdAt", 
+                c.updated_at AS "updatedAt" 
+            FROM contributions c
+            LEFT JOIN festivals f ON c.festival_id = f.id
+            WHERE c.deleted_at IS NULL 
+            ORDER BY c.date DESC
         `);
         res.json(rows);
     } catch (err) { 
@@ -56,14 +58,23 @@ router.get('/:id/image', async (req, res) => {
 });
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image, status } = req.body;
+    const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, festivalId, campaignId, date, type, image, status } = req.body;
     
     // Check if creator is Manager or Admin (has action:edit or action:users:manage)
     const isManagerOrAdmin = req.user && req.user.permissions && (req.user.permissions.includes('action:edit') || req.user.permissions.includes('action:users:manage'));
     const contributionStatus = isManagerOrAdmin ? (status || 'Completed') : 'Pending';
 
     const contributionDate = date || new Date().toISOString();
-    const dbCampaignId = campaignId || null;
+    let dbFestivalId = festivalId || null;
+    let dbCampaignId = campaignId || null;
+
+    if (dbFestivalId && !dbCampaignId) {
+        const festRes = await db.query('SELECT campaign_id FROM festivals WHERE id = $1', [dbFestivalId]);
+        if (festRes.rows.length > 0) {
+            dbCampaignId = festRes.rows[0].campaign_id;
+        }
+    }
+
     const userId = req.user ? req.user.id : null;
 
     let dbTowerNumber = towerNumber;
@@ -78,10 +89,10 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
         }
 
         const result = await db.query(
-            `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image, user_id) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
-             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
-            [donorName, donorEmail, mobileNumber, dbTowerNumber, dbFlatNumber, amount, numberOfCoupons, dbCampaignId, contributionDate, contributionStatus, type, image, userId]
+            `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image, user_id) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
+            [donorName, donorEmail, mobileNumber, dbTowerNumber, dbFlatNumber, amount, numberOfCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, image, userId]
         );
         const row = result.rows[0];
         if (row.image) {
@@ -106,12 +117,19 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
         for (const c of contributions) {
             const contributionStatus = c.status || 'Completed';
             const contributionDate = c.date || new Date().toISOString();
-            const dbCampaignId = c.campaignId || null;
+            let dbFestivalId = c.festivalId || null;
+            let dbCampaignId = c.campaignId || null;
+            if (dbFestivalId && !dbCampaignId) {
+                const festRes = await client.query('SELECT campaign_id FROM festivals WHERE id = $1', [dbFestivalId]);
+                if (festRes.rows.length > 0) {
+                    dbCampaignId = festRes.rows[0].campaign_id;
+                }
+            }
             const result = await client.query(`
-                INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, campaign_id, date, status, type, image) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
-                RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"
-            `, [c.donorName, c.donorEmail, c.mobileNumber, c.towerNumber, c.flatNumber, c.amount, c.numberOfCoupons, dbCampaignId, contributionDate, contributionStatus, c.type, c.image]);
+                INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+                RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"
+            `, [c.donorName, c.donorEmail, c.mobileNumber, c.towerNumber, c.flatNumber, c.amount, c.numberOfCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type, c.image]);
             const row = result.rows[0];
             if (row.image) {
                 row.image = `/api/contributions/${row.id}/image`;
@@ -131,7 +149,7 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
 
 router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId, date, type, image, status } = req.body;
+    const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, festivalId, campaignId, date, type, image, status } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
@@ -143,14 +161,40 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
             ? oldImage
             : image;
 
-        const result = await client.query('UPDATE contributions SET donor_name=$1, donor_email=$2, mobile_number=$3, tower_number=$4, flat_number=$5, amount=$6, number_of_coupons=$7, campaign_id=$8, date=$9, type=$10, image=$11, status=$12, updated_at=NOW() WHERE id=$13 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"',
-            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, campaignId || null, date, type, finalImage, status, id]);
+        let dbFestivalId = festivalId || oldDataRes.rows[0].festival_id || null;
+        let dbCampaignId = campaignId || oldDataRes.rows[0].campaign_id || null;
+        if (dbFestivalId && !dbCampaignId) {
+            const festRes = await client.query('SELECT campaign_id FROM festivals WHERE id = $1', [dbFestivalId]);
+            if (festRes.rows.length > 0) {
+                dbCampaignId = festRes.rows[0].campaign_id;
+            }
+        }
+
+        const result = await client.query('UPDATE contributions SET donor_name=$1, donor_email=$2, mobile_number=$3, tower_number=$4, flat_number=$5, amount=$6, number_of_coupons=$7, festival_id=$8, campaign_id=$9, date=$10, type=$11, image=$12, status=$13, updated_at=NOW() WHERE id=$14 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"',
+            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbFestivalId, dbCampaignId, date, type, finalImage, status, id]);
         
         await logChanges(client, {
             historyTable: 'contributions_history', recordId: id, changedByUserId: req.user.id,
             oldData: oldDataRes.rows[0], newData: req.body,
-            fieldMapping: { donorName: 'donor_name', donorEmail: 'donor_email', mobileNumber: 'mobile_number', towerNumber: 'tower_number', flatNumber: 'flat_number', amount: 'amount', numberOfCoupons: 'number_of_coupons', campaignId: 'campaign_id', date: 'date', type: 'type', status: 'status' }
+            fieldMapping: { donorName: 'donor_name', donorEmail: 'donor_email', mobileNumber: 'mobile_number', towerNumber: 'tower_number', flatNumber: 'flat_number', amount: 'amount', numberOfCoupons: 'number_of_coupons', festivalId: 'festival_id', campaignId: 'campaign_id', date: 'date', type: 'type', status: 'status' }
         });
+
+        if (oldDataRes.rows[0].status !== 'Completed' && oldDataRes.rows[0].status !== 'Approved' && (status === 'Completed' || status === 'Approved')) {
+            await logManagerApproval(client, {
+                userId: req.user.id,
+                entityType: 'Contribution',
+                entityId: id,
+                action: 'Approved',
+                details: {
+                    donorName: donorName || oldDataRes.rows[0].donor_name,
+                    amount: amount || oldDataRes.rows[0].amount,
+                    status: status,
+                    type: type || oldDataRes.rows[0].type,
+                    festivalId: dbFestivalId,
+                    campaignId: dbCampaignId
+                }
+            });
+        }
 
         await client.query('COMMIT');
         const updatedRow = result.rows[0];
@@ -188,6 +232,21 @@ router.put('/:id/approve', authMiddleware, permissionMiddleware('action:edit'), 
             historyTable: 'contributions_history', recordId: id, changedByUserId: req.user.id,
             oldData: oldDataRes.rows[0], newData: { ...oldDataRes.rows[0], status: 'Completed' },
             fieldMapping: { status: 'status' }
+        });
+
+        await logManagerApproval(client, {
+            userId: req.user.id,
+            entityType: 'Contribution',
+            entityId: id,
+            action: 'Approved',
+            details: {
+                donorName: oldDataRes.rows[0].donor_name,
+                amount: oldDataRes.rows[0].amount,
+                status: 'Completed',
+                type: oldDataRes.rows[0].type,
+                festivalId: oldDataRes.rows[0].festival_id,
+                campaignId: oldDataRes.rows[0].campaign_id
+            }
         });
 
         await client.query('COMMIT');

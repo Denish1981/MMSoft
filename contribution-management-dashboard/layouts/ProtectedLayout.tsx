@@ -88,7 +88,7 @@ export const ProtectedLayout: React.FC = () => {
                     <Outlet context={{ eventDataVersion }} />
                 </main>
             </div>
-            {isContributionModalOpen && <ContributionModal campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={closeContributionModal} onSubmit={(data) => { handleContributionSubmit(data, contributionToEdit); closeContributionModal(); }} />}
+            {isContributionModalOpen && <ContributionModal festivals={festivals} campaigns={campaigns} contributionToEdit={contributionToEdit} onClose={closeContributionModal} onSubmit={async (data) => { await handleContributionSubmit(data, contributionToEdit); closeContributionModal(); }} />}
             {isSponsorModalOpen && <SponsorModal sponsorToEdit={sponsorToEdit} onClose={closeSponsorModal} onSubmit={(data) => { handleSponsorSubmit(data, sponsorToEdit); closeSponsorModal(); }} />}
             {isVendorModalOpen && <VendorModal vendorToEdit={vendorToEdit} onClose={closeVendorModal} onSubmit={(data) => { handleVendorSubmit(data, vendorToEdit); closeVendorModal(); }} />}
             {isExpenseModalOpen && <ExpenseModal vendors={vendors} festivals={festivals} expenseToEdit={expenseToEdit} onClose={closeExpenseModal} onSubmit={(data) => { handleExpenseSubmit(data, expenseToEdit); closeExpenseModal(); }} />}

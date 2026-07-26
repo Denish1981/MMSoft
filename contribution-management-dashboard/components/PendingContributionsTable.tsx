@@ -5,6 +5,7 @@ import { Check, X, Eye, Clock, Building2, User, Phone, Image as ImageIcon } from
 interface PendingContributionsTableProps {
     pendingContributions: Contribution[];
     campaignMap: Map<number, string>;
+    festivalMap?: Map<number, string>;
     onApprove: (id: number) => void;
     onReject: (id: number) => void;
     onViewImage?: (url: string) => void;
@@ -13,6 +14,7 @@ interface PendingContributionsTableProps {
 export const PendingContributionsTable: React.FC<PendingContributionsTableProps> = ({
     pendingContributions,
     campaignMap,
+    festivalMap,
     onApprove,
     onReject,
     onViewImage,
@@ -43,7 +45,7 @@ export const PendingContributionsTable: React.FC<PendingContributionsTableProps>
                 </thead>
                 <tbody className="divide-y divide-amber-100 bg-white">
                     {pendingContributions.map((c) => {
-                        const campaignName = (c.campaignId && campaignMap.get(c.campaignId)) || c.type || 'General Donation';
+                        const displayName = (c.festivalId && festivalMap?.get(c.festivalId)) || (c.campaignId && campaignMap.get(c.campaignId)) || c.type || 'General Donation';
                         return (
                             <tr key={c.id} className="hover:bg-amber-50/50 transition-colors">
                                 <td className="p-3.5">
@@ -65,7 +67,7 @@ export const PendingContributionsTable: React.FC<PendingContributionsTableProps>
                                     </span>
                                 </td>
                                 <td className="p-3.5 font-medium text-slate-800">
-                                    {campaignName}
+                                    {displayName}
                                 </td>
                                 <td className="p-3.5 font-extrabold text-emerald-700 text-base">
                                     ₹{Number(c.amount).toLocaleString()}

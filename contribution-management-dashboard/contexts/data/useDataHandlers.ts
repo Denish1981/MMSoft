@@ -108,10 +108,14 @@ export function useDataHandlers({
         }
     }, [hasPermission, getAuthHeaders, logout, fetchData]);
 
-    const handleContributionSubmit = useCallback((data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Contribution | null) => {
-        if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/contributions`, { ...itemToEdit, ...data }, setContributions);
-        else handleAdd(`${API_URL}/contributions`, data, setContributions);
-    }, [handleUpdate, handleAdd, setContributions]);
+    const handleContributionSubmit = useCallback(async (data: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Contribution | null) => {
+        if (itemToEdit && itemToEdit.id) {
+            await handleUpdate(`${API_URL}/contributions`, { ...itemToEdit, ...data }, setContributions);
+        } else {
+            await handleAdd(`${API_URL}/contributions`, data, setContributions);
+        }
+        await fetchData();
+    }, [handleUpdate, handleAdd, setContributions, fetchData]);
 
     const handleApproveContribution = useCallback(async (id: number) => {
         try {

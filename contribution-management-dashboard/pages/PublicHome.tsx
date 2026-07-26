@@ -123,7 +123,7 @@ const PublicHomePage: React.FC = () => {
                 </section>
             </main>
              <footer className="text-center py-6 text-sm text-slate-400 mt-12">
-                © {new Date().getFullYear()} Contribution OS. All rights reserved.
+                © {new Date().getFullYear()} GTMM Trust. All rights reserved.
             </footer>
             {selectedEvent && (
                 <RegistrationModal event={selectedEvent} onClose={handleCloseModal} />

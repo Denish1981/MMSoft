@@ -11,6 +11,7 @@ export interface AuthUser {
     mobileNumber?: string;
     towerNumber?: string;
     flatNumber?: string;
+    roles?: string[];
     permissions: string[];
 }
 
