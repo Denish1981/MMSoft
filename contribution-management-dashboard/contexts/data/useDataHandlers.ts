@@ -116,8 +116,7 @@ export function useDataHandlers({
         } else {
             await handleAdd(`${API_URL}/contributions`, data, setContributions);
         }
-        await fetchData();
-    }, [handleUpdate, handleAdd, setContributions, fetchData]);
+    }, [handleUpdate, handleAdd, setContributions]);
 
     const handleApproveContribution = useCallback(async (id: number) => {
         try {
@@ -131,12 +130,13 @@ export function useDataHandlers({
                 const errData = await response.json();
                 throw new Error(errData.error || 'Failed to approve contribution');
             }
-            await fetchData();
+            const updated: Contribution = await response.json();
+            setContributions(prev => prev.map(c => c.id === updated.id ? updated : c));
         } catch (error) {
             console.error('Approve contribution error:', error);
             alert(error instanceof Error ? error.message : 'Failed to approve contribution');
         }
-    }, [getAuthHeaders, logout, fetchData]);
+    }, [getAuthHeaders, logout, setContributions]);
 
     const handleRejectContribution = useCallback(async (id: number) => {
         try {
@@ -150,12 +150,13 @@ export function useDataHandlers({
                 const errData = await response.json();
                 throw new Error(errData.error || 'Failed to reject contribution');
             }
-            await fetchData();
+            const updated: Contribution = await response.json();
+            setContributions(prev => prev.map(c => c.id === updated.id ? updated : c));
         } catch (error) {
             console.error('Reject contribution error:', error);
             alert(error instanceof Error ? error.message : 'Failed to reject contribution');
         }
-    }, [getAuthHeaders, logout, fetchData]);
+    }, [getAuthHeaders, logout, setContributions]);
 
     const handleSponsorSubmit = useCallback((data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => {
         if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
@@ -278,12 +279,17 @@ export function useDataHandlers({
                 const errData = await response.json();
                 throw new Error(errData.error || 'Failed to save schedule');
             }
-            await fetchData();
+            const savedItem: ScheduleMaster = await response.json();
+            if (itemToEdit && itemToEdit.id) {
+                setSchedules(prev => prev.map(s => s.id === savedItem.id ? savedItem : s));
+            } else {
+                setSchedules(prev => [savedItem, ...prev]);
+            }
         } catch (error) {
             console.error('Schedule submit error:', error);
             alert(error instanceof Error ? error.message : 'Failed to save schedule');
         }
-    }, [getAuthHeaders, logout, fetchData]);
+    }, [getAuthHeaders, logout, setSchedules]);
 
     const handleToggleScheduleActive = useCallback(async (id: number, isActive: boolean) => {
         try {
@@ -294,12 +300,13 @@ export function useDataHandlers({
             });
             if (response.status === 401) { logout(); return; }
             if (!response.ok) throw new Error('Failed to update schedule status');
-            await fetchData();
+            const updated: ScheduleMaster = await response.json();
+            setSchedules(prev => prev.map(s => s.id === updated.id ? updated : s));
         } catch (error) {
             console.error('Toggle schedule active error:', error);
             alert('Failed to update schedule status.');
         }
-    }, [getAuthHeaders, logout, fetchData]);
+    }, [getAuthHeaders, logout, setSchedules]);
 
     return {
         handleDeleteClick,

@@ -114,6 +114,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contributions, campaigns, sponsors, vendors, expenses, quotations, budgets, festivals, tasks, users,
         donors, stallRegistrations, schedules, expenseHeads, festivalMap,
         fetchData,
+        setContributions,
         ...handlers,
         eventDataVersion,
         triggerEventRefetch,

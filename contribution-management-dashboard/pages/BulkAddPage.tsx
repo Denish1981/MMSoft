@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { type StagedContribution } from '../types/index';
+import { Contribution, type StagedContribution } from '../types/index';
 import { useAuth } from '../contexts/AuthContext';
 import { SaveIcon } from '../components/icons/SaveIcon';
 import { API_URL } from '../config';
@@ -11,7 +11,7 @@ interface BulkAddPageProps {}
 
 const BulkAddPage: React.FC<BulkAddPageProps> = () => {
     const { token, logout } = useAuth();
-    const { fetchData: onBulkSaveSuccess } = useData();
+    const { setContributions } = useData();
     const [stagedContributions, setStagedContributions] = useState<StagedContribution[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -52,9 +52,10 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
                 throw new Error(errorData.error || `Failed to save contributions`);
             }
             
+            const savedItems: Contribution[] = await response.json();
+            setContributions((prev) => [...savedItems, ...prev]);
             setSuccessMessage(`${stagedContributions.length} contributions saved successfully!`);
             setStagedContributions([]);
-            onBulkSaveSuccess(); // This will trigger a re-fetch in App.tsx
 
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred.");
