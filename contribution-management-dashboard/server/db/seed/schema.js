@@ -326,6 +326,9 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS stall_registration_id INTEGER REFERENCES stall_registrations(id) ON DELETE CASCADE;');
+    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_collected INTEGER DEFAULT 0;');
+    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS date_collected DATE;');
+    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_used INTEGER DEFAULT 0;');
 
     // Performance Indexes
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_deleted_status_date ON contributions (deleted_at, status, date DESC);');

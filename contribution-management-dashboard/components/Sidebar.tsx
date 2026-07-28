@@ -22,6 +22,7 @@ import { CampaignIcon } from './icons/CampaignIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { DashboardIcon } from './icons/DashboardIcon';
 import { HelpIcon } from './icons/HelpIcon';
+import { TicketIcon } from './icons/TicketIcon';
 
 interface NavItemProps {
     to: string;
@@ -67,6 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
         { to: "/participants", permission: 'page:participants:view', icon: <UsersIcon className="w-5 h-5" />, label: "Participants" },
         { to: "/tasks", permission: 'page:tasks:view', icon: <CheckSquareIcon className="w-5 h-5" />, label: "Tasks" },
         { to: "/contributions", permission: 'page:contributions:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Contributions" },
+        { to: "/food-coupons", permission: 'page:food-coupons:view', icon: <TicketIcon className="w-5 h-5" />, label: "Food Coupons" },
         // { to: "/donors", permission: 'page:donors:view', icon: <UsersIcon className="w-5 h-5" />, label: "Donors" },
         { to: "/expenses", permission: 'page:expenses:view', icon: <ReceiptIcon className="w-5 h-5" />, label: "Expenses" },
         { to: "/campaigns", permission: 'page:campaigns:view', icon: <CampaignIcon className="w-5 h-5" />, label: "Campaigns" },

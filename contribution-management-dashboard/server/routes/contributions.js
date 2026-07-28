@@ -16,6 +16,9 @@ router.get('/', authMiddleware, permissionMiddleware('page:contributions:view'),
                 c.flat_number AS "flatNumber", 
                 c.amount, 
                 c.number_of_coupons AS "numberOfCoupons", 
+                COALESCE(c.coupons_collected, 0) AS "couponsCollected",
+                c.date_collected AS "dateCollected",
+                COALESCE(c.coupons_used, 0) AS "couponsUsed",
                 c.festival_id AS "festivalId",
                 COALESCE(c.campaign_id, f.campaign_id) AS "campaignId", 
                 c.date, 
@@ -311,6 +314,54 @@ router.put('/:id/reject', authMiddleware, permissionMiddleware('action:edit'), a
         console.error("Reject contribution error:", err);
         res.status(500).json({ error: 'Failed to reject contribution' });
     } finally { client.release(); }
+});
+
+router.put('/:id/coupons', authMiddleware, permissionMiddleware('page:food-coupons:view'), async (req, res) => {
+    const { id } = req.params;
+    const { couponsCollected, dateCollected, couponsUsed } = req.body;
+    const client = await db.getPool().connect();
+    try {
+        await client.query('BEGIN');
+        const oldDataRes = await client.query('SELECT * FROM contributions WHERE id=$1 FOR UPDATE', [id]);
+        if (oldDataRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Contribution not found' });
+        }
+
+        const collectedNum = couponsCollected !== undefined && couponsCollected !== null && couponsCollected !== '' ? parseInt(couponsCollected) : 0;
+        const usedNum = couponsUsed !== undefined && couponsUsed !== null && couponsUsed !== '' ? parseInt(couponsUsed) : 0;
+        const colDate = dateCollected ? dateCollected : null;
+
+        const result = await client.query(
+            `UPDATE contributions 
+             SET coupons_collected=$1, date_collected=$2, coupons_used=$3, updated_at=NOW() 
+             WHERE id=$4 
+             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", 
+                       tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", 
+                       COALESCE(coupons_collected, 0) AS "couponsCollected", date_collected AS "dateCollected", COALESCE(coupons_used, 0) AS "couponsUsed",
+                       festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
+            [collectedNum, colDate, usedNum, id]
+        );
+
+        await logChanges(client, {
+            historyTable: 'contributions_history', recordId: id, changedByUserId: req.user.id,
+            oldData: oldDataRes.rows[0], newData: { ...oldDataRes.rows[0], coupons_collected: collectedNum, date_collected: colDate, coupons_used: usedNum },
+            fieldMapping: { couponsCollected: 'coupons_collected', dateCollected: 'date_collected', couponsUsed: 'coupons_used' }
+        });
+
+        await client.query('COMMIT');
+        const row = result.rows[0];
+        if (row.image) {
+            row.image = `/api/contributions/${row.id}/image`;
+        }
+        res.json(row);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error updating coupons:', err);
+        res.status(500).json({ error: 'Failed to update coupons' });
+    } finally {
+        client.release();
+    }
 });
 
 router.delete('/:id', authMiddleware, permissionMiddleware('action:delete'), createSoftDeleteEndpoint('contributions'));

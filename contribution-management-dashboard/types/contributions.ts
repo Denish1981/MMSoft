@@ -29,6 +29,9 @@ export interface Contribution {
   flatNumber: string;
   amount: number;
   numberOfCoupons: number;
+  couponsCollected?: number;
+  dateCollected?: string | null;
+  couponsUsed?: number;
   festivalId?: number | null;
   campaignId: number | null;
   date: string; // ISO string

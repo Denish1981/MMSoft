@@ -158,6 +158,27 @@ export function useDataHandlers({
         }
     }, [getAuthHeaders, logout, setContributions]);
 
+    const handleUpdateContributionCoupons = useCallback(async (id: number, couponsCollected: number, dateCollected: string | null, couponsUsed: number) => {
+        try {
+            const response = await fetch(`${API_URL}/contributions/${id}/coupons`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ couponsCollected, dateCollected, couponsUsed })
+            });
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to update food coupons');
+            }
+            const updated: Contribution = await response.json();
+            setContributions(prev => prev.map(c => c.id === updated.id ? updated : c));
+        } catch (error) {
+            console.error('Update coupons error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to update food coupons');
+            throw error;
+        }
+    }, [getAuthHeaders, logout, setContributions]);
+
     const handleSponsorSubmit = useCallback((data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => {
         if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
         else handleAdd(`${API_URL}/sponsors`, data, setSponsors);
@@ -314,6 +335,7 @@ export function useDataHandlers({
         handleContributionSubmit,
         handleApproveContribution,
         handleRejectContribution,
+        handleUpdateContributionCoupons,
         handleSponsorSubmit,
         handleVendorSubmit,
         handleExpenseSubmit,

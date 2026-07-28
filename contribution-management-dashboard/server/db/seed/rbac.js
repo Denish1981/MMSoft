@@ -19,6 +19,7 @@ const ALL_PERMISSIONS = [
     { name: 'page:archive:view', description: 'Can view and restore archived items' },
     { name: 'page:schedules:view', description: 'Can view and manage festival schedules' },
     { name: 'page:donor-portal:view', description: 'Can view the donor portal and updates' },
+    { name: 'page:food-coupons:view', description: 'Can view and manage food coupons' },
     { name: 'action:create', description: 'Can create new items (contributions, expenses, etc.)' },
     { name: 'action:edit', description: 'Can edit existing items' },
     { name: 'action:delete', description: 'Can archive items' },
@@ -32,14 +33,14 @@ const ROLES_CONFIG = {
         'page:dashboard:view', 'page:contributions:view', 'page:bulk-add:view',
         'page:donors:view', 'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
         'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:schedules:view', 'page:events:view', 'page:participants:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
-        'page:archive:view', 'page:donor-portal:view',
+        'page:archive:view', 'page:donor-portal:view', 'page:food-coupons:view',
         'action:create', 'action:edit', 'action:delete', 'action:restore'
     ],
     'Viewer': [
         'page:dashboard:view', 'page:contributions:view', 'page:donors:view',
         'page:sponsors:view', 'page:vendors:view', 'page:expenses:view',
         'page:quotations:view', 'page:budget:view', 'page:campaigns:view', 'page:festivals:view', 'page:schedules:view', 'page:events:view', 'page:participants:view', 'page:tasks:view', 'page:reports:view', 'page:ai-insights:view',
-        'page:donor-portal:view'
+        'page:donor-portal:view', 'page:food-coupons:view'
     ],
     'Donor': [
         'page:donor-portal:view',
