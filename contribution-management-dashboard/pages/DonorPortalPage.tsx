@@ -166,9 +166,6 @@ const DonorPortalPage: React.FC = () => {
                 <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-blue-500 opacity-10 rounded-full blur-3xl"></div>
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                        <div className="flex items-center gap-2 text-blue-300 text-sm font-medium mb-1">
-                            <UserIcon className="w-4 h-4" /> Donor Portal & Updates
-                        </div>
                         <h1 className="text-3xl font-bold tracking-tight">
                             Welcome back, {user?.fullName || user?.email || 'Valued Donor'}!
                         </h1>
@@ -216,38 +213,6 @@ const DonorPortalPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Updates Banner for Approvals / Rejections */}
-            {rejectedStalls.length > 0 && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-sm space-y-2">
-                    <div className="flex items-center gap-2 text-red-800 font-bold">
-                        <XCircle className="w-5 h-5 text-red-600" />
-                        <span>Stall Registration Update Required</span>
-                    </div>
-                    {rejectedStalls.map(stall => (
-                        <div key={stall.id} className="text-sm text-red-700 bg-red-100/50 p-2.5 rounded-lg">
-                            <span className="font-semibold">{stall.festivalName || 'Festival'} Stall:</span> Status: <span className="font-bold">Rejected</span>.
-                            {stall.rejectionReason && (
-                                <span className="block mt-1 font-mono text-xs text-red-800">
-                                    Reason: "{stall.rejectionReason}"
-                                </span>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {approvedStalls.length > 0 && (
-                <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-xl shadow-sm space-y-1">
-                    <div className="flex items-center gap-2 text-green-800 font-bold">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        <span>Approved Stall Registrations ({approvedStalls.length})</span>
-                    </div>
-                    <p className="text-xs text-green-700">
-                        Your stall registration(s) have been approved and recorded in the system.
-                    </p>
-                </div>
-            )}
 
             {/* Overview Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

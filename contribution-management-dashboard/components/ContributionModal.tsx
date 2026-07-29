@@ -115,7 +115,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             setImage(contributionToEdit.image);
             setImagePreview(contributionToEdit.image || null);
         } else {
-            // ONLY pre-fill user profile info if opened on the Donor Portal & Updates page
+            // ONLY pre-fill user profile info if opened on the Members page
             if (isDonorPortalPage) {
                 const userEmail = user?.email?.toLowerCase()?.trim();
                 const userId = user?.id;

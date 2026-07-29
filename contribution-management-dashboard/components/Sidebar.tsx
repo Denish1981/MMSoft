@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, toggleSidebar, isMobileO
     ];
     
     const navItems = [
-        { to: "/donor-portal", permission: 'page:donor-portal:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Donor Portal & Updates" },
+        { to: "/donor-portal", permission: 'page:donor-portal:view', icon: <ContributionIcon className="w-5 h-5" />, label: "Members" },
         { to: "/dashboard", permission: 'page:dashboard:view', icon: <DashboardIcon className="w-5 h-5" />, label: "Dashboard" },
         { to: "/festivals", permission: 'page:festivals:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Festivals" },
         { to: "/schedules", permission: 'page:schedules:view', icon: <CalendarIcon className="w-5 h-5" />, label: "Schedules" },
