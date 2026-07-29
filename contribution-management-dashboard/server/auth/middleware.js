@@ -59,7 +59,7 @@ const authMiddleware = async (req, res, next) => {
         }
 
         const user = rows[0];
-        const userObj = { id: user.id, email: user.username, roles: user.roles || [], permissions: user.permissions || [] };
+        const userObj = { id: user.id, email: user.username, username: user.username, roles: user.roles || [], permissions: user.permissions || [] };
 
         sessionCache.set(token, { user: userObj, expires: now + 30000 });
 

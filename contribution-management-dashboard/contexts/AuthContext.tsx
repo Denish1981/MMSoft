@@ -41,23 +41,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return user.permissions.includes(permission);
     }, [user]);
     
-    const logout = useCallback(async () => {
-        const currentToken = localStorage.getItem('contribution-os-token');
-        if (currentToken) {
-            try {
-                await fetch(`${API_URL}/auth/logout`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${currentToken}` }
-                });
-            } catch (error) {
-                console.error("Failed to call logout endpoint, clearing session locally.", error);
-            }
-        }
+    const logout = useCallback(() => {
+        const currentToken = localStorage.getItem('contribution-os-token') || token;
         setUser(null);
         setToken(null);
         localStorage.removeItem('contribution-os-token');
-        localStorage.removeItem('contribution-os-user'); // Clean up old data too
-    }, []);
+        localStorage.removeItem('contribution-os-user');
+
+        if (currentToken) {
+            fetch(`${API_URL}/auth/logout`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            }).catch(error => {
+                console.error("Failed to call logout endpoint, clearing session locally.", error);
+            });
+        }
+    }, [token]);
 
     const revalidateSession = useCallback(async (tokenToValidate: string) => {
         try {

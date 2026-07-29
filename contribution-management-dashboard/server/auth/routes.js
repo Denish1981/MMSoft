@@ -70,6 +70,7 @@ router.post('/register', async (req, res) => {
             user: {
                 id: userId,
                 email: username,
+                username: username,
                 fullName: fullName || '',
                 mobileNumber: mobileNumber || '',
                 towerNumber: towerNumber || '',
@@ -107,6 +108,7 @@ router.post('/login', async (req, res) => {
                 user: { 
                     id: user.id, 
                     email: user.username, 
+                    username: user.username,
                     fullName: user.fullName || '',
                     mobileNumber: user.mobileNumber || '',
                     towerNumber: user.towerNumber || '',
@@ -179,6 +181,7 @@ router.post('/google', async (req, res) => {
             user: { 
                 id: user.id, 
                 email: user.username, 
+                username: user.username,
                 fullName: user.fullName || '',
                 mobileNumber: user.mobileNumber || '',
                 towerNumber: user.towerNumber || '',
