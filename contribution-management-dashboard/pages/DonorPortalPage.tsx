@@ -5,11 +5,13 @@ import { useData } from '../contexts/DataContext';
 import { API_URL } from '../config';
 import { 
     Heart, Calendar, Store, Bell, CheckCircle2, XCircle, Clock, 
-    RefreshCw, PlusCircle, Building2, Phone, User as UserIcon, X
+    RefreshCw, PlusCircle, Building2, Phone, User as UserIcon, X, Receipt
 } from 'lucide-react';
 import StallRegistrationModal from '../components/StallRegistrationModal';
 import { RegistrationModal, PublicEvent } from '../components/RegistrationModal';
 import type { Festival as PublicFestival } from '../types/index';
+import { formatReceiptNo, ReceiptData } from '../utils/receiptUtils';
+import { ReceiptModal } from '../components/ReceiptModal';
 
 interface ContributionItem {
     id: number;
@@ -73,6 +75,31 @@ const DonorPortalPage: React.FC = () => {
     const [eventRegistrations, setEventRegistrations] = useState<EventRegistrationItem[]>([]);
     const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+
+    const openReceipt = (c: ContributionItem) => {
+        const cat = c.type === 'Miscellaneous' || c.type?.startsWith('Miscellaneous:') ? 'misc' : 'contribution';
+        const rData: ReceiptData = {
+            receiptNo: formatReceiptNo(c.id, cat),
+            category: cat,
+            title: cat === 'misc' ? 'Miscellaneous Income' : 'Individual Contribution',
+            date: c.date,
+            payerName: c.donorName || user?.fullName || 'Valued Donor',
+            payerEmail: user?.email,
+            payerPhone: user?.mobileNumber,
+            towerNumber: user?.towerNumber,
+            flatNumber: user?.flatNumber,
+            amount: Number(c.amount),
+            paymentMode: c.type || 'Online',
+            festivalOrCampaign: c.campaignName || 'General Campaign',
+            status: c.status === 'Completed' || c.status === 'Approved' ? 'Approved' : c.status,
+            details: [
+                { label: 'Food Coupons', value: String(c.numberOfCoupons || 0) },
+                { label: 'Contribution Type', value: c.type || 'Standard' }
+            ]
+        };
+        setSelectedReceipt(rData);
+    };
 
     // Modals for Stall and Event Registration directly from Donor Portal
     const [selectedFestivalForStall, setSelectedFestivalForStall] = useState<PublicFestival | null>(null);
@@ -444,17 +471,22 @@ const DonorPortalPage: React.FC = () => {
                                     <table className="w-full text-left text-sm text-slate-600">
                                         <thead className="bg-slate-50 text-slate-700 font-semibold text-xs uppercase border-b border-slate-200">
                                             <tr>
+                                                <th className="p-3">Receipt No</th>
                                                 <th className="p-3">Campaign / Type</th>
                                                 <th className="p-3">Amount</th>
                                                 <th className="p-3">Coupons</th>
                                                 <th className="p-3">Date</th>
                                                 <th className="p-3">Proof</th>
                                                 <th className="p-3">Status</th>
+                                                <th className="p-3 text-center">Receipt</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-200">
                                             {contributions.map((c) => (
                                                 <tr key={c.id} className="hover:bg-slate-50/80">
+                                                    <td className="p-3 text-xs font-bold font-mono text-blue-700">
+                                                        {formatReceiptNo(c.id, c.type === 'Miscellaneous' || c.type?.startsWith('Miscellaneous:') ? 'misc' : 'contribution')}
+                                                    </td>
                                                     <td className="p-3 font-semibold text-slate-800">
                                                         {c.campaignName || c.type || 'General Donation'}
                                                     </td>
@@ -484,6 +516,15 @@ const DonorPortalPage: React.FC = () => {
                                                         }`}>
                                                             {c.status === 'Pending' ? 'Pending Approval' : c.status === 'Failed' || c.status === 'Rejected' ? 'Rejected' : 'Approved'}
                                                         </span>
+                                                    </td>
+                                                    <td className="p-3 text-center">
+                                                        <button
+                                                            onClick={() => openReceipt(c)}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors border border-blue-200"
+                                                            title="View and download printable receipt"
+                                                        >
+                                                            <Receipt className="w-3.5 h-3.5" /> View Receipt
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -767,6 +808,9 @@ const DonorPortalPage: React.FC = () => {
                     }}
                 />
             )}
+
+            {/* Receipt Modal */}
+            <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
         </div>
     );
 };

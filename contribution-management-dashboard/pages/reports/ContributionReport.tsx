@@ -1,19 +1,23 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Contribution, ContributionType } from '../../types/index';
+import type { Contribution } from '../../types/index';
 import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, FilterContainer, SelectInput } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
+import { formatReceiptNo, matchesReceiptFilter, ReceiptData } from '../../utils/receiptUtils';
+import { ReceiptModal } from '../../components/ReceiptModal';
 import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../../components/icons/ChevronRightIcon';
 import { useData } from '../../contexts/DataContext';
+import { Receipt } from 'lucide-react';
 
 interface ContributionReportProps {
     contributions: Contribution[];
 }
 
 interface ContributionFilters {
+    receiptNo: string;
     towerNumber: string;
     flatNumber: string;
     donorName: string;
@@ -24,8 +28,12 @@ interface ContributionFilters {
 }
 
 const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }) => {
-    const { selectedCampaignId } = useData();
+    const { campaigns, festivals } = useData();
+    const campaignMap = useMemo(() => new Map(campaigns.map(c => [c.id, c.name])), [campaigns]);
+    const festivalMap = useMemo(() => new Map(festivals.map(f => [f.id, f.name])), [festivals]);
+
     const [filters, setFilters] = useState<ContributionFilters>({
+        receiptNo: '',
         towerNumber: '',
         flatNumber: '',
         donorName: '',
@@ -36,6 +44,7 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
     });
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -43,6 +52,7 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
 
     const resetFilters = () => {
         setFilters({
+            receiptNo: '',
             towerNumber: '',
             flatNumber: '',
             donorName: '',
@@ -55,6 +65,7 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
 
     const filteredContributions = useMemo(() => {
         return contributions.filter(c => {
+            if (filters.receiptNo && !matchesReceiptFilter(c.id, 'contribution', filters.receiptNo)) return false;
             if (filters.towerNumber && !c.towerNumber.toLowerCase().includes(filters.towerNumber.toLowerCase())) return false;
             if (filters.flatNumber && !c.flatNumber.toLowerCase().includes(filters.flatNumber.toLowerCase())) return false;
             if (filters.donorName && !c.donorName.toLowerCase().includes(filters.donorName.toLowerCase())) return false;
@@ -92,21 +103,43 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
         setCurrentPage(prev => Math.max(prev - 1, 1));
     };
 
+    const openReceipt = (c: Contribution) => {
+        const rData: ReceiptData = {
+            receiptNo: formatReceiptNo(c.id, 'contribution'),
+            category: 'contribution',
+            title: 'Individual Contribution',
+            date: c.date,
+            payerName: c.donorName,
+            payerEmail: c.donorEmail,
+            payerPhone: c.mobileNumber,
+            towerNumber: c.towerNumber,
+            flatNumber: c.flatNumber,
+            amount: Number(c.amount),
+            paymentMode: c.type,
+            festivalOrCampaign: (c.festivalId && festivalMap.get(c.festivalId)) || (c.campaignId && campaignMap.get(c.campaignId)) || 'General Campaign',
+            status: c.status || 'Completed',
+            details: [
+                { label: 'Food Coupons', value: String(c.numberOfCoupons || 0) },
+                { label: 'Tower & Flat', value: `Tower ${c.towerNumber || 'N/A'}, Flat ${c.flatNumber || 'N/A'}` },
+            ]
+        };
+        setSelectedReceipt(rData);
+    };
+
     const handleExport = () => {
         const dataToExport = filteredContributions.map(c => ({
-            ID: c.id,
+            'Receipt No': formatReceiptNo(c.id, 'contribution'),
             'Donor Name': c.donorName,
-            'Donor Email': c.donorEmail,
-            'Mobile Number': c.mobileNumber,
+            'Donor Email': c.donorEmail || '',
+            'Mobile Number': c.mobileNumber || '',
             'Tower Number': c.towerNumber,
             'Flat Number': c.flatNumber,
             'Amount': c.amount,
             'Type': c.type,
             'Number of Coupons': c.numberOfCoupons,
-            'Campaign ID': c.campaignId,
+            'Campaign / Festival': (c.festivalId && festivalMap.get(c.festivalId)) || (c.campaignId && campaignMap.get(c.campaignId)) || 'N/A',
             'Date': new Date(c.date).toLocaleString(),
             'Status': c.status,
-            'Has Image': c.image ? 'Yes' : 'No'
         }));
         exportToCsv(dataToExport, 'contribution_report');
     };
@@ -114,6 +147,7 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
     return (
         <ReportContainer title="Contribution Report" onExport={handleExport}>
             <FilterContainer onReset={resetFilters}>
+                <TextInput label="Receipt No" value={filters.receiptNo} onChange={val => handleFilterChange('receiptNo', val)} placeholder="e.g. REC-CON-00001" />
                 <TextInput label="Tower Number" value={filters.towerNumber} onChange={val => handleFilterChange('towerNumber', val)} />
                 <TextInput label="Flat Number" value={filters.flatNumber} onChange={val => handleFilterChange('flatNumber', val)} />
                 <TextInput label="Donor Name" value={filters.donorName} onChange={val => handleFilterChange('donorName', val)} />
@@ -138,27 +172,41 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                         <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt No</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Donor</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Residence</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                         {paginatedContributions.length > 0 ? paginatedContributions.map(c => (
                             <tr key={c.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-xs font-bold font-mono text-blue-700">
+                                    {formatReceiptNo(c.id, 'contribution')}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{c.donorName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{c.mobileNumber || c.donorEmail || 'N/A'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{`T-${c.towerNumber}, F-${c.flatNumber}`}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 font-semibold">{formatCurrency(c.amount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{c.type}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(c.date)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    <button
+                                        onClick={() => openReceipt(c)}
+                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors"
+                                        title="View / Download Printable Receipt"
+                                    >
+                                        <Receipt className="w-3.5 h-3.5" /> View
+                                    </button>
+                                </td>
                             </tr>
                         )) : (
                              <tr>
-                                <td colSpan={6} className="text-center py-10 text-slate-500">
+                                <td colSpan={8} className="text-center py-10 text-slate-500">
                                     {contributions.length === 0 ? "No contributions match the campaign or filters." : "No contributions match your current filters."}
                                 </td>
                             </tr>
@@ -203,6 +251,8 @@ const ContributionReport: React.FC<ContributionReportProps> = ({ contributions }
                     </button>
                 </div>
             </div>
+
+            <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
         </ReportContainer>
     );
 };

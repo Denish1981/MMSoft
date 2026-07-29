@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Contribution } from '../types/index';
 import { ContributionStatusBadge } from './ContributionStatusBadge';
 import { SparklesIcon } from './icons/SparklesIcon';
@@ -6,6 +6,9 @@ import { HistoryIcon } from './icons/HistoryIcon';
 import { EditIcon } from './icons/EditIcon';
 import { DeleteIcon } from './icons/DeleteIcon';
 import { formatCurrency, formatUTCDate } from '../utils/formatting';
+import { formatReceiptNo, ReceiptData } from '../utils/receiptUtils';
+import { ReceiptModal } from './ReceiptModal';
+import { Receipt as ReceiptIcon } from 'lucide-react';
 
 interface ContributionsTableProps {
     activeTab: 'individual' | 'miscellaneous';
@@ -32,11 +35,38 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
     onViewImage,
     totalContributionsCount,
 }) => {
+    const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+
+    const openReceipt = (contribution: Contribution) => {
+        const cat = activeTab === 'miscellaneous' || contribution.type === 'Miscellaneous' || contribution.type?.startsWith('Miscellaneous:') ? 'misc' : 'contribution';
+        const rData: ReceiptData = {
+            receiptNo: formatReceiptNo(contribution.id, cat),
+            category: cat,
+            title: cat === 'misc' ? 'Miscellaneous Income' : 'Individual Contribution',
+            date: contribution.date,
+            payerName: contribution.donorName,
+            payerEmail: contribution.donorEmail,
+            payerPhone: contribution.mobileNumber,
+            towerNumber: contribution.towerNumber,
+            flatNumber: contribution.flatNumber,
+            amount: Number(contribution.amount),
+            paymentMode: contribution.type || undefined,
+            festivalOrCampaign: (contribution.festivalId && festivalMap?.get(contribution.festivalId)) || (contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'General Campaign',
+            status: contribution.status || 'Completed',
+            details: [
+                { label: 'Coupons Issued', value: String(contribution.numberOfCoupons || 0) },
+                { label: 'Payment Type', value: contribution.type || 'N/A' },
+            ]
+        };
+        setSelectedReceipt(rData);
+    };
+
     return (
         <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50">
                     <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt No</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                             {activeTab === 'miscellaneous' ? 'Name / Source' : 'Donor'}
                         </th>
@@ -56,11 +86,14 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                     {paginatedContributions.length > 0 ? (
                         paginatedContributions.map(contribution => (
                             <tr key={contribution.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-xs font-bold font-mono text-blue-700">
+                                    {formatReceiptNo(contribution.id, activeTab === 'miscellaneous' ? 'misc' : 'contribution')}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
-                                    {contribution.donorEmail && <div className="text-sm text-slate-500">{contribution.donorEmail}</div>}
+                                    {contribution.donorEmail && <div className="text-xs text-slate-500">{contribution.donorEmail}</div>}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{formatCurrency(contribution.amount)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">{formatCurrency(contribution.amount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
                                 {activeTab === 'individual' && (
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
@@ -85,17 +118,20 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                                     <ContributionStatusBadge status={contribution.status} />
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div className="flex items-center space-x-4">
-                                        <button onClick={() => onGenerateNote(contribution)} className="text-blue-600 hover:text-blue-800 flex items-center" title="Generate Thank You Note">
+                                    <div className="flex items-center space-x-3">
+                                        <button onClick={() => openReceipt(contribution)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors" title="View / Download Receipt">
+                                            <ReceiptIcon className="w-4 h-4" />
+                                        </button>
+                                        <button onClick={() => onGenerateNote(contribution)} className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded transition-colors" title="Generate Thank You Note">
                                            <SparklesIcon className="w-4 h-4"/>
                                         </button>
-                                        <button onClick={() => onViewHistory(contribution)} className="text-slate-500 hover:text-blue-600" title="View History">
+                                        <button onClick={() => onViewHistory(contribution)} className="text-slate-500 hover:text-blue-600 p-1 hover:bg-slate-100 rounded transition-colors" title="View History">
                                             <HistoryIcon className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900" title="Edit Contribution">
+                                        <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900 p-1 hover:bg-slate-100 rounded transition-colors" title="Edit Contribution">
                                             <EditIcon className="w-4 h-4" />
                                         </button>
-                                        <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900" title="Delete Contribution">
+                                        <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors" title="Delete Contribution">
                                             <DeleteIcon className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -104,13 +140,15 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                         ))
                     ) : (
                         <tr>
-                            <td colSpan={activeTab === 'individual' ? 9 : 8} className="text-center py-10 text-slate-500">
+                            <td colSpan={activeTab === 'individual' ? 10 : 9} className="text-center py-10 text-slate-500">
                                 {totalContributionsCount === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
                             </td>
                         </tr>
                     )}
                 </tbody>
             </table>
+
+            <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
         </div>
     );
 };

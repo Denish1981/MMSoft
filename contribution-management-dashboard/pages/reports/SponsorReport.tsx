@@ -5,13 +5,16 @@ import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, DateInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
-import { useData } from '../../contexts/DataContext';
+import { formatReceiptNo, matchesReceiptFilter, ReceiptData } from '../../utils/receiptUtils';
+import { ReceiptModal } from '../../components/ReceiptModal';
+import { Receipt } from 'lucide-react';
 
 interface SponsorReportProps {
     sponsors: Sponsor[];
 }
 
 interface SponsorFilters {
+    receiptNo: string;
     sponsorName: string;
     businessCategory: string;
     sponsorshipType: string;
@@ -22,6 +25,7 @@ interface SponsorFilters {
 
 const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
     const [filters, setFilters] = useState<SponsorFilters>({
+        receiptNo: '',
         sponsorName: '',
         businessCategory: '',
         sponsorshipType: '',
@@ -29,6 +33,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
         amountValue: '',
         datePaid: '',
     });
+    const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -36,6 +41,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
 
     const resetFilters = () => {
         setFilters({
+            receiptNo: '',
             sponsorName: '',
             businessCategory: '',
             sponsorshipType: '',
@@ -47,6 +53,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
 
     const filteredSponsors = useMemo(() => {
         return sponsors.filter(s => {
+            if (filters.receiptNo && !matchesReceiptFilter(s.id, 'sponsor', filters.receiptNo)) return false;
             if (filters.sponsorName && !s.name.toLowerCase().includes(filters.sponsorName.toLowerCase())) return false;
             if (filters.businessCategory && !s.businessCategory.toLowerCase().includes(filters.businessCategory.toLowerCase())) return false;
             if (filters.sponsorshipType && !s.sponsorshipType.toLowerCase().includes(filters.sponsorshipType.toLowerCase())) return false;
@@ -71,9 +78,31 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
         });
     }, [sponsors, filters]);
 
+    const openReceipt = (s: Sponsor) => {
+        const rData: ReceiptData = {
+            receiptNo: formatReceiptNo(s.id, 'sponsor'),
+            category: 'sponsor',
+            title: 'Festival Sponsorship',
+            date: s.datePaid,
+            payerName: s.name,
+            payerEmail: s.email,
+            payerPhone: s.contactNumber,
+            amount: Number(s.sponsorshipAmount),
+            paymentMode: 'Sponsorship Fee',
+            status: 'Approved',
+            details: [
+                { label: 'Business Category', value: s.businessCategory || 'N/A' },
+                { label: 'Business Description', value: s.businessInfo || 'N/A' },
+                { label: 'Sponsorship Type', value: s.sponsorshipType || 'N/A' },
+                { label: 'Payment Received By', value: s.paymentReceivedBy || 'N/A' },
+            ]
+        };
+        setSelectedReceipt(rData);
+    };
+
     const handleExport = () => {
         const dataToExport = filteredSponsors.map(s => ({
-            'Sponsor ID': s.id,
+            'Receipt No': formatReceiptNo(s.id, 'sponsor'),
             'Sponsor Name': s.name,
             'Contact Number': s.contactNumber,
             'Email': s.email,
@@ -91,6 +120,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
     return (
         <ReportContainer title="Sponsor Report" onExport={handleExport}>
             <FilterContainer onReset={resetFilters}>
+                <TextInput label="Receipt No" value={filters.receiptNo} onChange={val => handleFilterChange('receiptNo', val)} placeholder="e.g. REC-SPN-00001" />
                 <TextInput label="Sponsor Name" value={filters.sponsorName} onChange={val => handleFilterChange('sponsorName', val)} />
                 <TextInput label="Business Category" value={filters.businessCategory} onChange={val => handleFilterChange('businessCategory', val)} />
                 <TextInput label="Sponsorship Type" value={filters.sponsorshipType} onChange={val => handleFilterChange('sponsorshipType', val)} />
@@ -108,6 +138,7 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                         <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt No</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sponsor Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
@@ -115,11 +146,15 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date Paid</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Received By</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                         {filteredSponsors.length > 0 ? filteredSponsors.map(s => (
                             <tr key={s.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-xs font-bold font-mono text-blue-700">
+                                    {formatReceiptNo(s.id, 'sponsor')}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{s.name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.businessCategory}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-800">{formatCurrency(s.sponsorshipAmount)}</td>
@@ -127,10 +162,19 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(s.datePaid)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.paymentReceivedBy}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{s.contactNumber}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    <button
+                                        onClick={() => openReceipt(s)}
+                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors"
+                                        title="View / Download Printable Receipt"
+                                    >
+                                        <Receipt className="w-3.5 h-3.5" /> View
+                                    </button>
+                                </td>
                             </tr>
                         )) : (
                              <tr>
-                                <td colSpan={7} className="text-center py-10 text-slate-500">
+                                <td colSpan={9} className="text-center py-10 text-slate-500">
                                     {sponsors.length === 0 ? "No sponsors have been added yet." : "No sponsors match your current filters."}
                                 </td>
                             </tr>
@@ -138,6 +182,8 @@ const SponsorReport: React.FC<SponsorReportProps> = ({ sponsors }) => {
                     </tbody>
                 </table>
             </div>
+
+            <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
         </ReportContainer>
     );
 };

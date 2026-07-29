@@ -4,14 +4,18 @@ import ReportContainer from './ReportContainer';
 import { TextInput, AmountInput, FilterContainer } from './FilterControls';
 import { exportToCsv } from '../../utils/exportUtils';
 import { formatCurrency, formatUTCDate } from '../../utils/formatting';
+import { formatReceiptNo, matchesReceiptFilter, ReceiptData } from '../../utils/receiptUtils';
+import { ReceiptModal } from '../../components/ReceiptModal';
 import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../../components/icons/ChevronRightIcon';
+import { Receipt } from 'lucide-react';
 
 interface MiscellaneousReportProps {
     contributions: Contribution[];
 }
 
 interface MiscellaneousFilters {
+    receiptNo: string;
     sourceName: string;
     amountComparator: string;
     amountValue: string;
@@ -19,12 +23,14 @@ interface MiscellaneousFilters {
 
 const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions }) => {
     const [filters, setFilters] = useState<MiscellaneousFilters>({
+        receiptNo: '',
         sourceName: '',
         amountComparator: '>=',
         amountValue: '',
     });
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
 
     const handleFilterChange = (field: keyof typeof filters, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -32,6 +38,7 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
 
     const resetFilters = () => {
         setFilters({
+            receiptNo: '',
             sourceName: '',
             amountComparator: '>=',
             amountValue: '',
@@ -45,6 +52,7 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
 
     const filteredContributions = useMemo(() => {
         return miscContributions.filter(c => {
+            if (filters.receiptNo && !matchesReceiptFilter(c.id, 'misc', filters.receiptNo)) return false;
             if (filters.sourceName && !c.donorName.toLowerCase().includes(filters.sourceName.toLowerCase())) return false;
             
             if (filters.amountValue) {
@@ -78,15 +86,33 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
         setCurrentPage(prev => Math.max(prev - 1, 1));
     };
 
+    const openReceipt = (c: Contribution) => {
+        const rData: ReceiptData = {
+            receiptNo: formatReceiptNo(c.id, 'misc'),
+            category: 'misc',
+            title: 'Miscellaneous Income',
+            date: c.date,
+            payerName: c.donorName,
+            payerEmail: c.donorEmail,
+            payerPhone: c.mobileNumber,
+            amount: Number(c.amount),
+            paymentMode: c.type?.startsWith('Miscellaneous:') ? c.type.substring('Miscellaneous:'.length).trim() : 'Miscellaneous',
+            status: c.status || 'Completed',
+            details: [
+                { label: 'Income Type', value: c.type || 'Miscellaneous' },
+            ]
+        };
+        setSelectedReceipt(rData);
+    };
+
     const handleExport = () => {
         const dataToExport = filteredContributions.map(c => ({
-            ID: c.id,
+            'Receipt No': formatReceiptNo(c.id, 'misc'),
             'Name / Source': c.donorName,
             'Income Type': c.type?.startsWith('Miscellaneous:') ? c.type.substring('Miscellaneous:'.length).trim() : 'Miscellaneous',
             'Amount': c.amount,
             'Date': new Date(c.date).toLocaleString(),
             'Status': c.status,
-            'Campaign ID': c.campaignId,
         }));
         exportToCsv(dataToExport, 'miscellaneous_contribution_report');
     };
@@ -94,6 +120,7 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
     return (
         <ReportContainer title="Miscellaneous Contribution Report" onExport={handleExport}>
             <FilterContainer onReset={resetFilters}>
+                <TextInput label="Receipt No" value={filters.receiptNo} onChange={val => handleFilterChange('receiptNo', val)} placeholder="e.g. REC-MIS-00001" />
                 <TextInput label="Name / Source" value={filters.sourceName} onChange={val => handleFilterChange('sourceName', val)} />
                 <AmountInput
                     label="Amount"
@@ -108,16 +135,21 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                         <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt No</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name / Source</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Income Type</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                         {paginatedContributions.length > 0 ? paginatedContributions.map(c => (
                             <tr key={c.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-xs font-bold font-mono text-blue-700">
+                                    {formatReceiptNo(c.id, 'misc')}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{c.donorName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                     {c.type?.startsWith('Miscellaneous:') 
@@ -127,10 +159,19 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 font-semibold">{formatCurrency(c.amount)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(c.date)}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{c.status}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    <button
+                                        onClick={() => openReceipt(c)}
+                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-md transition-colors"
+                                        title="View / Download Printable Receipt"
+                                    >
+                                        <Receipt className="w-3.5 h-3.5" /> View
+                                    </button>
+                                </td>
                             </tr>
                         )) : (
                              <tr>
-                                <td colSpan={5} className="text-center py-10 text-slate-500">
+                                <td colSpan={7} className="text-center py-10 text-slate-500">
                                     {miscContributions.length === 0 ? "No miscellaneous contributions match the campaign." : "No miscellaneous contributions match your filters."}
                                 </td>
                             </tr>
@@ -175,6 +216,8 @@ const MiscellaneousReport: React.FC<MiscellaneousReportProps> = ({ contributions
                     </button>
                 </div>
             </div>
+
+            <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
         </ReportContainer>
     );
 };
