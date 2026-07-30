@@ -133,7 +133,7 @@ const DonorPortalPage: React.FC = () => {
     }, [token]);
 
     const openChoiceModal = useCallback(async (tab: 'stall' | 'event' = 'stall') => {
-        setChoiceTab(tab);
+        setChoiceTab('event');
         setIsChoiceModalOpen(true);
         setIsFetchingChoiceData(true);
         try {
@@ -229,7 +229,7 @@ const DonorPortalPage: React.FC = () => {
                                         : "bg-white/5 text-slate-400 border-white/10 cursor-not-allowed opacity-60"
                                 }`}
                             >
-                                <Store className="w-5 h-5" /> Register Stall / Event
+                                <Store className="w-5 h-5" /> Register Event
                             </button>
                             {!hasApprovedContribution && (
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-xs rounded py-1.5 px-3 z-20 whitespace-nowrap shadow-lg text-center pointer-events-none">
@@ -288,7 +288,7 @@ const DonorPortalPage: React.FC = () => {
             {/* Navigation Tabs */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="flex border-b border-slate-200 bg-slate-50/50 overflow-x-auto">
-                    <button
+                    {/* <button
                         onClick={() => setActiveTab('stalls')}
                         className={`px-5 py-3.5 text-sm font-semibold flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
                             activeTab === 'stalls' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -296,7 +296,7 @@ const DonorPortalPage: React.FC = () => {
                     >
                         <Store className="w-4 h-4" />
                         My Stall Registrations ({stallRegistrations.length})
-                    </button>
+                    </button> */}
                     <button
                         onClick={() => setActiveTab('contributions')}
                         className={`px-5 py-3.5 text-sm font-semibold flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
@@ -333,7 +333,7 @@ const DonorPortalPage: React.FC = () => {
                             <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                                 <h3 className="font-bold text-slate-800 text-lg">Stall Registration & Approval Statuses</h3>
                                 <div className="flex items-center gap-2">
-                                    <button
+                                    {/* <button
                                         onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
                                         disabled={!hasApprovedContribution}
                                         className={`px-3 py-1.5 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors ${
@@ -343,7 +343,7 @@ const DonorPortalPage: React.FC = () => {
                                         }`}
                                     >
                                         <PlusCircle className="w-4 h-4" /> Register New Stall
-                                    </button>
+                                    </button> */}
                                     <button
                                         onClick={fetchPortalData}
                                         className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
@@ -359,7 +359,7 @@ const DonorPortalPage: React.FC = () => {
                                     <Store className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <p className="text-slate-600 font-medium">No stall registrations found.</p>
                                     <p className="text-xs text-slate-400 mt-1">Register a stall for upcoming festivals directly from your donor portal.</p>
-                                    <div className="relative group inline-block mt-4" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
+                                    {/* <div className="relative group inline-block mt-4" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
                                         <button
                                             onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
                                             disabled={!hasApprovedContribution}
@@ -376,7 +376,7 @@ const DonorPortalPage: React.FC = () => {
                                                 You need to contribute to Register for Stall / Events
                                             </div>
                                         )}
-                                    </div>
+                                    </div> */}
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
@@ -700,14 +700,14 @@ const DonorPortalPage: React.FC = () => {
 
                         {/* Modal Choice Tabs */}
                         <div className="flex border-b border-slate-200 mt-4">
-                            <button
+                            {/* <button
                                 onClick={() => setChoiceTab('stall')}
                                 className={`px-4 py-2.5 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
                                     choiceTab === 'stall' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
                                 }`}
                             >
                                 <Store className="w-4 h-4" /> Festival Stalls ({publicFestivals.length})
-                            </button>
+                            </button> */}
                             <button
                                 onClick={() => setChoiceTab('event')}
                                 className={`px-4 py-2.5 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
