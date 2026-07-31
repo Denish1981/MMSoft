@@ -135,15 +135,15 @@ const LoginPage: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="flex justify-center pt-2">
+                {/* <div className="flex justify-center pt-2">
                    <GoogleLogin onSuccess={handleGoogleSuccess} onError={handleGoogleError} useOneTap />
-                </div>
+                </div> */}
 
-                <div className="flex items-center justify-center space-x-2">
+                {/* <div className="flex items-center justify-center space-x-2">
                     <hr className="w-full border-slate-200" />
                     <span className="text-xs font-medium text-slate-400">OR</span>
                     <hr className="w-full border-slate-200" />
-                </div>
+                </div> */}
 
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     {mode === 'register' && (

@@ -1,3 +1,5 @@
+const { hashPassword } = require('../../auth/passwordUtils');
+
 const createAdminUser = async (client) => {
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -9,7 +11,8 @@ const createAdminUser = async (client) => {
             if(!adminPassword) {
                 console.warn(`Admin user ${adminEmail} does not exist and no ADMIN_PASSWORD is set. Cannot create admin.`);
             } else {
-                const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [adminEmail, adminPassword]);
+                const hashedPassword = hashPassword(adminPassword);
+                const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [adminEmail, hashedPassword]);
                 adminUserId = newUserRes.rows[0].id;
                 console.log(`Created admin user: ${adminEmail}`);
             }

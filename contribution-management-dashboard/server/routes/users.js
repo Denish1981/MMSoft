@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
+const { hashPassword } = require('../auth/passwordUtils');
 const router = express.Router();
 
 router.get('/users/management', authMiddleware, permissionMiddleware('page:user-management:view'), async (req, res) => {
@@ -29,7 +30,8 @@ router.post('/users', authMiddleware, permissionMiddleware('action:users:manage'
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [username, password]);
+        const hashedPassword = hashPassword(password);
+        const newUserRes = await client.query('INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id', [username, hashedPassword]);
         const userId = newUserRes.rows[0].id;
         for (const roleId of roleIds) {
             await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);

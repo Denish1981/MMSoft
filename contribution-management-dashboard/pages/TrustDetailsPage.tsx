@@ -209,7 +209,7 @@ export const TrustDetailsPage: React.FC = () => {
                 </div>
 
                 {/* Trust Members Section */}
-                <div className="space-y-6 pt-4">
+                {/* <div className="space-y-6 pt-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-4">
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
@@ -262,7 +262,7 @@ export const TrustDetailsPage: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                </div>
+                </div> */}
             </main>
 
             {/* Footer */}

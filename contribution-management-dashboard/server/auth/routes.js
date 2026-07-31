@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const db = require('../db');
 const { authMiddleware, getUserPermissions, getUserRoles } = require('./middleware');
+const { hashPassword, verifyPassword } = require('./passwordUtils');
 
 const router = express.Router();
 const googleClient = new OAuth2Client();
@@ -42,9 +43,10 @@ router.post('/register', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(409).json({ message: 'An account with this email/username already exists.' });
         }
+        const hashedPassword = hashPassword(password);
         const newUserRes = await client.query(
             'INSERT INTO users (username, password, full_name, mobile_number, tower_number, flat_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-            [username, password, fullName || null, mobileNumber || null, towerNumber || null, flatNumber || null]
+            [username, hashedPassword, fullName || null, mobileNumber || null, towerNumber || null, flatNumber || null]
         );
         const userId = newUserRes.rows[0].id;
         
@@ -91,36 +93,52 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username/Email and password are required.' });
+    }
     try {
         const result = await db.query(
-            'SELECT id, username, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE username = $1 AND password = $2', 
-            [username, password]
+            'SELECT id, username, password, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE username = $1', 
+            [username]
         );
-        if (result.rows.length > 0) {
-            const user = result.rows[0];
-            const permissions = await getUserPermissions(user.id);
-            const roles = await getUserRoles(user.id);
-            if (permissions.length === 0) return res.status(403).json({ message: 'Login failed. Your account has not been assigned any roles.' });
-            
-            const token = await createSession(user.id);
-            await logLoginHistory(user.id, 'password', req);
-            res.status(200).json({ 
-                user: { 
-                    id: user.id, 
-                    email: user.username, 
-                    username: user.username,
-                    fullName: user.fullName || '',
-                    mobileNumber: user.mobileNumber || '',
-                    towerNumber: user.towerNumber || '',
-                    flatNumber: user.flatNumber || '',
-                    roles,
-                    permissions 
-                }, 
-                token 
-            });
-        } else {
-            res.status(401).json({ message: 'Invalid credentials' });
+        if (result.rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
+
+        const user = result.rows[0];
+        const { isValid, needsRehash } = verifyPassword(password, user.password);
+
+        if (!isValid) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        // Automatic upgrade for legacy plaintext password
+        if (needsRehash) {
+            const newHashedPassword = hashPassword(password);
+            await db.query('UPDATE users SET password = $1 WHERE id = $2', [newHashedPassword, user.id]);
+            console.log(`[AUTH] Automatically updated password to salted hash for user: ${username} (ID: ${user.id})`);
+        }
+
+        const permissions = await getUserPermissions(user.id);
+        const roles = await getUserRoles(user.id);
+        if (permissions.length === 0) return res.status(403).json({ message: 'Login failed. Your account has not been assigned any roles.' });
+        
+        const token = await createSession(user.id);
+        await logLoginHistory(user.id, 'password', req);
+        res.status(200).json({ 
+            user: { 
+                id: user.id, 
+                email: user.username, 
+                username: user.username,
+                fullName: user.fullName || '',
+                mobileNumber: user.mobileNumber || '',
+                towerNumber: user.towerNumber || '',
+                flatNumber: user.flatNumber || '',
+                roles,
+                permissions 
+            }, 
+            token 
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -249,12 +267,16 @@ router.post('/change-password', authMiddleware, async (req, res) => {
         const storedPassword = userRes.rows[0].password;
         
         // If they have an existing password, verify it
-        if (storedPassword && storedPassword !== currentPassword) {
-            return res.status(400).json({ message: 'The current password you entered is incorrect.' });
+        if (storedPassword) {
+            const { isValid } = verifyPassword(currentPassword, storedPassword);
+            if (!isValid) {
+                return res.status(400).json({ message: 'The current password you entered is incorrect.' });
+            }
         }
         
-        // Update user password
-        await db.query('UPDATE users SET password = $1 WHERE id = $2', [newPassword, userId]);
+        // Update user password with salted hash
+        const hashedNewPassword = hashPassword(newPassword);
+        await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, userId]);
         res.status(200).json({ message: 'Password updated successfully.' });
     } catch (err) {
         console.error('Change password error:', err);
