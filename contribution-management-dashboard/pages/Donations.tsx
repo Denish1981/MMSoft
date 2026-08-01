@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, NavLink } from 'react-router-dom';
 import type { Contribution } from '../types/index';
 import { ContributionStatus } from '../types/index';
 import { generateThankYouNote } from '../services/geminiService';
@@ -145,6 +145,12 @@ const Contributions: React.FC = () => {
                     >
                         Miscellaneous Contributions
                     </button>
+                    <NavLink
+                        to="/stall-registrations"
+                        className="py-2.5 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all duration-200"
+                    >
+                        Stall Registrations
+                    </NavLink>
 
                     {isManager && (
                         <button

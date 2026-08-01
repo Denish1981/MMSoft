@@ -16,7 +16,8 @@ interface StallRegistrationModalProps {
 }
 
 const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festival, onClose }) => {
-    const { user, token } = useAuth();
+    const { user, token, hasPermission } = useAuth();
+    const isManager = hasPermission('action:edit') || hasPermission('action:users:manage');
     const [registrantName, setRegistrantName] = useState(user?.fullName || '');
     const [contactNumber, setContactNumber] = useState(user?.mobileNumber || '');
     const [towerNumber, setTowerNumber] = useState(user?.towerNumber || '');
@@ -113,7 +114,7 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
             return;
         }
 
-        if (!paymentScreenshot) {
+        if (!paymentScreenshot && !isManager) {
             setError('Please upload a screenshot of your payment.');
             return;
         }
@@ -121,22 +122,24 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
         setIsLoading(true);
 
         try {
-            const queryParams = new URLSearchParams();
-            if (towerNumber) queryParams.append('towerNumber', towerNumber);
-            if (flatNumber) queryParams.append('flatNumber', flatNumber);
-            if (contactNumber) queryParams.append('mobileNumber', contactNumber);
-            if (user?.email) queryParams.append('email', user.email);
+            if (!isManager) {
+                const queryParams = new URLSearchParams();
+                if (towerNumber) queryParams.append('towerNumber', towerNumber);
+                if (flatNumber) queryParams.append('flatNumber', flatNumber);
+                if (contactNumber) queryParams.append('mobileNumber', contactNumber);
+                if (user?.email) queryParams.append('email', user.email);
 
-            const checkHeaders: Record<string, string> = {};
-            if (token) checkHeaders['Authorization'] = `Bearer ${token}`;
+                const checkHeaders: Record<string, string> = {};
+                if (token) checkHeaders['Authorization'] = `Bearer ${token}`;
 
-            const checkRes = await fetch(`${API_URL}/public/check-contribution?${queryParams.toString()}`, { headers: checkHeaders });
-            if (checkRes.ok) {
-                const checkData = await checkRes.json();
-                if (!checkData.hasApprovedContribution) {
-                    setError('Stall registration is restricted to residents with at least one approved contribution. No approved contribution was found for your account or residence details.');
-                    setIsLoading(false);
-                    return;
+                const checkRes = await fetch(`${API_URL}/public/check-contribution?${queryParams.toString()}`, { headers: checkHeaders });
+                if (checkRes.ok) {
+                    const checkData = await checkRes.json();
+                    if (!checkData.hasApprovedContribution) {
+                        setError('Stall registration is restricted to residents with at least one approved contribution. No approved contribution was found for your account or residence details.');
+                        setIsLoading(false);
+                        return;
+                    }
                 }
             }
 
@@ -252,7 +255,7 @@ const StallRegistrationModal: React.FC<StallRegistrationModalProps> = ({ festiva
                                     <p className="text-3xl font-bold text-blue-600">{formatCurrency(totalCost)}</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700">Payment Screenshot *</label>
+                                    <label className="block text-sm font-medium text-slate-700">Payment Screenshot {isManager ? '(Optional)' : '*'}</label>
                                     <div className="mt-2 grid grid-cols-2 gap-4">
                                         <label htmlFor="screenshotUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
                                             Upload File

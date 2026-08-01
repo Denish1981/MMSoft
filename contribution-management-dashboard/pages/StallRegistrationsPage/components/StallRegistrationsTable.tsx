@@ -59,7 +59,11 @@ const StallRegistrationsTable: React.FC<StallRegistrationsTableProps> = ({ regis
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap align-top text-right">
                                 <div className="text-sm font-semibold text-slate-800">{formatCurrency(reg.totalPayment)}</div>
-                                <img src={reg.paymentScreenshot} alt="Payment" className="mt-1 h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform ml-auto" onClick={() => onViewImage(reg.paymentScreenshot)} />
+                                {reg.paymentScreenshot ? (
+                                    <img src={reg.paymentScreenshot} alt="Payment" className="mt-1 h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform ml-auto" onClick={() => onViewImage(reg.paymentScreenshot)} />
+                                ) : (
+                                    <span className="text-xs text-slate-400 italic block mt-1">No receipt</span>
+                                )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap align-top">
                                 <StatusBadge status={reg.status} />

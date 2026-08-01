@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 const navItems = [
     { to: "/contributions", label: "Contributions" },
     { to: "/sponsors", label: "Sponsors" },
+    { to: "/stall-registrations", label: "Stall Registrations" },
 ];
 
 const ContributionsNavigation: React.FC = () => {
