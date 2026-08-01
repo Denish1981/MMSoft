@@ -112,7 +112,7 @@ export const TrustDetailsPage: React.FC = () => {
                         Trust Details & Governing Body
                     </h1>
                     <p className="text-slate-600 text-base max-w-2xl">
-                        Official registration, contact information, and executive trust committee members of Gold Towers Mitra Mandal Trust.
+                        Official registration, contact information.
                     </p>
                 </div>
 
