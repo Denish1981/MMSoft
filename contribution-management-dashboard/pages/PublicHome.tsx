@@ -4,6 +4,7 @@ import { Calendar, Clock, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import type { ScheduleMaster } from '../types';
+import { sortSchedules, sortScheduleEntries } from '../utils/scheduleUtils';
 
 export const PublicHomePage: React.FC = () => {
     const { isAuthenticated, hasPermission } = useAuth();
@@ -22,7 +23,7 @@ export const PublicHomePage: React.FC = () => {
                 if (response.ok) {
                     const data = await response.json();
                     if (isMounted) {
-                        setActiveSchedules(data || []);
+                        setActiveSchedules(sortSchedules(data || []));
                     }
                 }
             } catch (err) {
@@ -139,7 +140,7 @@ export const PublicHomePage: React.FC = () => {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 bg-white">
-                                                        {schedule.entries.map((entry, idx) => (
+                                                        {sortScheduleEntries(schedule.entries).map((entry, idx) => (
                                                             <tr key={entry.id || idx} className="hover:bg-orange-50/40 transition-colors">
                                                                 <td className="py-4 px-5 font-bold text-slate-900 whitespace-nowrap">
                                                                     {formatDateStr(entry.eventDate)}, {entry.day || '—'}

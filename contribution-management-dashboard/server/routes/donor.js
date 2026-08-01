@@ -64,15 +64,28 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
         );
 
         // Fetch My Event Registrations
+        const userEmail = (user.email || user.username || '').trim();
         const eventRegRes = await db.query(
             `SELECT er.id, er.event_id AS "eventId", e.name AS "eventName", 
                     e.event_date AS "eventDate", e.venue, er.submitted_at AS "submittedAt", 
-                    er.form_data AS "formData" 
+                    er.form_data AS "formData", er.name, er.email,
+                    er.payment_proof_image AS "paymentProofImage"
              FROM event_registrations er 
              LEFT JOIN events e ON er.event_id = e.id 
-             WHERE er.user_id = $1 OR er.email = $2
+             WHERE er.user_id = $1 
+                OR ($2 != '' AND (er.email = $2 OR er.form_data->>'email' = $2))
+                OR ($3 != '' AND (
+                    er.form_data->>'phone_number' = $3 OR 
+                    er.form_data->>'contact_number' = $3 OR 
+                    er.form_data->>'mobile_number' = $3 OR
+                    er.form_data->>'phone' = $3
+                ))
+                OR ($4 != '' AND $5 != '' AND (
+                    (LOWER(TRIM(er.form_data->>'tower_number')) = LOWER(TRIM($4)) AND LOWER(TRIM(er.form_data->>'flat_number')) = LOWER(TRIM($5)))
+                    OR (LOWER(TRIM(er.form_data->>'towerNumber')) = LOWER(TRIM($4)) AND LOWER(TRIM(er.form_data->>'flatNumber')) = LOWER(TRIM($5)))
+                ))
              ORDER BY er.submitted_at DESC`,
-            [userId, user.username]
+            [userId, userEmail, mobile, tower, flat]
         );
 
         // Fetch Upcoming Events

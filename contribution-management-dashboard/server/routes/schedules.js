@@ -4,6 +4,52 @@ const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
 const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint } = require('../db/helpers');
 const router = express.Router();
 
+function parseTimeStringToMinutes(timingsStr) {
+    if (!timingsStr || typeof timingsStr !== 'string') return 99999;
+    const startSegment = timingsStr.split(/[-—~]|(?:\bto\b)/i)[0].trim();
+    if (!startSegment) return 99999;
+
+    const upper = startSegment.toUpperCase();
+    const isPM = upper.includes('PM');
+    const isAM = upper.includes('AM');
+
+    const match = upper.match(/(\d{1,2})(?::(\d{2}))?/);
+    if (!match) return 99999;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2] ? parseInt(match[2], 10) : 0;
+
+    if (isNaN(hours)) return 99999;
+
+    if (isPM) {
+        if (hours < 12) hours += 12;
+    } else if (isAM) {
+        if (hours === 12) hours = 0;
+    }
+
+    return hours * 60 + minutes;
+}
+
+function sortEntriesByTime(entries) {
+    return (entries || []).sort((a, b) => {
+        const dateA = a.eventDate ? String(a.eventDate).split('T')[0] : '';
+        const dateB = b.eventDate ? String(b.eventDate).split('T')[0] : '';
+        if (dateA !== dateB) {
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+            return dateA.localeCompare(dateB);
+        }
+
+        const timeA = parseTimeStringToMinutes(a.timings);
+        const timeB = parseTimeStringToMinutes(b.timings);
+        if (timeA !== timeB) {
+            return timeA - timeB;
+        }
+
+        return (a.event || '').localeCompare(b.event || '');
+    });
+}
+
 // Helper to fetch entries for a list of schedule IDs
 async function attachEntries(schedules) {
     if (!schedules || schedules.length === 0) return schedules;
@@ -12,7 +58,7 @@ async function attachEntries(schedules) {
         `SELECT id, schedule_id as "scheduleId", event_date as "eventDate", day, event, timings, created_at as "createdAt"
          FROM schedule_entries
          WHERE schedule_id = ANY($1::int[])
-         ORDER BY event_date ASC, timings ASC`,
+         ORDER BY event_date ASC`,
         [ids]
     );
 
@@ -25,7 +71,7 @@ async function attachEntries(schedules) {
     }
 
     for (const sched of schedules) {
-        sched.entries = entriesBySchedule[sched.id] || [];
+        sched.entries = sortEntriesByTime(entriesBySchedule[sched.id] || []);
     }
     return schedules;
 }

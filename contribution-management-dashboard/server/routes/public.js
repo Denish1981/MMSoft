@@ -152,6 +152,96 @@ router.post('/public/events/:id/register', async (req, res) => {
     }
 });
 
+router.post('/public/events/batch-register', async (req, res) => {
+    const { eventIds, formData, paymentProofImage, eventSpecificForms, eventParticipants } = req.body;
+
+    if (!Array.isArray(eventIds) || eventIds.length === 0) {
+        return res.status(400).json({ error: 'Please select at least one event to register.' });
+    }
+
+    if (!formData || !formData.name || (!formData.phone_number && !formData.mobile_number && !formData.contact_number && !formData.phone)) {
+        return res.status(400).json({ error: 'Name and contact number are required.' });
+    }
+
+    try {
+        const userId = await getUserIdFromReq(req);
+
+        const towerNumber = formData.tower_number || formData.towerNumber || formData.tower || null;
+        const flatNumber = formData.flat_number || formData.flatNumber || formData.flat || null;
+        const email = formData.email || formData.donor_email || null;
+        const mobileNumber = formData.phone_number || formData.mobile_number || formData.contact_number || formData.phone || null;
+
+        const hasApproved = await checkApprovedContribution({
+            userId,
+            towerNumber: towerNumber ? String(towerNumber).trim() : null,
+            flatNumber: flatNumber ? String(flatNumber).trim() : null,
+            email: email ? String(email).trim() : null,
+            mobileNumber: mobileNumber ? String(mobileNumber).trim() : null
+        });
+
+        if (!hasApproved) {
+            return res.status(403).json({
+                error: 'Registration failed: You must have at least one approved contribution to register for events, festivals, or stalls.'
+            });
+        }
+
+        const client = await db.getPool().connect();
+        let totalRegistrationsCount = 0;
+
+        try {
+            await client.query('BEGIN');
+            for (const eventId of eventIds) {
+                // Check if multiple participants are provided for this event
+                const participantsList = eventParticipants && (
+                    (Array.isArray(eventParticipants[eventId]) && eventParticipants[eventId].length > 0)
+                    ? eventParticipants[eventId]
+                    : (Array.isArray(eventParticipants[String(eventId)]) && eventParticipants[String(eventId)].length > 0)
+                    ? eventParticipants[String(eventId)]
+                    : (Array.isArray(eventParticipants[Number(eventId)]) && eventParticipants[Number(eventId)].length > 0)
+                    ? eventParticipants[Number(eventId)]
+                    : null
+                );
+
+                if (participantsList) {
+                    for (const p of participantsList) {
+                        const pName = (p.name || p.participantName || formData.name || '').trim();
+                        const pEmail = (p.email || formData.email || email || '').trim();
+                        const combinedFormData = { ...formData, ...p };
+
+                        await client.query(
+                            'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
+                            [eventId, pName, pEmail, combinedFormData, paymentProofImage, userId]
+                        );
+                        totalRegistrationsCount++;
+                    }
+                } else {
+                    const specificData = (eventSpecificForms && eventSpecificForms[eventId]) || {};
+                    const combinedFormData = { ...formData, ...specificData };
+
+                    await client.query(
+                        'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
+                        [eventId, formData.name, formData.email || email, combinedFormData, paymentProofImage, userId]
+                    );
+                    totalRegistrationsCount++;
+                }
+            }
+            await client.query('COMMIT');
+            res.status(201).json({ 
+                message: `Successfully registered ${totalRegistrationsCount} participant entry/entries across ${eventIds.length} event(s)!`, 
+                count: totalRegistrationsCount 
+            });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error('Error submitting batch event registration:', err);
+        res.status(500).json({ error: err.message || 'Internal server error during batch event registration' });
+    }
+});
+
 router.get('/public/check-contribution', async (req, res) => {
     const { towerNumber, flatNumber, email, mobileNumber } = req.query;
     try {
@@ -331,6 +421,52 @@ router.get('/public/campaigns', async (req, res) => {
     }
 });
 
+function parseTimeStringToMinutes(timingsStr) {
+    if (!timingsStr || typeof timingsStr !== 'string') return 99999;
+    const startSegment = timingsStr.split(/[-—~]|(?:\bto\b)/i)[0].trim();
+    if (!startSegment) return 99999;
+
+    const upper = startSegment.toUpperCase();
+    const isPM = upper.includes('PM');
+    const isAM = upper.includes('AM');
+
+    const match = upper.match(/(\d{1,2})(?::(\d{2}))?/);
+    if (!match) return 99999;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2] ? parseInt(match[2], 10) : 0;
+
+    if (isNaN(hours)) return 99999;
+
+    if (isPM) {
+        if (hours < 12) hours += 12;
+    } else if (isAM) {
+        if (hours === 12) hours = 0;
+    }
+
+    return hours * 60 + minutes;
+}
+
+function sortEntriesByTime(entries) {
+    return (entries || []).sort((a, b) => {
+        const dateA = a.eventDate ? String(a.eventDate).split('T')[0] : '';
+        const dateB = b.eventDate ? String(b.eventDate).split('T')[0] : '';
+        if (dateA !== dateB) {
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+            return dateA.localeCompare(dateB);
+        }
+
+        const timeA = parseTimeStringToMinutes(a.timings);
+        const timeB = parseTimeStringToMinutes(b.timings);
+        if (timeA !== timeB) {
+            return timeA - timeB;
+        }
+
+        return (a.event || '').localeCompare(b.event || '');
+    });
+}
+
 router.get('/public/schedules/active', async (req, res) => {
     try {
         const query = `
@@ -358,7 +494,7 @@ router.get('/public/schedules/active', async (req, res) => {
             `SELECT id, schedule_id as "scheduleId", event_date as "eventDate", day, event, timings
              FROM schedule_entries
              WHERE schedule_id = ANY($1::int[])
-             ORDER BY event_date ASC, timings ASC`,
+             ORDER BY event_date ASC`,
             [ids]
         );
 
@@ -371,7 +507,7 @@ router.get('/public/schedules/active', async (req, res) => {
         }
 
         for (const sched of schedules) {
-            sched.entries = entriesBySchedule[sched.id] || [];
+            sched.entries = sortEntriesByTime(entriesBySchedule[sched.id] || []);
         }
 
         res.json(schedules);
@@ -388,8 +524,8 @@ router.get('/public/trust-details', async (req, res) => {
             registrationNumber: "MH 1311 / 2026 Pune",
             registrationDate: "22-July-2026",
             address: "Amanora Gold Towers, Amanora Park Town, Hadapsar, Pune - 411028, Maharashtra, India",
-            contactNumber: "+91 98201 12345 / +91 98202 67890",
-            email: "gtmmtrust@gmail.com / gtmm.amanora@gmail.com",
+            contactNumber: "+91 9028319184",
+            email: "gtmm.trust@gmail.com",
             members: [
                 { id:  1, name: "Sachin Kolapkar", designation: "Founder", contactNumber: "" },
                 { id:  2, name: "Dr. Jagdish Vaidya", designation: "President", contactNumber: "" },

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Calendar, Clock, Sparkles } from 'lucide-react';
+import { X, Plus, Trash2, Calendar, Clock, Sparkles, ArrowUpDown } from 'lucide-react';
 import type { ScheduleMaster, ScheduleEntry, Festival } from '../types/index';
+import { sortScheduleEntries } from '../utils/scheduleUtils';
 
 interface ScheduleModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setStartDate(itemToEdit.startDate ? itemToEdit.startDate.split('T')[0] : '');
       setEndDate(itemToEdit.endDate ? itemToEdit.endDate.split('T')[0] : '');
       setIsActive(Boolean(itemToEdit.isActive));
-      setEntries(itemToEdit.entries ? [...itemToEdit.entries] : []);
+      setEntries(itemToEdit.entries ? sortScheduleEntries(itemToEdit.entries) : []);
     } else {
       setFestivalId(festivals.length > 0 ? festivals[0].id : '');
       setTitle('');
@@ -48,6 +49,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
   }, [itemToEdit, isOpen, festivals]);
 
   if (!isOpen) return null;
+
+  const handleSortEntries = () => {
+    setEntries(prev => sortScheduleEntries(prev));
+  };
 
   const handleAddEntryRow = () => {
     setEntries(prev => [
@@ -100,8 +105,10 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
       return;
     }
 
-    // Filter out completely empty entries
-    const validEntries = entries.filter(e => e.eventDate.trim() && e.event.trim() && e.timings.trim());
+    // Filter out completely empty entries and sort chronologically by date and time
+    const validEntries = sortScheduleEntries(
+      entries.filter(e => e.eventDate.trim() && e.event.trim() && e.timings.trim())
+    );
 
     setIsSubmitting(true);
     setError('');
@@ -250,13 +257,23 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-orange-500" /> Schedule Entries & Timings
               </h3>
-              <button
-                type="button"
-                onClick={handleAddEntryRow}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 rounded-lg transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Row
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSortEntries}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 rounded-lg transition-colors"
+                  title="Auto-sort entries by date and time"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" /> Sort by Time
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddEntryRow}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 rounded-lg transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Row
+                </button>
+              </div>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">

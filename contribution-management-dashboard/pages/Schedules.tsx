@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Calendar, Plus, Edit2, Trash2, CheckCircle2, XCircle, 
   Clock, Sparkles, AlertCircle, History
@@ -10,6 +10,7 @@ import { ScheduleModal } from '../components/ScheduleModal';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import type { ScheduleMaster } from '../types';
 import { API_URL } from '../config';
+import { sortSchedules } from '../utils/scheduleUtils';
 
 export const Schedules: React.FC = () => {
   const { 
@@ -28,6 +29,8 @@ export const Schedules: React.FC = () => {
   // Delete modal state
   const [scheduleToDelete, setScheduleToDelete] = useState<ScheduleMaster | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const sortedSchedules = useMemo(() => sortSchedules(schedules), [schedules]);
 
   const canCreate = hasPermission('action:create');
   const canEdit = hasPermission('action:edit');
@@ -106,7 +109,7 @@ export const Schedules: React.FC = () => {
       </div>
 
       {/* Schedules List */}
-      {schedules.length === 0 ? (
+      {sortedSchedules.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm space-y-4">
           <div className="w-16 h-16 mx-auto bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center">
             <Calendar className="w-8 h-8" />
@@ -128,7 +131,7 @@ export const Schedules: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {schedules.map((sched) => (
+          {sortedSchedules.map((sched) => (
             <div
               key={sched.id}
               className={`bg-white rounded-2xl border transition-all duration-200 shadow-sm hover:shadow-md overflow-hidden ${

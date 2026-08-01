@@ -44,6 +44,7 @@ import DonorPortalPage from './pages/DonorPortalPage';
 import TrustDetailsPage from './pages/TrustDetailsPage';
 import FoodCouponsPage from './pages/FoodCoupons';
 import { Schedules } from './pages/Schedules';
+import MultiEventRegistrationPage from './pages/MultiEventRegistrationPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -69,11 +70,14 @@ const App: React.FC = () => {
                                 <Route path="/photos" element={<PhotoAlbumsListPage />} />
                                 <Route path="/album/:id" element={<PhotoAlbumPage />} />
                                 <Route path="/festivals/:id/register-stall" element={<StallRegistrationPage />} />
+                                <Route path="/register-events" element={<MultiEventRegistrationPage />} />
+                                <Route path="/multi-event-registration" element={<MultiEventRegistrationPage />} />
                                 <Route path="/login" element={<LoginPage />} />
                                 
                                 {/* Protected Routes */}
                                 <Route element={<ProtectedLayout />}>
                                     <Route path="/donor-portal" element={<ProtectedRoute permission="page:donor-portal:view"><DonorPortalPage /></ProtectedRoute>} />
+                                    <Route path="/donor-portal/register-events" element={<ProtectedRoute permission="page:donor-portal:view"><MultiEventRegistrationPage /></ProtectedRoute>} />
                                     <Route path="/dashboard" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard /></ProtectedRoute>} />
                                     <Route path="/documentation" element={<ProtectedRoute permission="page:dashboard:view"><Documentation /></ProtectedRoute>} />
                                     <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
