@@ -32,8 +32,8 @@ const createSession = async (userId) => {
 // --- Routes ---
 router.post('/register', async (req, res) => {
     const { username, password, fullName, mobileNumber, towerNumber, flatNumber } = req.body;
-    if (!username || !password) {
-        return res.status(400).json({ message: 'Username/Email and password are required.' });
+    if (!username || !password || !fullName || !mobileNumber || !towerNumber || !flatNumber) {
+        return res.status(400).json({ message: 'All fields (Full Name, Username/Email, Password, Mobile, Tower/Block, Flat) are required.' });
     }
     const client = await db.getPool().connect();
     try {

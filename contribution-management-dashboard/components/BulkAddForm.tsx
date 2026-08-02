@@ -6,6 +6,7 @@ import { CameraIcon } from './icons/CameraIcon';
 import { CloseIcon } from './icons/CloseIcon';
 import CameraCapture from './CameraCapture';
 import { useData } from '../contexts/DataContext';
+import { TOWER_OPTIONS, FLAT_OPTION_GROUPS, ALL_FLAT_OPTIONS } from '../utils/donorLocationUtils';
 
 const initialFormState: StagedContribution = {
     donorName: '',
@@ -101,12 +102,46 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                         <input type="text" id="donorName" name="donorName" value={formData.donorName} onChange={handleInputChange} className="mt-1 block w-full input-style" required />
                     </div>
                      <div className="md:col-span-1">
-                        <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number</label>
-                        <input type="text" id="towerNumber" name="towerNumber" value={formData.towerNumber} onChange={handleInputChange} className="mt-1 block w-full input-style" required />
+                        <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number *</label>
+                        <select
+                            id="towerNumber"
+                            name="towerNumber"
+                            value={formData.towerNumber}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full input-style bg-white"
+                            required
+                        >
+                            <option value="">Select Tower *</option>
+                            {TOWER_OPTIONS.map(tower => (
+                                <option key={tower} value={tower}>{tower}</option>
+                            ))}
+                            {formData.towerNumber && !TOWER_OPTIONS.includes(formData.towerNumber) && (
+                                <option value={formData.towerNumber}>{formData.towerNumber}</option>
+                            )}
+                        </select>
                     </div>
                     <div className="md:col-span-1">
-                        <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number</label>
-                        <input type="text" id="flatNumber" name="flatNumber" value={formData.flatNumber} onChange={handleInputChange} className="mt-1 block w-full input-style" required />
+                        <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number *</label>
+                        <select
+                            id="flatNumber"
+                            name="flatNumber"
+                            value={formData.flatNumber}
+                            onChange={handleInputChange}
+                            className="mt-1 block w-full input-style bg-white"
+                            required
+                        >
+                            <option value="">Select Flat *</option>
+                            {FLAT_OPTION_GROUPS.map(group => (
+                                <optgroup key={group.floorLabel} label={group.floorLabel}>
+                                    {group.options.map(flat => (
+                                        <option key={flat} value={flat}>{flat}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                            {formData.flatNumber && !ALL_FLAT_OPTIONS.includes(formData.flatNumber) && (
+                                <option value={formData.flatNumber}>{formData.flatNumber}</option>
+                            )}
+                        </select>
                     </div>
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

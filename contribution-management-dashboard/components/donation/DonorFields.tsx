@@ -1,4 +1,5 @@
 import React from 'react';
+import { TOWER_OPTIONS, FLAT_OPTION_GROUPS, ALL_FLAT_OPTIONS } from '../../utils/donorLocationUtils';
 
 interface DonorFieldsProps {
     donorName: string;
@@ -40,7 +41,7 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
         <div className="space-y-4">
             <div>
                 <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">
-                    {isMiscellaneous ? 'Name / Source' : 'Donor Name'}
+                    {isMiscellaneous ? 'Name / Source *' : 'Donor Name *'}
                 </label>
                 <input 
                     type="text" 
@@ -55,53 +56,71 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label htmlFor="donorEmail" className="block text-sm font-medium text-slate-700">Donor Email (Optional)</label>
+                    <label htmlFor="donorEmail" className="block text-sm font-medium text-slate-700">Donor Email *</label>
                     <input 
                         type="email" 
                         id="donorEmail" 
                         value={donorEmail} 
                         onChange={e => setDonorEmail(e.target.value)} 
                         className={baseInputClass} 
+                        required
                     />
                 </div>
                 <div>
-                    <label htmlFor="mobileNumber" className="block text-sm font-medium text-slate-700">Mobile Number (Optional)</label>
+                    <label htmlFor="mobileNumber" className="block text-sm font-medium text-slate-700">Mobile Number *</label>
                     <input 
                         type="tel" 
                         id="mobileNumber" 
                         value={mobileNumber} 
                         onChange={e => setMobileNumber(e.target.value)} 
                         className={baseInputClass} 
+                        required
                     />
                 </div>
             </div>
             {!isMiscellaneous && (
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number</label>
-                        <input 
-                            type="text" 
+                        <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number *</label>
+                        <select 
                             id="towerNumber" 
                             value={towerNumber} 
                             onChange={e => setTowerNumber(e.target.value)} 
                             disabled={disabledTowerNumber}
-                            readOnly={disabledTowerNumber}
-                            className={`${baseInputClass} ${disabledTowerNumber ? disabledInputClass : ''}`} 
+                            className={`${baseInputClass} ${disabledTowerNumber ? disabledInputClass : 'bg-white'}`} 
                             required 
-                        />
+                        >
+                            <option value="">Select Tower *</option>
+                            {TOWER_OPTIONS.map(tower => (
+                                <option key={tower} value={tower}>{tower}</option>
+                            ))}
+                            {towerNumber && !TOWER_OPTIONS.includes(towerNumber) && (
+                                <option value={towerNumber}>{towerNumber}</option>
+                            )}
+                        </select>
                     </div>
                     <div>
-                        <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number</label>
-                        <input 
-                            type="text" 
+                        <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number *</label>
+                        <select 
                             id="flatNumber" 
                             value={flatNumber} 
                             onChange={e => setFlatNumber(e.target.value)} 
                             disabled={disabledFlatNumber}
-                            readOnly={disabledFlatNumber}
-                            className={`${baseInputClass} ${disabledFlatNumber ? disabledInputClass : ''}`} 
+                            className={`${baseInputClass} ${disabledFlatNumber ? disabledInputClass : 'bg-white'}`} 
                             required 
-                        />
+                        >
+                            <option value="">Select Flat *</option>
+                            {FLAT_OPTION_GROUPS.map(group => (
+                                <optgroup key={group.floorLabel} label={group.floorLabel}>
+                                    {group.options.map(flat => (
+                                        <option key={flat} value={flat}>{flat}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
+                            {flatNumber && !ALL_FLAT_OPTIONS.includes(flatNumber) && (
+                                <option value={flatNumber}>{flatNumber}</option>
+                            )}
+                        </select>
                     </div>
                 </div>
             )}

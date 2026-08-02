@@ -191,7 +191,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const isMisc = selectedDropdownType === 'Miscellaneous';
-        if (!donorName || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date) {
+        if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date) {
             alert('Please fill out all required fields.');
             return;
         }

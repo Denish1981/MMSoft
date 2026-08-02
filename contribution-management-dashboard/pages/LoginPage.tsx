@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
+import { TOWER_OPTIONS, FLAT_OPTION_GROUPS, ALL_FLAT_OPTIONS } from '../utils/donorLocationUtils';
 
 const LoginPage: React.FC = () => {
     const { isAuthenticated, isLoading: authLoading, login, registerDonor, googleLogin, user } = useAuth();
@@ -63,8 +64,8 @@ const LoginPage: React.FC = () => {
                 setError(result.message || 'Invalid username or password.');
             }
         } else {
-            if (!fullName.trim() || !username.trim() || !password.trim()) {
-                setError('Name, email, and password are required.');
+            if (!fullName.trim() || !username.trim() || !password.trim() || !mobileNumber.trim() || !towerNumber.trim() || !flatNumber.trim()) {
+                setError('All fields are required.');
                 setIsLoading(false);
                 return;
             }
@@ -135,6 +136,20 @@ const LoginPage: React.FC = () => {
                     </button>
                 </div>
 
+                <div className="bg-blue-50/70 border border-blue-100 rounded-lg p-2.5 text-center">
+                    <a
+                        href="/how-to-register.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                        <svg className="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        How to register for the portal? (Click for guide)
+                    </a>
+                </div>
+
                 {/* <div className="flex justify-center pt-2">
                    <GoogleLogin onSuccess={handleGoogleSuccess} onError={handleGoogleError} useOneTap />
                 </div> */}
@@ -190,9 +205,10 @@ const LoginPage: React.FC = () => {
                     {mode === 'register' && (
                         <>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700">Mobile Number</label>
+                                <label className="block text-sm font-medium text-slate-700">Mobile Number *</label>
                                 <input
                                     type="tel"
+                                    required
                                     value={mobileNumber}
                                     onChange={(e) => setMobileNumber(e.target.value)}
                                     className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -203,26 +219,44 @@ const LoginPage: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700">Tower / Block</label>
-                                    <input
-                                        type="text"
+                                    <label className="block text-sm font-medium text-slate-700">Tower / Block *</label>
+                                    <select
+                                        required
                                         value={towerNumber}
                                         onChange={(e) => setTowerNumber(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                        placeholder="Tower A"
+                                        className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                         disabled={isLoading}
-                                    />
+                                    >
+                                        <option value="">Select Tower *</option>
+                                        {TOWER_OPTIONS.map(tower => (
+                                            <option key={tower} value={tower}>{tower}</option>
+                                        ))}
+                                        {towerNumber && !TOWER_OPTIONS.includes(towerNumber) && (
+                                            <option value={towerNumber}>{towerNumber}</option>
+                                        )}
+                                    </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700">Flat Number</label>
-                                    <input
-                                        type="text"
+                                    <label className="block text-sm font-medium text-slate-700">Flat Number *</label>
+                                    <select
+                                        required
                                         value={flatNumber}
                                         onChange={(e) => setFlatNumber(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                        placeholder="Flat 101"
+                                        className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                                         disabled={isLoading}
-                                    />
+                                    >
+                                        <option value="">Select Flat *</option>
+                                        {FLAT_OPTION_GROUPS.map(group => (
+                                            <optgroup key={group.floorLabel} label={group.floorLabel}>
+                                                {group.options.map(flat => (
+                                                    <option key={flat} value={flat}>{flat}</option>
+                                                ))}
+                                            </optgroup>
+                                        ))}
+                                        {flatNumber && !ALL_FLAT_OPTIONS.includes(flatNumber) && (
+                                            <option value={flatNumber}>{flatNumber}</option>
+                                        )}
+                                    </select>
                                 </div>
                             </div>
                         </>
