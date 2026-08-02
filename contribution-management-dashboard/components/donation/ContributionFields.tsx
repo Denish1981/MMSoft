@@ -69,17 +69,33 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
             <div className={`grid ${isMisc ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'} gap-4`}>
                 {!isMisc && (
                     <div>
-                        <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
+                        <div className="flex justify-between items-center">
+                            <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
+                            <span className="text-[11px] text-slate-500 font-normal">(Max 4)</span>
+                        </div>
                         <input 
                             type="number" 
                             id="numberOfCoupons" 
                             value={numberOfCoupons} 
-                            onChange={e => setNumberOfCoupons(e.target.value)} 
+                            onChange={e => {
+                                const val = e.target.value;
+                                if (val !== '' && parseInt(val, 10) > 4) {
+                                    setNumberOfCoupons('4');
+                                    alert('Maximum 4 coupons are allowed per contribution. Please contact GTMM if you need more than 4 coupons.');
+                                } else {
+                                    setNumberOfCoupons(val);
+                                }
+                            }} 
                             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
                             required 
                             min="0"
                             max="4"
                         />
+                        {numberOfCoupons && parseInt(numberOfCoupons, 10) >= 4 && (
+                            <p className="mt-1 text-xs text-amber-700 font-medium">
+                                Maximum limit is 4 coupons. Please contact GTMM if you need more than 4 coupons.
+                            </p>
+                        )}
                     </div>
                 )}
                 <div>

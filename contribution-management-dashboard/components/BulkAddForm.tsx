@@ -43,6 +43,17 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        if (name === 'numberOfCoupons') {
+            const numVal = value ? parseFloat(value) : 0;
+            if (numVal > 4) {
+                alert('Maximum 4 coupons are allowed per contribution. Please contact GTMM if you need more than 4 coupons.');
+                setFormData((prev: StagedContribution) => ({
+                    ...prev,
+                    numberOfCoupons: 4
+                }));
+                return;
+            }
+        }
         setFormData((prev: StagedContribution) => ({
             ...prev,
             [name]: (name === 'amount' || name === 'numberOfCoupons') 
@@ -150,8 +161,11 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                         <input type="number" id="amount" name="amount" value={formData.amount || ''} onChange={handleInputChange} className="mt-1 block w-full input-style" required min="1" />
                     </div>
                      <div>
-                        <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
-                        <input type="number" id="numberOfCoupons" name="numberOfCoupons" value={formData.numberOfCoupons || ''} onChange={handleInputChange} className="mt-1 block w-full input-style" required min="0" />
+                        <div className="flex justify-between items-center">
+                            <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
+                            <span className="text-[11px] text-slate-500 font-normal">(Max 4)</span>
+                        </div>
+                        <input type="number" id="numberOfCoupons" name="numberOfCoupons" value={formData.numberOfCoupons || ''} onChange={handleInputChange} className="mt-1 block w-full input-style" required min="0" max="4" />
                     </div>
                     <div>
                         <label htmlFor="date" className="block text-sm font-medium text-slate-700">Date</label>

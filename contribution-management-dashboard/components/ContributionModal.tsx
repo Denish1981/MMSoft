@@ -195,6 +195,14 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             alert('Please fill out all required fields.');
             return;
         }
+
+        let couponCount = isMisc ? 0 : parseInt(numberOfCoupons, 10);
+        if (!isMisc && couponCount > 4) {
+            couponCount = 4;
+            setNumberOfCoupons('4');
+            alert('Maximum 4 coupons are allowed per contribution. The coupon count has been set to 4. Please contact GTMM if you need more than 4 coupons.');
+        }
+
         const finalType = selectedDropdownType === 'Other' 
             ? (customType.trim() || 'Other') 
             : (selectedDropdownType === 'Miscellaneous' && customType.trim())
@@ -211,7 +219,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             towerNumber: isMisc ? 'N/A' : towerNumber,
             flatNumber: isMisc ? 'N/A' : flatNumber,
             amount: parseFloat(amount),
-            numberOfCoupons: isMisc ? 0 : parseInt(numberOfCoupons, 10),
+            numberOfCoupons: couponCount,
             festivalId,
             campaignId: derivedCampaignId,
             date: date,

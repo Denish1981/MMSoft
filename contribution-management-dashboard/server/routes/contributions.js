@@ -104,11 +104,14 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
             }
         }
 
+        // Clamp number_of_coupons to max 4 on server side
+        const clampedCoupons = Math.min(4, Math.max(0, parseInt(numberOfCoupons, 10) || 0));
+
         const result = await db.query(
             `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image, user_id) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
              RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
-            [donorName, donorEmail, mobileNumber, dbTowerNumber, dbFlatNumber, amount, numberOfCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, image, userId]
+            [donorName, donorEmail, mobileNumber, dbTowerNumber, dbFlatNumber, amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, image, userId]
         );
         const row = result.rows[0];
         if (row.image) {
@@ -141,11 +144,14 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
                     dbCampaignId = festRes.rows[0].campaign_id;
                 }
             }
+
+            const clampedCoupons = Math.min(4, Math.max(0, parseInt(c.numberOfCoupons, 10) || 0));
+
             const result = await client.query(`
                 INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
                 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"
-            `, [c.donorName, c.donorEmail, c.mobileNumber, c.towerNumber, c.flatNumber, c.amount, c.numberOfCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type, c.image]);
+            `, [c.donorName, c.donorEmail, c.mobileNumber, c.towerNumber, c.flatNumber, c.amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type, c.image]);
             const row = result.rows[0];
             if (row.image) {
                 row.image = `/api/contributions/${row.id}/image`;
@@ -186,8 +192,10 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
             }
         }
 
+        const clampedCoupons = Math.min(4, Math.max(0, parseInt(numberOfCoupons, 10) || 0));
+
         const result = await client.query('UPDATE contributions SET donor_name=$1, donor_email=$2, mobile_number=$3, tower_number=$4, flat_number=$5, amount=$6, number_of_coupons=$7, festival_id=$8, campaign_id=$9, date=$10, type=$11, image=$12, status=$13, updated_at=NOW() WHERE id=$14 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"',
-            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, dbFestivalId, dbCampaignId, date, type, finalImage, status, id]);
+            [donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, clampedCoupons, dbFestivalId, dbCampaignId, date, type, finalImage, status, id]);
         
         await logChanges(client, {
             historyTable: 'contributions_history', recordId: id, changedByUserId: req.user.id,
