@@ -19,6 +19,7 @@ interface AuthContextType {
     login: (user: string, pass: string) => Promise<{ success: boolean; message?: string }>;
     registerDonor: (params: RegisterDonorParams) => Promise<{ success: boolean; message?: string }>;
     googleLogin: (token: string) => Promise<{ success: boolean; message?: string }>;
+    updateProfile: (profileData: { familyRoster?: any[]; fullName?: string; mobileNumber?: string; towerNumber?: string; flatNumber?: string }) => Promise<{ success: boolean; message?: string }>;
     logout: () => void;
     hasPermission: (permission: string) => boolean;
 }
@@ -167,6 +168,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const updateProfile = async (profileData: { familyRoster?: any[]; fullName?: string; mobileNumber?: string; towerNumber?: string; flatNumber?: string }) => {
+        try {
+            const currentToken = localStorage.getItem('contribution-os-token') || token;
+            if (!currentToken) return { success: false, message: 'Not authenticated' };
+
+            const response = await fetch(`${API_URL}/auth/profile`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentToken}`
+                },
+                body: JSON.stringify(profileData),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setUser(data.user);
+                return { success: true };
+            }
+            return { success: false, message: data.message || 'Failed to update profile.' };
+        } catch (error) {
+            console.error("Profile update failed:", error);
+            return { success: false, message: 'Could not connect to the server.' };
+        }
+    };
+
     const value = useMemo(() => ({
         isAuthenticated: !!token && !!user,
         user,
@@ -175,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         registerDonor,
         googleLogin,
+        updateProfile,
         logout,
         hasPermission,
     }), [user, token, isLoading, hasPermission, logout]);

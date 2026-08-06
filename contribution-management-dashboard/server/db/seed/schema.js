@@ -319,6 +319,7 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(20);');
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50);');
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS family_roster JSONB DEFAULT '[]'::jsonb;");
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS festival_id INTEGER REFERENCES festivals(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');

@@ -77,6 +77,7 @@ router.post('/register', async (req, res) => {
                 mobileNumber: mobileNumber || '',
                 towerNumber: towerNumber || '',
                 flatNumber: flatNumber || '',
+                familyRoster: [],
                 roles,
                 permissions
             },
@@ -98,7 +99,7 @@ router.post('/login', async (req, res) => {
     }
     try {
         const result = await db.query(
-            'SELECT id, username, password, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE username = $1', 
+            'SELECT id, username, password, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", family_roster AS "familyRoster" FROM users WHERE username = $1', 
             [username]
         );
         if (result.rows.length === 0) {
@@ -134,6 +135,7 @@ router.post('/login', async (req, res) => {
                 mobileNumber: user.mobileNumber || '',
                 towerNumber: user.towerNumber || '',
                 flatNumber: user.flatNumber || '',
+                familyRoster: user.familyRoster || [],
                 roles,
                 permissions 
             }, 
@@ -154,7 +156,7 @@ router.post('/google', async (req, res) => {
         if (!email) return res.status(400).json({ message: 'Invalid Google token: email not found.' });
 
         const userResult = await db.query(
-            'SELECT id, username, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE username = $1', 
+            'SELECT id, username, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", family_roster AS "familyRoster" FROM users WHERE username = $1', 
             [email]
         );
         let user;
@@ -178,7 +180,7 @@ router.post('/google', async (req, res) => {
                     await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
                 }
                 await client.query('COMMIT');
-                user = { id: userId, username: email, fullName: payload.name || '', mobileNumber: '', towerNumber: '', flatNumber: '' };
+                user = { id: userId, username: email, fullName: payload.name || '', mobileNumber: '', towerNumber: '', flatNumber: '', familyRoster: [] };
             } catch (createErr) {
                 await client.query('ROLLBACK');
                 throw createErr;
@@ -204,6 +206,7 @@ router.post('/google', async (req, res) => {
                 mobileNumber: user.mobileNumber || '',
                 towerNumber: user.towerNumber || '',
                 flatNumber: user.flatNumber || '',
+                familyRoster: user.familyRoster || [],
                 roles,
                 permissions 
             }, 
@@ -218,7 +221,7 @@ router.post('/google', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const userRes = await db.query(
-            'SELECT full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber" FROM users WHERE id = $1',
+            'SELECT full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", family_roster AS "familyRoster" FROM users WHERE id = $1',
             [req.user.id]
         );
         const userDetails = userRes.rows[0] || {};
@@ -228,11 +231,106 @@ router.get('/me', authMiddleware, async (req, res) => {
                 fullName: userDetails.fullName || '',
                 mobileNumber: userDetails.mobileNumber || '',
                 towerNumber: userDetails.towerNumber || '',
-                flatNumber: userDetails.flatNumber || ''
+                flatNumber: userDetails.flatNumber || '',
+                familyRoster: userDetails.familyRoster || []
             }
         });
     } catch (err) {
         res.status(200).json({ user: req.user });
+    }
+});
+
+router.put('/profile', authMiddleware, async (req, res) => {
+    const { familyRoster, fullName, mobileNumber, towerNumber, flatNumber } = req.body;
+    try {
+        // If familyRoster is being updated, clean up event registrations for removed members
+        if (familyRoster !== undefined && Array.isArray(familyRoster)) {
+            const oldUserRes = await db.query('SELECT username, family_roster FROM users WHERE id = $1', [req.user.id]);
+            const oldRoster = oldUserRes.rows[0]?.family_roster || [];
+            const userEmail = (oldUserRes.rows[0]?.username || '').trim().toLowerCase();
+
+            const oldNames = (Array.isArray(oldRoster) ? oldRoster : [])
+                .map(m => (m.name || m.fullName || '').trim().toLowerCase())
+                .filter(Boolean);
+
+            const newNames = familyRoster
+                .map(m => (m.name || m.fullName || '').trim().toLowerCase())
+                .filter(Boolean);
+
+            const removedNames = oldNames.filter(name => !newNames.includes(name));
+
+            if (removedNames.length > 0) {
+                await db.query(
+                    `DELETE FROM event_registrations 
+                     WHERE (
+                       user_id = $1 
+                       OR ($3 != '' AND LOWER(TRIM(email)) = $3)
+                     ) 
+                     AND (
+                       LOWER(TRIM(name)) = ANY($2::text[])
+                       OR LOWER(TRIM(form_data->>'name')) = ANY($2::text[])
+                       OR LOWER(TRIM(form_data->>'fullName')) = ANY($2::text[])
+                       OR LOWER(TRIM(form_data->>'participantName')) = ANY($2::text[])
+                     )`,
+                    [req.user.id, removedNames, userEmail]
+                );
+            }
+        }
+
+        const fieldsToUpdate = [];
+        const params = [];
+        let paramIdx = 1;
+
+        if (familyRoster !== undefined) {
+            fieldsToUpdate.push(`family_roster = $${paramIdx++}`);
+            params.push(JSON.stringify(familyRoster));
+        }
+        if (fullName !== undefined) {
+            fieldsToUpdate.push(`full_name = $${paramIdx++}`);
+            params.push(fullName);
+        }
+        if (mobileNumber !== undefined) {
+            fieldsToUpdate.push(`mobile_number = $${paramIdx++}`);
+            params.push(mobileNumber);
+        }
+        if (towerNumber !== undefined) {
+            fieldsToUpdate.push(`tower_number = $${paramIdx++}`);
+            params.push(towerNumber);
+        }
+        if (flatNumber !== undefined) {
+            fieldsToUpdate.push(`flat_number = $${paramIdx++}`);
+            params.push(flatNumber);
+        }
+
+        if (fieldsToUpdate.length === 0) {
+            return res.status(400).json({ message: 'No profile fields provided to update.' });
+        }
+
+        params.push(req.user.id);
+        const query = `UPDATE users SET ${fieldsToUpdate.join(', ')} WHERE id = $${paramIdx} RETURNING id, username, full_name AS "fullName", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", family_roster AS "familyRoster"`;
+
+        const updateRes = await db.query(query, params);
+        const updated = updateRes.rows[0];
+
+        const permissions = await getUserPermissions(req.user.id);
+        const roles = await getUserRoles(req.user.id);
+
+        res.status(200).json({
+            message: 'Profile updated successfully.',
+            user: {
+                ...req.user,
+                fullName: updated.fullName || '',
+                mobileNumber: updated.mobileNumber || '',
+                towerNumber: updated.towerNumber || '',
+                flatNumber: updated.flatNumber || '',
+                familyRoster: updated.familyRoster || [],
+                roles,
+                permissions
+            }
+        });
+    } catch (err) {
+        console.error('Error updating profile:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

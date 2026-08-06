@@ -14,6 +14,7 @@ import { RegistrationModal, PublicEvent } from '../components/RegistrationModal'
 import type { Festival as PublicFestival } from '../types/index';
 import { formatReceiptNo, ReceiptData } from '../utils/receiptUtils';
 import { ReceiptModal } from '../components/ReceiptModal';
+import { HouseholdRosterManager } from '../components/donor/HouseholdRosterManager';
 
 interface ContributionItem {
     id: number;
@@ -75,7 +76,7 @@ const DonorPortalPage: React.FC = () => {
     const prevModalOpenRef = useRef(isContributionModalOpen);
 
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'stalls' | 'contributions' | 'events' | 'announcements'>('stalls');
+    const [activeTab, setActiveTab] = useState<'roster' | 'stalls' | 'contributions' | 'events' | 'announcements'>('roster');
     
     const [contributions, setContributions] = useState<ContributionItem[]>([]);
     const [stallRegistrations, setStallRegistrations] = useState<StallRegistrationItem[]>([]);
@@ -174,7 +175,6 @@ const DonorPortalPage: React.FC = () => {
 
     const openChoiceModal = useCallback(async (tab: 'stall' | 'event' = 'stall') => {
         setChoiceTab(tab);
-        setChoiceTab('event');
         setIsChoiceModalOpen(true);
         setIsFetchingChoiceData(true);
         try {
@@ -269,36 +269,12 @@ const DonorPortalPage: React.FC = () => {
                         >
                             <PlusCircle className="w-5 h-5" /> Make Contribution
                         </button>
-                        <button
-                            onClick={() => navigate('/donor-portal/register-events')}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg transition-all"
-                        >
-                            <Layers className="w-5 h-5" /> Register Multiple Events
-                        </button>
-                        <div className="relative group" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
-                            <button
-                                onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
-                                disabled={!hasApprovedContribution}
-                                className={`flex items-center gap-2 font-medium px-4 py-2.5 rounded-xl border transition-all ${
-                                    hasApprovedContribution
-                                        ? "bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer"
-                                        : "bg-white/5 text-slate-400 border-white/10 cursor-not-allowed opacity-60"
-                                }`}
-                            >
-                                <Store className="w-5 h-5" /> Register Event
-                            </button>
-                            {!hasApprovedContribution && (
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-xs rounded py-1.5 px-3 z-20 whitespace-nowrap shadow-lg text-center pointer-events-none">
-                                    You need to contribute to Register for Stall / Events
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Overview Stats Cards */}
-            {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Contributions</p>
@@ -309,7 +285,7 @@ const DonorPortalPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                {/* <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stall Registrations</p>
                         <p className="text-2xl font-bold text-slate-800 mt-1">{stallRegistrations.length}</p>
@@ -318,7 +294,7 @@ const DonorPortalPage: React.FC = () => {
                     <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
                         <Store className="w-6 h-6" />
                     </div>
-                </div>
+                </div> */}
 
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -339,11 +315,20 @@ const DonorPortalPage: React.FC = () => {
                         <Bell className="w-6 h-6" />
                     </div>
                 </div>
-            </div> */}
+            </div> 
 
             {/* Navigation Tabs */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="flex border-b border-slate-200 bg-slate-50/50 overflow-x-auto">
+                    <button
+                        onClick={() => setActiveTab('roster')}
+                        className={`px-5 py-3.5 text-sm font-semibold flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
+                            activeTab === 'roster' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
+                        }`}
+                    >
+                        <Users className="w-4 h-4" />
+                        Family Details {user?.familyRoster?.length ? `(${user.familyRoster.length})` : ''}
+                    </button>
                     {/* <button
                         onClick={() => setActiveTab('stalls')}
                         className={`px-5 py-3.5 text-sm font-semibold flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
@@ -371,7 +356,7 @@ const DonorPortalPage: React.FC = () => {
                         <Calendar className="w-4 h-4" />
                         My Event Registrations ({eventRegistrations.length})
                     </button>
-                    <button
+                    {/* <button
                         onClick={() => setActiveTab('announcements')}
                         className={`px-5 py-3.5 text-sm font-semibold flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
                             activeTab === 'announcements' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -379,17 +364,28 @@ const DonorPortalPage: React.FC = () => {
                     >
                         <Bell className="w-4 h-4" />
                         Upcoming Events ({upcomingEvents.length})
-                    </button>
+                    </button> */}
                 </div>
 
                 <div className="p-6">
-                    {/* Tab 1: Stall Registrations */}
+                    {/* Tab 5: Household Roster */}
+                    {activeTab === 'roster' && (
+                        <div className="max-w-4xl mx-auto">
+                            <HouseholdRosterManager 
+                                hasApprovedContribution={hasApprovedContribution}
+                                events={upcomingEvents}
+                                existingRegistrations={eventRegistrations}
+                                onRegistrationSuccess={fetchPortalData}
+                            />
+                        </div>
+                    )}
+                    {/* Tab 1: Stall Registrations (Commented out)
                     {activeTab === 'stalls' && (
                         <div className="space-y-4">
                             <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                                 <h3 className="font-bold text-slate-800 text-lg">Stall Registration & Approval Statuses</h3>
                                 <div className="flex items-center gap-2">
-                                    {/* <button
+                                    <button
                                         onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
                                         disabled={!hasApprovedContribution}
                                         className={`px-3 py-1.5 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors ${
@@ -399,7 +395,7 @@ const DonorPortalPage: React.FC = () => {
                                         }`}
                                     >
                                         <PlusCircle className="w-4 h-4" /> Register New Stall
-                                    </button> */}
+                                    </button>
                                     <button
                                         onClick={fetchPortalData}
                                         className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
@@ -415,7 +411,7 @@ const DonorPortalPage: React.FC = () => {
                                     <Store className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <p className="text-slate-600 font-medium">No stall registrations found.</p>
                                     <p className="text-xs text-slate-400 mt-1">Register a stall for upcoming festivals directly from your donor portal.</p>
-                                    {/* <div className="relative group inline-block mt-4" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
+                                    <div className="relative group inline-block mt-4" title={!hasApprovedContribution ? "You need to contribute to Register for Stall / Events" : undefined}>
                                         <button
                                             onClick={() => { if (hasApprovedContribution) openChoiceModal('stall'); }}
                                             disabled={!hasApprovedContribution}
@@ -432,7 +428,7 @@ const DonorPortalPage: React.FC = () => {
                                                 You need to contribute to Register for Stall / Events
                                             </div>
                                         )}
-                                    </div> */}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
@@ -496,7 +492,7 @@ const DonorPortalPage: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    )}
+                    )} */}
 
                     {/* Tab 2: My Contributions */}
                     {activeTab === 'contributions' && (
@@ -623,7 +619,7 @@ const DonorPortalPage: React.FC = () => {
                                         </a>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                {/* <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => navigate('/donor-portal/register-events')}
                                         className="px-3.5 py-1.5 font-bold text-xs rounded-lg flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
@@ -641,21 +637,21 @@ const DonorPortalPage: React.FC = () => {
                                     >
                                         <PlusCircle className="w-4 h-4" /> Single Event Modal
                                     </button>
-                                </div>
+                                </div> */}
                             </div>
 
                             {eventRegistrations.length === 0 ? (
                                 <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                                     <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                     <p className="text-slate-600 font-medium">You haven't registered for any events yet.</p>
-                                    <div className="flex justify-center gap-3 mt-4">
+                                    {/* <div className="flex justify-center gap-3 mt-4">
                                         <button
                                             onClick={() => navigate('/donor-portal/register-events')}
                                             className="px-4 py-2 font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
                                         >
                                             Register for Multiple Events
                                         </button>
-                                    </div>
+                                    </div> */}
                                 </div>
                             ) : (
                                 <div className="space-y-6">
@@ -786,7 +782,7 @@ const DonorPortalPage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Tab 4: Upcoming Events */}
+                    {/* Tab 4: Upcoming Events (Commented out)
                     {activeTab === 'announcements' && (
                         <div className="space-y-4">
                             <h3 className="font-bold text-slate-800 text-lg mb-2">Upcoming Events & Announcements</h3>
@@ -854,7 +850,7 @@ const DonorPortalPage: React.FC = () => {
                                 </div>
                             )}
                         </div>
-                    )}
+                    )} */}
                 </div>
             </div>
 
@@ -891,14 +887,14 @@ const DonorPortalPage: React.FC = () => {
 
                         {/* Modal Choice Tabs */}
                         <div className="flex border-b border-slate-200 mt-4">
-                            {/* <button
+                            <button
                                 onClick={() => setChoiceTab('stall')}
                                 className={`px-4 py-2.5 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${
                                     choiceTab === 'stall' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
                                 }`}
                             >
                                 <Store className="w-4 h-4" /> Festival Stalls ({publicFestivals.length})
-                            </button> */}
+                            </button>
                             <button
                                 onClick={() => setChoiceTab('event')}
                                 className={`px-4 py-2.5 font-semibold text-sm flex items-center gap-2 border-b-2 transition-colors ${

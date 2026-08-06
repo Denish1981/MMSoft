@@ -4,6 +4,13 @@ export interface Role {
     description?: string;
 }
 
+export interface RosterMemberItem {
+    id?: string;
+    name: string;
+    phone?: string;
+    email?: string;
+}
+
 export interface AuthUser {
     id: number;
     email: string;
@@ -12,6 +19,7 @@ export interface AuthUser {
     mobileNumber?: string;
     towerNumber?: string;
     flatNumber?: string;
+    familyRoster?: RosterMemberItem[];
     roles?: string[];
     permissions: string[];
 }
