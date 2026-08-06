@@ -450,3 +450,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);
 ALTER TABLE contributions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+alter table events add column IF NOT EXISTS created_at TIMESTAMPTZ;
+alter table events add column IF NOT EXISTS updated_at TIMESTAMPTZ;
+alter table events add column IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+alter table expense_images add column IF NOT EXISTS created_at TIMESTAMPTZ;
+alter table quotation_images add column IF NOT EXISTS created_at TIMESTAMPTZ;

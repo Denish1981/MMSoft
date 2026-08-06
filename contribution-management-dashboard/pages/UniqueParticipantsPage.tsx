@@ -57,10 +57,12 @@ const UniqueParticipantsPage: React.FC = () => {
     }, [fetchParticipants]);
 
     const filteredParticipants = useMemo(() => {
+        const term = searchTerm.toLowerCase();
         return participants.filter(p =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.email && p.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (p.phoneNumber && p.phoneNumber.includes(searchTerm))
+            p.name.toLowerCase().includes(term) ||
+            (p.email && p.email.toLowerCase().includes(term)) ||
+            (p.phoneNumber && p.phoneNumber.includes(term)) ||
+            (p.events && p.events.some(e => e.toLowerCase().includes(term)))
         );
     }, [participants, searchTerm]);
     
@@ -82,6 +84,7 @@ const UniqueParticipantsPage: React.FC = () => {
             'Name': p.name,
             'Email': p.email || 'N/A',
             'Phone Number': p.phoneNumber || 'N/A',
+            'Events Participated': p.events && p.events.length > 0 ? p.events.join(', ') : 'N/A',
             'Total Registrations': p.registrationCount,
             'Last Registered On': new Date(p.lastRegisteredAt).toLocaleString(),
         }));
@@ -111,7 +114,7 @@ const UniqueParticipantsPage: React.FC = () => {
             <div className="mb-4 flex flex-col md:flex-row gap-4">
                  <input
                     type="text"
-                    placeholder="Search by name, email, or phone..."
+                    placeholder="Search by name, email, phone, or event..."
                     className="w-full md:w-1/2 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     onChange={e => setSearchTerm(e.target.value)}
                 />
@@ -135,6 +138,7 @@ const UniqueParticipantsPage: React.FC = () => {
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
                             {/* <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th> */}
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Events Participated</th>
                             <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Total Registrations</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Last Registered On</th>
                         </tr>
@@ -152,6 +156,19 @@ const UniqueParticipantsPage: React.FC = () => {
                                 </td>
                                 {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{p.email || 'N/A'}</td> */}
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{p.phoneNumber || 'N/A'}</td>
+                                <td className="px-6 py-4 text-sm text-slate-500 max-w-xs">
+                                    {p.events && p.events.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {p.events.map((eventName, i) => (
+                                                <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                                    {eventName}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="text-slate-400 italic">None</span>
+                                    )}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{p.registrationCount}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(p.lastRegisteredAt, { dateStyle: 'medium', timeStyle: 'short' })}</td>
                             </tr>

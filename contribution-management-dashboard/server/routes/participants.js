@@ -12,24 +12,32 @@ router.get('/', authMiddleware, permissionMiddleware('page:participants:view'), 
 
         const query = `
             SELECT
-                DISTINCT ON (LOWER(r1.name), r1.form_data->>'phone_number')
+                DISTINCT ON (LOWER(r1.name), COALESCE(r1.form_data->>'phone_number', ''))
                 r1.name,
                 r1.email,
                 r1.form_data->>'phone_number' as "phoneNumber",
-                (
+                CAST((
                     SELECT COUNT(DISTINCT r2.event_id)
                     FROM event_registrations r2
                     JOIN events e2 ON r2.event_id = e2.id
                     WHERE LOWER(r2.name) = LOWER(r1.name)
-                    AND r2.form_data->>'phone_number' = r1.form_data->>'phone_number'
+                    AND COALESCE(r2.form_data->>'phone_number', '') = COALESCE(r1.form_data->>'phone_number', '')
                     ${countFestivalFilter}
-                ) as "registrationCount",
+                ) AS INTEGER) as "registrationCount",
+                (
+                    SELECT COALESCE(json_agg(DISTINCT e2.name ORDER BY e2.name), '[]'::json)
+                    FROM event_registrations r2
+                    JOIN events e2 ON r2.event_id = e2.id
+                    WHERE LOWER(r2.name) = LOWER(r1.name)
+                    AND COALESCE(r2.form_data->>'phone_number', '') = COALESCE(r1.form_data->>'phone_number', '')
+                    ${countFestivalFilter}
+                ) as "events",
                 r1.submitted_at as "lastRegisteredAt"
             FROM event_registrations r1
             JOIN events e1 ON r1.event_id = e1.id
-            WHERE r1.form_data->>'phone_number' IS NOT NULL
+            WHERE 1=1
             ${festivalFilter}
-            ORDER BY LOWER(r1.name), r1.form_data->>'phone_number', r1.submitted_at DESC;
+            ORDER BY LOWER(r1.name), COALESCE(r1.form_data->>'phone_number', ''), r1.submitted_at DESC;
         `;
         
         const { rows } = await db.query(query, params);

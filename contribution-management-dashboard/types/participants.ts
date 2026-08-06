@@ -40,6 +40,7 @@ export interface UniqueParticipant {
   email?: string;
   phoneNumber?: string;
   registrationCount: number;
+  events?: string[];
   lastRegisteredAt: string; // ISO String
 }
 
