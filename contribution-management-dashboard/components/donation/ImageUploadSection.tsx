@@ -7,6 +7,7 @@ interface ImageUploadSectionProps {
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onOpenCamera: () => void;
     onClearImage: () => void;
+    required?: boolean;
 }
 
 export const ImageUploadSection: React.FC<ImageUploadSectionProps> = ({
@@ -14,12 +15,20 @@ export const ImageUploadSection: React.FC<ImageUploadSectionProps> = ({
     onFileChange,
     onOpenCamera,
     onClearImage,
+    required = true,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     return (
         <div>
-            <label className="block text-sm font-medium text-slate-700">Receipt / Payment Proof (Optional)</label>
+            <label className="block text-sm font-medium text-slate-700">
+                Receipt / Payment Proof {required ? <span className="text-rose-600 font-bold">*</span> : '(Optional)'}
+            </label>
+            {!imagePreview && required && (
+                <p className="text-xs text-rose-600 mt-1 font-medium">
+                    * Payment proof or receipt image is mandatory to submit a contribution.
+                </p>
+            )}
             <div className="mt-2 grid grid-cols-2 gap-3">
                 <label
                     htmlFor="contributionImageUpload"

@@ -63,6 +63,10 @@ router.get('/:id/image', async (req, res) => {
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { donorName, donorEmail, mobileNumber, towerNumber, flatNumber, amount, numberOfCoupons, festivalId, campaignId, date, type, image, status } = req.body;
     
+    if (!image || typeof image !== 'string' || image.trim() === '') {
+        return res.status(400).json({ error: 'Image upload is mandatory for creating a contribution.' });
+    }
+    
     // Check if creator is Manager or Admin (has action:edit or action:users:manage)
     const isManagerOrAdmin = req.user && req.user.permissions && (req.user.permissions.includes('action:edit') || req.user.permissions.includes('action:users:manage'));
     const contributionStatus = isManagerOrAdmin ? (status || 'Completed') : 'Pending';
@@ -134,6 +138,11 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
     try {
         await client.query('BEGIN');
         for (const c of contributions) {
+            if (!c.image || typeof c.image !== 'string' || c.image.trim() === '') {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Image upload is mandatory for all contributions.' });
+            }
+
             const contributionStatus = c.status || 'Completed';
             const contributionDate = c.date || new Date().toISOString();
             let dbFestivalId = c.festivalId || null;

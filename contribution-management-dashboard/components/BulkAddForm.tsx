@@ -85,8 +85,8 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!formData.donorName || !formData.amount || !formData.campaignId || !formData.towerNumber || !formData.flatNumber || !formData.date) {
-            setError('Please fill out all required fields.');
+        if (!formData.donorName || !formData.amount || !formData.campaignId || !formData.towerNumber || !formData.flatNumber || !formData.date || !formData.image) {
+            setError('Please fill out all required fields, including uploading a receipt or payment proof image.');
             return;
         }
 
@@ -226,7 +226,10 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                     </div>
                 </div>
                  <div>
-                    <label className="block text-sm font-medium text-slate-700">Image (Optional)</label>
+                    <label className="block text-sm font-medium text-slate-700">Image <span className="text-rose-600 font-bold">*</span></label>
+                    {!imagePreview && (
+                        <p className="text-xs text-rose-600 mt-1 font-medium">* Payment proof or receipt image is mandatory.</p>
+                    )}
                      <div className="mt-2 grid grid-cols-2 gap-4">
                         <label htmlFor="bulkImageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
                             Upload File
@@ -250,7 +253,16 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                     )}
                 </div>
                  <div className="flex justify-end pt-2">
-                     <button type="submit" className="flex items-center justify-center bg-blue-600 text-white px-5 py-2 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                     <button
+                        type="submit"
+                        disabled={!Boolean(formData.donorName && formData.amount && formData.campaignId && formData.towerNumber && formData.flatNumber && formData.date && formData.image)}
+                        className={`flex items-center justify-center px-5 py-2 rounded-lg shadow-md transition-colors duration-200 ${
+                            Boolean(formData.donorName && formData.amount && formData.campaignId && formData.towerNumber && formData.flatNumber && formData.date && formData.image)
+                                ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                                : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
+                        }`}
+                        title={!formData.image ? "Image upload is required" : undefined}
+                     >
                          <PlusIcon className="w-5 h-5 mr-2" /> Add to List
                      </button>
                 </div>

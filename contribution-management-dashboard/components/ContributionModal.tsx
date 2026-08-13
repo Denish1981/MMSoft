@@ -191,8 +191,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const isMisc = selectedDropdownType === 'Miscellaneous';
-        if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date) {
-            alert('Please fill out all required fields.');
+        if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date || !image) {
+            alert('Please fill out all required fields and upload a payment proof or receipt image.');
             return;
         }
 
@@ -236,6 +236,17 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const disabledDonorName = isDonorUser && isDonorPortalPage && Boolean(user?.fullName || user?.email);
     const disabledTowerNumber = isDonorUser && isDonorPortalPage && Boolean(user?.towerNumber);
     const disabledFlatNumber = isDonorUser && isDonorPortalPage && Boolean(user?.flatNumber);
+
+    const isFormValid = Boolean(
+        donorName.trim() &&
+        donorEmail.trim() &&
+        mobileNumber.trim() &&
+        amount.trim() &&
+        festivalId &&
+        date &&
+        image &&
+        (isMiscellaneous || (towerNumber.trim() && flatNumber.trim() && numberOfCoupons !== ''))
+    );
 
     return (
         <>
@@ -293,7 +304,18 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
 
                         <div className="flex justify-end pt-4 space-x-2">
                             <button type="button" onClick={onClose} className="px-4 py-2 bg-slate-200 text-slate-800 rounded-md hover:bg-slate-300 transition">Cancel</button>
-                            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">{isEditing ? 'Update Contribution' : 'Add Contribution'}</button>
+                            <button
+                                type="submit"
+                                disabled={!isFormValid}
+                                className={`px-4 py-2 font-medium rounded-md transition ${
+                                    isFormValid
+                                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                                        : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
+                                }`}
+                                title={!isFormValid ? "Please fill all required fields and upload payment proof image" : undefined}
+                            >
+                                {isEditing ? 'Update Contribution' : 'Add Contribution'}
+                            </button>
                         </div>
                     </form>
                 </div>
