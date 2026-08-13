@@ -90,10 +90,28 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
 
         // Fetch Upcoming Events
         const upcomingEventsRes = await db.query(
-            `SELECT id, name, description, event_date AS "eventDate", start_time AS "startTime", venue 
-             FROM events 
-             WHERE deleted_at IS NULL AND event_date >= CURRENT_DATE 
-             ORDER BY event_date ASC LIMIT 5`
+            `SELECT 
+                e.id, 
+                e.name, 
+                e.description, 
+                e.event_date AS "eventDate", 
+                e.start_time AS "startTime", 
+                e.venue,
+                e.registration_form_schema AS "registrationFormSchema",
+                COALESCE(
+                    (
+                        SELECT json_agg(json_build_object(
+                            'name', c.name,
+                            'contactNumber', c.contact_number,
+                            'email', c.email
+                        ))
+                        FROM event_contact_persons c
+                        WHERE c.event_id = e.id
+                    ), '[]'::json
+                ) as "contactPersons"
+             FROM events e 
+             WHERE e.deleted_at IS NULL AND e.event_date >= CURRENT_DATE 
+             ORDER BY e.event_date ASC`
         );
 
         res.json({

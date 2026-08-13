@@ -80,14 +80,31 @@ const UniqueParticipantsPage: React.FC = () => {
     const handlePreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
     
     const handleExport = () => {
-        const dataToExport = filteredParticipants.map(p => ({
-            'Name': p.name,
-            'Email': p.email || 'N/A',
-            'Phone Number': p.phoneNumber || 'N/A',
-            'Events Participated': p.events && p.events.length > 0 ? p.events.join(', ') : 'N/A',
-            'Total Registrations': p.registrationCount,
-            'Last Registered On': new Date(p.lastRegisteredAt).toLocaleString(),
-        }));
+        const dataToExport: Record<string, any>[] = [];
+        filteredParticipants.forEach(p => {
+            const formattedDate = p.lastRegisteredAt ? new Date(p.lastRegisteredAt).toLocaleString() : 'N/A';
+            if (p.events && p.events.length > 0) {
+                p.events.forEach(eventName => {
+                    dataToExport.push({
+                        'Name': p.name,
+                        'Email': p.email || 'N/A',
+                        'Phone Number': p.phoneNumber || 'N/A',
+                        'Event Participated': eventName,
+                        'Total Registrations': p.registrationCount,
+                        'Last Registered On': formattedDate,
+                    });
+                });
+            } else {
+                dataToExport.push({
+                    'Name': p.name,
+                    'Email': p.email || 'N/A',
+                    'Phone Number': p.phoneNumber || 'N/A',
+                    'Event Participated': 'N/A',
+                    'Total Registrations': p.registrationCount,
+                    'Last Registered On': formattedDate,
+                });
+            }
+        });
         exportToCsv(dataToExport, 'unique_event_participants');
     };
 

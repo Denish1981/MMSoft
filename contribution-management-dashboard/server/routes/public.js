@@ -102,10 +102,29 @@ const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, emai
 router.get('/public/events', async (req, res) => {
     try {
         const { rows } = await db.query(`
-            SELECT id, name, description, event_date as "eventDate", start_time as "startTime", end_time as "endTime", venue, registration_form_schema as "registrationFormSchema" 
-            FROM events 
-            WHERE deleted_at IS NULL AND event_date >= CURRENT_DATE 
-            ORDER BY event_date ASC, start_time ASC
+            SELECT 
+                e.id, 
+                e.name, 
+                e.description, 
+                e.event_date as "eventDate", 
+                e.start_time as "startTime", 
+                e.end_time as "endTime", 
+                e.venue, 
+                e.registration_form_schema as "registrationFormSchema",
+                COALESCE(
+                    (
+                        SELECT json_agg(json_build_object(
+                            'name', c.name,
+                            'contactNumber', c.contact_number,
+                            'email', c.email
+                        ))
+                        FROM event_contact_persons c
+                        WHERE c.event_id = e.id
+                    ), '[]'::json
+                ) as "contactPersons"
+            FROM events e
+            WHERE e.deleted_at IS NULL AND e.event_date >= CURRENT_DATE 
+            ORDER BY e.event_date ASC, e.start_time ASC
         `);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Failed to fetch public events' }); }

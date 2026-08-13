@@ -33,15 +33,22 @@ export const HouseholdRosterManager: React.FC<HouseholdRosterManagerProps> = ({
     const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
-        if (propEvents && propEvents.length > 0) {
-            setEventsList(propEvents);
-        } else {
-            // Fetch public events if not passed in props
-            fetch(`${API_URL}/public/events`)
-                .then(res => res.ok ? res.json() : [])
-                .then(data => setEventsList(data || []))
-                .catch(err => console.error('Failed to load events in HouseholdRosterManager:', err));
-        }
+        // Fetch public events to guarantee complete event metadata including contactPersons
+        fetch(`${API_URL}/public/events`)
+            .then(res => res.ok ? res.json() : [])
+            .then(data => {
+                if (data && data.length > 0) {
+                    setEventsList(data);
+                } else if (propEvents && propEvents.length > 0) {
+                    setEventsList(propEvents);
+                }
+            })
+            .catch(err => {
+                console.error('Failed to load events in HouseholdRosterManager:', err);
+                if (propEvents && propEvents.length > 0) {
+                    setEventsList(propEvents);
+                }
+            });
     }, [propEvents]);
 
     useEffect(() => {
