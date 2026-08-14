@@ -43,6 +43,15 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        if (name === 'amount') {
+            const numAmount = value ? parseFloat(value) : 0;
+            setFormData((prev: StagedContribution) => ({
+                ...prev,
+                amount: numAmount,
+                numberOfCoupons: numAmount < 1500 ? 0 : prev.numberOfCoupons
+            }));
+            return;
+        }
         if (name === 'numberOfCoupons') {
             const numVal = value ? parseFloat(value) : 0;
             if (numVal > 4) {
@@ -56,7 +65,7 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
         }
         setFormData((prev: StagedContribution) => ({
             ...prev,
-            [name]: (name === 'amount' || name === 'numberOfCoupons') 
+            [name]: (name === 'numberOfCoupons') 
                 ? (value ? parseFloat(value) : 0) 
                 : (name === 'campaignId' ? (value ? Number(value) : null) : value)
         }));
@@ -155,7 +164,7 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                         </select>
                     </div>
                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                      <div>
                         <label htmlFor="amount" className="block text-sm font-medium text-slate-700">Amount (₹)</label>
                         <input type="number" id="amount" name="amount" value={formData.amount || ''} onChange={handleInputChange} className="mt-1 block w-full input-style" required min="1" />
@@ -163,9 +172,34 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                      <div>
                         <div className="flex justify-between items-center">
                             <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
-                            <span className="text-[11px] text-slate-500 font-normal">(Max 4)</span>
+                            <span className="text-[11px] text-slate-500 font-normal">
+                                {Number(formData.amount) < 1500 ? '(Min ₹1,500)' : '(Max 4)'}
+                            </span>
                         </div>
-                        <input type="number" id="numberOfCoupons" name="numberOfCoupons" value={formData.numberOfCoupons || ''} onChange={handleInputChange} className="mt-1 block w-full input-style" required min="0" max="4" />
+                        <input 
+                            type="number" 
+                            id="numberOfCoupons" 
+                            name="numberOfCoupons" 
+                            value={Number(formData.amount) < 1500 ? '0' : (formData.numberOfCoupons || '')} 
+                            disabled={Number(formData.amount) < 1500}
+                            readOnly={Number(formData.amount) < 1500}
+                            onChange={handleInputChange} 
+                            className={`mt-1 block w-full input-style ${
+                                Number(formData.amount) < 1500 ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white'
+                            }`} 
+                            required 
+                            min="0" 
+                            max="4" 
+                        />
+                        {Number(formData.amount) < 1500 ? (
+                            <p className="mt-1 text-xs text-slate-500 font-medium">
+                                Food coupons are available for contributions of ₹1,500 or more.
+                            </p>
+                        ) : Number(formData.numberOfCoupons) >= 4 ? (
+                            <p className="mt-1 text-xs text-amber-700 font-medium">
+                                Maximum limit is 4 coupons. Please contact GTMM if you need more than 4 coupons.
+                            </p>
+                        ) : null}
                     </div>
                     <div>
                         <label htmlFor="date" className="block text-sm font-medium text-slate-700">Date</label>

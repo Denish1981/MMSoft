@@ -191,13 +191,17 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const isMisc = selectedDropdownType === 'Miscellaneous';
-        if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || !numberOfCoupons)) || !date || !image) {
+        const numAmount = parseFloat(amount);
+        const isAmountEligible = !isNaN(numAmount) && numAmount >= 1500;
+
+        if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || numberOfCoupons === '')) || !date || !image) {
             alert('Please fill out all required fields and upload a payment proof or receipt image.');
             return;
         }
 
-        let couponCount = isMisc ? 0 : parseInt(numberOfCoupons, 10);
-        if (!isMisc && couponCount > 4) {
+        let couponCount = isMisc || !isAmountEligible ? 0 : parseInt(numberOfCoupons, 10);
+        if (isNaN(couponCount) || couponCount < 0) couponCount = 0;
+        if (!isMisc && isAmountEligible && couponCount > 4) {
             couponCount = 4;
             setNumberOfCoupons('4');
             alert('Maximum 4 coupons are allowed per contribution. The coupon count has been set to 4. Please contact GTMM if you need more than 4 coupons.');

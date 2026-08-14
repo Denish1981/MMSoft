@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ContributionStatus, type Festival } from '../../types/index';
 
 interface ContributionFieldsProps {
@@ -37,6 +37,17 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
     festivals,
 }) => {
     const isMisc = selectedDropdownType === 'Miscellaneous';
+    const parsedAmount = parseFloat(amount);
+    const isAmountEligibleForCoupons = !isNaN(parsedAmount) && parsedAmount >= 1500;
+
+    // When contribution amount is less than 1500, auto-reset coupons count to '0'
+    useEffect(() => {
+        if (!isAmountEligibleForCoupons) {
+            if (numberOfCoupons !== '0') {
+                setNumberOfCoupons('0');
+            }
+        }
+    }, [isAmountEligibleForCoupons, numberOfCoupons, setNumberOfCoupons]);
 
     return (
         <div className="space-y-4">
@@ -71,12 +82,16 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
                     <div>
                         <div className="flex justify-between items-center">
                             <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
-                            <span className="text-[11px] text-slate-500 font-normal">(Max 4)</span>
+                            <span className="text-[11px] text-slate-500 font-normal">
+                                {!isAmountEligibleForCoupons ? '(Min ₹1,500)' : '(Max 4)'}
+                            </span>
                         </div>
                         <input 
                             type="number" 
                             id="numberOfCoupons" 
                             value={numberOfCoupons} 
+                            disabled={!isAmountEligibleForCoupons}
+                            readOnly={!isAmountEligibleForCoupons}
                             onChange={e => {
                                 const val = e.target.value;
                                 if (val !== '' && parseInt(val, 10) > 4) {
@@ -86,16 +101,24 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
                                     setNumberOfCoupons(val);
                                 }
                             }} 
-                            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" 
+                            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none ${
+                                !isAmountEligibleForCoupons
+                                    ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                                    : 'border-slate-300 bg-white focus:ring-blue-500 focus:border-blue-500'
+                            }`} 
                             required 
                             min="0"
                             max="4"
                         />
-                        {numberOfCoupons && parseInt(numberOfCoupons, 10) >= 4 && (
+                        {!isAmountEligibleForCoupons ? (
+                            <p className="mt-1 text-xs text-slate-500 font-medium">
+                                Food coupons are available for contributions of ₹1,500 or more.
+                            </p>
+                        ) : numberOfCoupons && parseInt(numberOfCoupons, 10) >= 4 ? (
                             <p className="mt-1 text-xs text-amber-700 font-medium">
                                 Maximum limit is 4 coupons. Please contact GTMM if you need more than 4 coupons.
                             </p>
-                        )}
+                        ) : null}
                     </div>
                 )}
                 <div>
