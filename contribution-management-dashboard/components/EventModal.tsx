@@ -35,6 +35,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
     const [eventDate, setEventDate] = useState('');
     const [startTime, setStartTime] = useState('');
     const [endTime, setEndTime] = useState('');
+    const [registrationDeadline, setRegistrationDeadline] = useState('');
     const [venue, setVenue] = useState('');
     const [description, setDescription] = useState('');
     const [image, setImage] = useState<string | undefined>();
@@ -56,6 +57,9 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             
             const rawEnd = raw.endTime ?? raw.end_time ?? '';
             setEndTime(rawEnd ? String(rawEnd).substring(0, 5) : '');
+            
+            const rawDeadline = raw.registrationDeadline ?? raw.registration_deadline;
+            setRegistrationDeadline(rawDeadline ? formatDateForInput(rawDeadline) : '');
             
             setVenue(raw.venue || '');
             setDescription(raw.description || '');
@@ -82,6 +86,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setEventDate('');
             setStartTime('');
             setEndTime('');
+            setRegistrationDeadline('');
             setVenue('');
             setDescription('');
             setImage(undefined);
@@ -162,6 +167,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             venue, 
             description, 
             image,
+            registrationDeadline: registrationDeadline ? registrationDeadline : null,
             contactPersons: contactPersons.filter(c => c.name && c.contactNumber), // Filter out empty contacts
             registrationFormSchema: formSchema,
         };
@@ -188,6 +194,8 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                         setStartTime={setStartTime}
                         endTime={endTime}
                         setEndTime={setEndTime}
+                        registrationDeadline={registrationDeadline}
+                        setRegistrationDeadline={setRegistrationDeadline}
                         venue={venue}
                         setVenue={setVenue}
                         description={description}

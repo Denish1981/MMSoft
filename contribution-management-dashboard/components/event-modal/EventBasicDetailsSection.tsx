@@ -11,6 +11,8 @@ interface EventBasicDetailsSectionProps {
     setStartTime: (val: string) => void;
     endTime: string;
     setEndTime: (val: string) => void;
+    registrationDeadline: string;
+    setRegistrationDeadline: (val: string) => void;
     venue: string;
     setVenue: (val: string) => void;
     description: string;
@@ -30,6 +32,8 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
     setStartTime,
     endTime,
     setEndTime,
+    registrationDeadline,
+    setRegistrationDeadline,
     venue,
     setVenue,
     description,
@@ -47,7 +51,7 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
                     <input type="text" id="eventName" value={name} onChange={e => setName(e.target.value)} className="mt-1 block w-full input-style" required />
                 </div>
                 <div>
-                    <label htmlFor="eventDate" className="block text-sm font-medium text-slate-700">Date</label>
+                    <label htmlFor="eventDate" className="block text-sm font-medium text-slate-700">Event Date</label>
                     <input type="date" id="eventDate" value={eventDate} onChange={e => setEventDate(e.target.value)} className="mt-1 block w-full input-style" required />
                 </div>
             </div>
@@ -60,6 +64,33 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
                     <label htmlFor="endTime" className="block text-sm font-medium text-slate-700">End Time (Optional)</label>
                     <input type="time" id="endTime" value={endTime} onChange={e => setEndTime(e.target.value)} className="mt-1 block w-full input-style" />
                 </div>
+            </div>
+            <div>
+                <label htmlFor="registrationDeadline" className="block text-sm font-medium text-slate-700">
+                    Last Date for Registration (Optional)
+                </label>
+                <div className="mt-1 flex items-center space-x-2">
+                    <input 
+                        type="date" 
+                        id="registrationDeadline" 
+                        value={registrationDeadline} 
+                        onChange={e => setRegistrationDeadline(e.target.value)} 
+                        max={eventDate || undefined}
+                        className="block w-full input-style" 
+                    />
+                    {registrationDeadline && (
+                        <button
+                            type="button"
+                            onClick={() => setRegistrationDeadline('')}
+                            className="px-3 py-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 rounded border border-slate-300 whitespace-nowrap"
+                        >
+                            Clear Cutoff
+                        </button>
+                    )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                    Beyond this date (11:59 PM), no user will be able to register. If not set, registration remains open until the event date.
+                </p>
             </div>
             <div>
                 <label htmlFor="venue" className="block text-sm font-medium text-slate-700">Venue</label>

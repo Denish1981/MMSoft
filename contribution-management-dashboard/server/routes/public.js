@@ -99,6 +99,39 @@ const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, emai
     }
 };
 
+const isEventRegistrationClosed = (registrationDeadline, eventDate) => {
+    const now = new Date();
+    if (registrationDeadline) {
+        const trimmed = String(registrationDeadline).trim();
+        if (trimmed) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                const [y, m, d] = trimmed.split('-').map(Number);
+                const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+                return now.getTime() > endOfDay.getTime();
+            }
+            const deadline = new Date(trimmed);
+            if (!isNaN(deadline.getTime())) {
+                return now.getTime() > deadline.getTime();
+            }
+        }
+    }
+    if (eventDate) {
+        const trimmed = String(eventDate).trim();
+        if (trimmed) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                const [y, m, d] = trimmed.split('-').map(Number);
+                const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+                return now.getTime() > endOfDay.getTime();
+            }
+            const eDate = new Date(trimmed);
+            if (!isNaN(eDate.getTime())) {
+                return now.getTime() > eDate.getTime();
+            }
+        }
+    }
+    return false;
+};
+
 router.get('/public/events', async (req, res) => {
     try {
         const { rows } = await db.query(`
@@ -110,6 +143,7 @@ router.get('/public/events', async (req, res) => {
                 e.start_time as "startTime", 
                 e.end_time as "endTime", 
                 e.venue, 
+                e.registration_deadline as "registrationDeadline",
                 e.registration_form_schema as "registrationFormSchema",
                 COALESCE(
                     (
@@ -139,6 +173,19 @@ router.post('/public/events/:id/register', async (req, res) => {
     }
 
     try {
+        const eventRes = await db.query('SELECT name, event_date, registration_deadline FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
+        if (eventRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        const eventObj = eventRes.rows[0];
+        if (isEventRegistrationClosed(eventObj.registration_deadline, eventObj.event_date)) {
+            const cutoffDate = eventObj.registration_deadline || eventObj.event_date;
+            const formattedCutoff = new Date(cutoffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            return res.status(400).json({
+                error: `Registration for "${eventObj.name}" closed on ${formattedCutoff}. Registrations are no longer accepted.`
+            });
+        }
+
         const userId = await getUserIdFromReq(req);
 
         const towerNumber = formData.tower_number || formData.towerNumber || formData.tower || null;
@@ -183,6 +230,17 @@ router.post('/public/events/batch-register', async (req, res) => {
     }
 
     try {
+        const eventsCheck = await db.query('SELECT id, name, event_date, registration_deadline FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL', [eventIds]);
+        for (const evt of eventsCheck.rows) {
+            if (isEventRegistrationClosed(evt.registration_deadline, evt.event_date)) {
+                const cutoffDate = evt.registration_deadline || evt.event_date;
+                const formattedCutoff = new Date(cutoffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return res.status(400).json({
+                    error: `Registration for "${evt.name}" is closed (Deadline was ${formattedCutoff}). Please remove it from your selected events.`
+                });
+            }
+        }
+
         const userId = await getUserIdFromReq(req);
 
         const towerNumber = formData.tower_number || formData.towerNumber || formData.tower || null;

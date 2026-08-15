@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import type { PublicEvent } from '../components/RegistrationModal';
+import { isEventRegistrationClosed } from '../types/events';
 
 import { 
     EventParticipantEntry, 
@@ -85,14 +86,15 @@ export const MultiEventRegistrationPage: React.FC = () => {
             const data: PublicEvent[] = await res.json();
             setEvents(data || []);
 
-            // Pre-select all events by default if available
+            // Pre-select all open events by default if available
             if (data && data.length > 0) {
-                const initialIds = data.map(e => e.id);
+                const openEvents = data.filter(e => !isEventRegistrationClosed(e.registrationDeadline, e.eventDate));
+                const initialIds = openEvents.map(e => e.id);
                 setSelectedEventIds(initialIds);
 
                 // Initialize participant list with primary contact for each event
                 const initialMap: Record<number, EventParticipantEntry[]> = {};
-                data.forEach(e => {
+                openEvents.forEach(e => {
                     initialMap[e.id] = [{
                         id: 'p-' + Math.random().toString(36).substring(2, 9),
                         name: user?.fullName || '',
@@ -141,8 +143,8 @@ export const MultiEventRegistrationPage: React.FC = () => {
     };
 
     const handleSelectAll = () => {
-        const allIds = events.map(e => e.id);
-        setSelectedEventIds(allIds);
+        const openIds = events.filter(e => !isEventRegistrationClosed(e.registrationDeadline, e.eventDate)).map(e => e.id);
+        setSelectedEventIds(openIds);
     };
 
     const handleDeselectAll = () => {
@@ -245,6 +247,15 @@ export const MultiEventRegistrationPage: React.FC = () => {
         if (selectedEventIds.length === 0) {
             setSubmitError('Please select at least one event to register for.');
             return;
+        }
+
+        // Check if any selected event is closed
+        for (const evtId of selectedEventIds) {
+            const evt = events.find(e => e.id === evtId);
+            if (evt && isEventRegistrationClosed(evt.registrationDeadline, evt.eventDate)) {
+                setSubmitError(`Registration for "${evt.name}" is now closed. Please unselect it.`);
+                return;
+            }
         }
 
         // Validate each participant in selected events

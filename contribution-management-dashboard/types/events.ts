@@ -64,6 +64,7 @@ export interface Event {
   endTime: string | null; // HH:mm
   venue: string;
   image?: string;
+  registrationDeadline?: string | null; // ISO string or YYYY-MM-DD
   registrationFormSchema: RegistrationFormField[];
   contactPersons: EventContactPerson[];
   registrationCount?: number;
@@ -71,3 +72,37 @@ export interface Event {
   updatedAt: string; // ISO string
   deletedAt?: string | null;
 }
+
+export function isEventRegistrationClosed(registrationDeadline?: string | null, eventDate?: string | null): boolean {
+  const now = new Date();
+  if (registrationDeadline) {
+    const trimmed = String(registrationDeadline).trim();
+    if (trimmed) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [y, m, d] = trimmed.split('-').map(Number);
+        const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+        return now.getTime() > endOfDay.getTime();
+      }
+      const deadline = new Date(trimmed);
+      if (!isNaN(deadline.getTime())) {
+        return now.getTime() > deadline.getTime();
+      }
+    }
+  }
+  if (eventDate) {
+    const trimmed = String(eventDate).trim();
+    if (trimmed) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [y, m, d] = trimmed.split('-').map(Number);
+        const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+        return now.getTime() > endOfDay.getTime();
+      }
+      const eDate = new Date(trimmed);
+      if (!isNaN(eDate.getTime())) {
+        return now.getTime() > eDate.getTime();
+      }
+    }
+  }
+  return false;
+}
+

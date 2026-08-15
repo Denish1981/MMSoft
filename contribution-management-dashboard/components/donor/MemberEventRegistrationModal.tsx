@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, CheckCircle2, AlertCircle, Loader2, Sparkles, Building2, Ticket, Phone, Mail, User, Info } from 'lucide-react';
+import { X, Calendar, CheckCircle2, AlertCircle, Loader2, Sparkles, Building2, Ticket, Phone, Mail, User, Info, Clock } from 'lucide-react';
 import { RosterMemberItem } from '../../types/auth';
 import { API_URL } from '../../config';
+import { isEventRegistrationClosed } from '../../types/events';
 
 export interface EventContactPersonItem {
     name: string;
@@ -15,6 +16,7 @@ export interface EventOption {
     eventDate: string;
     venue?: string;
     description?: string;
+    registrationDeadline?: string | null;
     contactPersons?: EventContactPersonItem[];
 }
 
@@ -104,13 +106,25 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
     if (!isOpen || !member) return null;
 
     const handleToggleEvent = (eventId: number) => {
+        const evt = events.find(e => e.id === eventId);
+        const isClosed = evt ? isEventRegistrationClosed(evt.registrationDeadline, evt.eventDate) : false;
+        const isCurrentlyRegistered = initialEventIds.includes(eventId);
+
+        // If closed and not currently registered, don't allow checking
+        if (isClosed && !isCurrentlyRegistered && !selectedEventIds.includes(eventId)) {
+            return;
+        }
+
         setSelectedEventIds(prev => 
             prev.includes(eventId) ? prev.filter(id => id !== eventId) : [...prev, eventId]
         );
     };
 
     const handleSelectAll = () => {
-        setSelectedEventIds(events.map(e => e.id));
+        const eligibleIds = events
+            .filter(e => !isEventRegistrationClosed(e.registrationDeadline, e.eventDate) || initialEventIds.includes(e.id))
+            .map(e => e.id);
+        setSelectedEventIds(eligibleIds);
     };
 
     const handleDeselectAll = () => {
@@ -269,6 +283,7 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
 
                             <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                                 {events.map((evt) => {
+                                    const isClosed = isEventRegistrationClosed(evt.registrationDeadline, evt.eventDate);
                                     const isSelected = selectedEventIds.includes(evt.id);
                                     const isInitiallyRegistered = initialEventIds.includes(evt.id);
                                     const contacts = (evt.contactPersons || []).filter(c => c && (c.name?.trim() || c.contactNumber?.trim()));
@@ -279,17 +294,20 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                                         <div
                                             key={evt.id}
                                             onClick={() => handleToggleEvent(evt.id)}
-                                            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none relative ${
-                                                isSelected
-                                                    ? 'bg-blue-50/70 border-blue-300 shadow-sm'
-                                                    : 'bg-white hover:bg-slate-50 border-slate-200'
+                                            className={`p-3.5 rounded-xl border transition-all flex items-start gap-3 select-none relative ${
+                                                isClosed && !isInitiallyRegistered
+                                                    ? 'bg-slate-100/80 border-slate-200 opacity-75 cursor-not-allowed'
+                                                    : isSelected
+                                                        ? 'bg-blue-50/70 border-blue-300 shadow-sm cursor-pointer'
+                                                        : 'bg-white hover:bg-slate-50 border-slate-200 cursor-pointer'
                                             }`}
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={isSelected}
+                                                disabled={isClosed && !isInitiallyRegistered}
                                                 onChange={() => {}} // Handled by container click
-                                                className="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer shrink-0"
+                                                className="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed shrink-0"
                                             />
 
                                             <div className="flex-1 min-w-0">
@@ -297,11 +315,18 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                                                     <span className={`text-xs font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
                                                         {evt.name}
                                                     </span>
-                                                    {isInitiallyRegistered && (
-                                                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
-                                                            Currently Registered
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        {isClosed && (
+                                                            <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full border border-rose-200">
+                                                                Closed
+                                                            </span>
+                                                        )}
+                                                        {isInitiallyRegistered && (
+                                                            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                                                                Currently Registered
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 mt-1.5">
@@ -310,6 +335,12 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                                                             <span className="flex items-center gap-1 font-medium">
                                                                 <Calendar className="w-3 h-3 text-blue-600" />
                                                                 {new Date(evt.eventDate).toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                        {evt.registrationDeadline && (
+                                                            <span className={`flex items-center gap-1 font-medium ${isClosed ? 'text-rose-600' : 'text-amber-700'}`}>
+                                                                <Clock className="w-3 h-3" />
+                                                                Deadline: {new Date(evt.registrationDeadline).toLocaleDateString()}
                                                             </span>
                                                         )}
                                                         {evt.venue && (

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useOutletContext } from 'react-router';
 import { Link } from 'react-router-dom';
 import type { Event, Festival } from '../types/index';
+import { isEventRegistrationClosed } from '../types/events';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import FestivalNavigation from '../components/FestivalNavigation';
@@ -72,9 +73,29 @@ const Events: React.FC = () => {
                     const startTime = event.startTime || (event as any).start_time;
                     const endTime = event.endTime || (event as any).end_time;
                     const image = event.image || (event as any).image_data;
+                    const deadline = event.registrationDeadline || (event as any).registration_deadline;
+                    const isClosed = isEventRegistrationClosed(deadline, eventDate);
+
                     return (
                         <div key={event.id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
-                            <img src={image || `https://via.placeholder.com/400x200.png/E2E8F0/475569?text=${encodeURIComponent(event.name)}`} alt={event.name} className="w-full h-48 object-cover"/>
+                            <div className="relative">
+                                <img src={image || `https://via.placeholder.com/400x200.png/E2E8F0/475569?text=${encodeURIComponent(event.name)}`} alt={event.name} className="w-full h-48 object-cover"/>
+                                <div className="absolute top-2 right-2">
+                                    {isClosed ? (
+                                        <span className="px-2.5 py-1 text-xs font-bold rounded-full shadow bg-red-600 text-white">
+                                            Registration Closed
+                                        </span>
+                                    ) : deadline ? (
+                                        <span className="px-2.5 py-1 text-xs font-bold rounded-full shadow bg-amber-500 text-white">
+                                            Closes: {formatUTCDate(deadline, { day: 'numeric', month: 'short' })}
+                                        </span>
+                                    ) : (
+                                        <span className="px-2.5 py-1 text-xs font-bold rounded-full shadow bg-emerald-600 text-white">
+                                            Registration Open
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
                             <div className="p-4 flex flex-col flex-grow">
                                 <h3 className="text-lg font-bold text-slate-800">{event.name}</h3>
                                 <div className="mt-2 text-sm text-slate-600 flex items-center space-x-4">
@@ -82,6 +103,11 @@ const Events: React.FC = () => {
                                     {startTime && <span>⏰ {formatTime(startTime)}{endTime ? ` - ${formatTime(endTime)}` : ''}</span>}
                                 </div>
                                 <p className="mt-1 text-sm text-slate-600">📍 {event.venue}</p>
+                                {deadline && (
+                                    <p className={`mt-2 text-xs font-medium ${isClosed ? 'text-red-600' : 'text-amber-700'}`}>
+                                        ⏳ Last date to register: {formatUTCDate(deadline, { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </p>
+                                )}
                                 <p className="mt-3 text-sm text-slate-500 flex-grow">{event.description}</p>
                             </div>
                             <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">

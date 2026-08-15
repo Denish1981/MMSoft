@@ -75,6 +75,7 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
                 e.end_time as "endTime", 
                 e.venue, 
                 e.image_data as "image", 
+                e.registration_deadline as "registrationDeadline",
                 e.registration_form_schema as "registrationFormSchema",
                 (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id) as "registrationCount"
             FROM events e

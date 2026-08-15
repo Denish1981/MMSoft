@@ -97,6 +97,7 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
                 e.event_date AS "eventDate", 
                 e.start_time AS "startTime", 
                 e.venue,
+                e.registration_deadline AS "registrationDeadline",
                 e.registration_form_schema AS "registrationFormSchema",
                 COALESCE(
                     (
@@ -225,6 +226,44 @@ router.post('/member-events', authMiddleware, async (req, res) => {
 
             // 2. Add registrations for newly checked events
             const eventsToAdd = targetEventIds.filter(evtId => !currentRegisteredEventIds.includes(evtId));
+
+            if (eventsToAdd.length > 0) {
+                const now = new Date();
+                const eventsCheck = await client.query(
+                    'SELECT id, name, event_date, registration_deadline FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL',
+                    [eventsToAdd]
+                );
+                for (const evt of eventsCheck.rows) {
+                    let isClosed = false;
+                    if (evt.registration_deadline) {
+                        const trimmed = String(evt.registration_deadline).trim();
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                            const [y, m, d] = trimmed.split('-').map(Number);
+                            const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+                            if (now.getTime() > endOfDay.getTime()) isClosed = true;
+                        } else {
+                            const deadline = new Date(trimmed);
+                            if (!isNaN(deadline.getTime()) && now.getTime() > deadline.getTime()) isClosed = true;
+                        }
+                    } else if (evt.event_date) {
+                        const trimmed = String(evt.event_date).trim();
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                            const [y, m, d] = trimmed.split('-').map(Number);
+                            const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+                            if (now.getTime() > endOfDay.getTime()) isClosed = true;
+                        } else {
+                            const eDate = new Date(trimmed);
+                            if (!isNaN(eDate.getTime()) && now.getTime() > eDate.getTime()) isClosed = true;
+                        }
+                    }
+
+                    if (isClosed) {
+                        const cutoffDate = evt.registration_deadline || evt.event_date;
+                        const formattedCutoff = new Date(cutoffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        throw new Error(`Registration for "${evt.name}" closed on ${formattedCutoff}.`);
+                    }
+                }
+            }
 
             for (const evtId of eventsToAdd) {
                 const pEmail = (memberEmail || defaultEmail).trim();

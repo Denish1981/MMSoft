@@ -220,6 +220,7 @@ const applySchema = async (client) => {
             venue TEXT NOT NULL,
             image_data TEXT,
             registration_form_schema JSONB,
+            registration_deadline TIMESTAMPTZ,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
@@ -330,6 +331,7 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_collected INTEGER DEFAULT 0;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS date_collected DATE;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_used INTEGER DEFAULT 0;');
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;');
 
     // Performance Indexes
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_deleted_status_date ON contributions (deleted_at, status, date DESC);');

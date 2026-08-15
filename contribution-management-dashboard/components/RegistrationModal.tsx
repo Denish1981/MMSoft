@@ -3,6 +3,7 @@ import { CameraIcon } from './icons/CameraIcon';
 import { API_URL } from '../config';
 import { CloseIcon } from './icons/CloseIcon';
 import type { RegistrationFormField } from '../types/index';
+import { isEventRegistrationClosed } from '../types/events';
 import CameraCapture from './CameraCapture';
 import { useAuth } from '../contexts/AuthContext';
 import { compressImageFile } from '../utils/imageUtils';
@@ -15,6 +16,7 @@ export interface PublicEvent {
     startTime: string;
     endTime: string | null;
     venue: string;
+    registrationDeadline?: string | null;
     registrationFormSchema: RegistrationFormField[];
 }
 
@@ -54,8 +56,14 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const isClosed = isEventRegistrationClosed(event.registrationDeadline, event.eventDate);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isClosed) {
+            setError('Registration for this event is now closed.');
+            return;
+        }
         setIsLoading(true);
         setError('');
 
