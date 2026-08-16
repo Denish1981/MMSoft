@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CameraIcon } from './icons/CameraIcon';
 import { API_URL } from '../config';
 import { CloseIcon } from './icons/CloseIcon';
-import type { RegistrationFormField } from '../types/index';
+import type { RegistrationFormField, EventContactPerson } from '../types/index';
 import { isEventRegistrationClosed } from '../types/events';
 import CameraCapture from './CameraCapture';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,14 +10,19 @@ import { compressImageFile } from '../utils/imageUtils';
 
 export interface PublicEvent {
     id: number;
+    festivalId?: number;
+    festivalName?: string;
     name: string;
     description: string;
+    rules?: string | null;
+    image?: string;
     eventDate: string;
     startTime: string;
     endTime: string | null;
     venue: string;
     registrationDeadline?: string | null;
     registrationFormSchema: RegistrationFormField[];
+    contactPersons?: EventContactPerson[];
 }
 
 interface RegistrationModalProps {

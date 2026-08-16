@@ -70,6 +70,7 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
                 e.festival_id as "festivalId", 
                 e.name, 
                 e.description, 
+                e.rules,
                 e.event_date as "eventDate", 
                 e.start_time as "startTime", 
                 e.end_time as "endTime", 

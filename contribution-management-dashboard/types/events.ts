@@ -58,8 +58,10 @@ export interface RegistrationFormField {
 export interface Event {
   id: number;
   festivalId: number;
+  festivalName?: string;
   name: string;
   description: string | null;
+  rules?: string | null;
   eventDate: string; // ISO String
   startTime: string | null; // HH:mm
   endTime: string | null; // HH:mm

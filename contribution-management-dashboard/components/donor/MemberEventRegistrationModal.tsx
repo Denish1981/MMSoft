@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, CheckCircle2, AlertCircle, Loader2, Sparkles, Building2, Ticket, Phone, Mail, User, Info, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { X, Calendar, CheckCircle2, AlertCircle, Loader2, Sparkles, Building2, Ticket, Phone, Mail, User, Info, Clock, BookOpen, ExternalLink } from 'lucide-react';
 import { RosterMemberItem } from '../../types/auth';
 import { API_URL } from '../../config';
 import { isEventRegistrationClosed } from '../../types/events';
@@ -16,8 +17,15 @@ export interface EventOption {
     eventDate: string;
     venue?: string;
     description?: string;
+    rules?: string | null;
+    image?: string;
+    startTime?: string;
+    endTime?: string | null;
     registrationDeadline?: string | null;
     contactPersons?: EventContactPersonItem[];
+    registrationFormSchema?: any[];
+    festivalId?: number;
+    festivalName?: string;
 }
 
 export interface ExistingRegistration {
@@ -311,10 +319,26 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                                             />
 
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className={`text-xs font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
-                                                        {evt.name}
-                                                    </span>
+                                                <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                                                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                                        <span className={`text-xs font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
+                                                            {evt.name}
+                                                        </span>
+                                                        <Link
+                                                            to={`/events/${evt.id}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                            }}
+                                                            className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline cursor-pointer bg-orange-50 hover:bg-orange-100 px-2 py-0.5 rounded-md transition-colors border border-orange-200/60 shrink-0"
+                                                            title={`Open rules and details for ${evt.name} in a new tab`}
+                                                        >
+                                                            <BookOpen className="w-3 h-3 text-orange-500 shrink-0" />
+                                                            <span>View Rules and Details</span>
+                                                            <ExternalLink className="w-2.5 h-2.5 text-orange-400 shrink-0" />
+                                                        </Link>
+                                                    </div>
                                                     <div className="flex items-center gap-1.5 shrink-0">
                                                         {isClosed && (
                                                             <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full border border-rose-200">

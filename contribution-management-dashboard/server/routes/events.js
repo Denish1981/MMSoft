@@ -14,6 +14,7 @@ const formatEventResponse = (event, contacts) => {
         startTime: event.start_time ? event.start_time.substring(0, 5) : null,
         endTime: event.end_time ? event.end_time.substring(0, 5) : null,
         description: event.description,
+        rules: event.rules || null,
         image: event.image_data,
         venue: event.venue,
         registrationDeadline: event.registration_deadline,
@@ -27,7 +28,7 @@ const formatEventResponse = (event, contacts) => {
 router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:events:view'), async (req, res) => {
     const { id } = req.params;
     try {
-        const eventRes = await db.query('SELECT name, festival_id, registration_form_schema, registration_deadline as "registrationDeadline" FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
+        const eventRes = await db.query('SELECT name, festival_id, rules, registration_form_schema, registration_deadline as "registrationDeadline" FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
         if (eventRes.rows.length === 0) {
             return res.status(404).json({ error: 'Event not found' });
         }
@@ -44,6 +45,7 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
             event: { 
                 name: eventRes.rows[0].name, 
                 festivalId: eventRes.rows[0].festival_id,
+                rules: eventRes.rows[0].rules,
                 registrationFormSchema: eventRes.rows[0].registration_form_schema,
                 registrationDeadline: eventRes.rows[0].registrationDeadline
             },
@@ -58,13 +60,13 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
 
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
-    const { festivalId, name, eventDate, startTime, endTime, venue, description, image, registrationDeadline, contactPersons = [], registrationFormSchema = [] } = req.body;
+    const { festivalId, name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, contactPersons = [], registrationFormSchema = [] } = req.body;
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const eventRes = await client.query(
-            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, image_data, registration_form_schema, registration_deadline) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, image, JSON.stringify(registrationFormSchema), registrationDeadline || null]
+            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, rules, image_data, registration_form_schema, registration_deadline) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
+            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null]
         );
         const newEvent = eventRes.rows[0];
 
@@ -89,7 +91,7 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
 
 router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
-    const { name, eventDate, startTime, endTime, venue, description, image, registrationDeadline, contactPersons = [], registrationFormSchema = [] } = req.body;
+    const { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, contactPersons = [], registrationFormSchema = [] } = req.body;
     const client = await db.getPool().connect();
 
     try {
@@ -99,14 +101,14 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
         const oldEventData = oldDataRes.rows[0];
         
         const eventRes = await client.query(
-            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, image_data=$7, registration_form_schema=$8, registration_deadline=$9, updated_at=NOW() WHERE id=$10 RETURNING *',
-            [name, eventDate, startTime || null, endTime || null, venue, description, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, id]
+            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, rules=$7, image_data=$8, registration_form_schema=$9, registration_deadline=$10, updated_at=NOW() WHERE id=$11 RETURNING *',
+            [name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, id]
         );
 
         await logChanges(client, {
             historyTable: 'events_history', recordId: id, changedByUserId: req.user.id,
-            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, image, registrationDeadline, registrationFormSchema: JSON.stringify(registrationFormSchema) },
-            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', image: 'image_data', registrationDeadline: 'registration_deadline', registrationFormSchema: 'registration_form_schema' }
+            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, registrationFormSchema: JSON.stringify(registrationFormSchema) },
+            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', rules: 'rules', image: 'image_data', registrationDeadline: 'registration_deadline', registrationFormSchema: 'registration_form_schema' }
         });
         
         // Log changes to contacts as a single text entry for simplicity

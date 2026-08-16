@@ -13,6 +13,8 @@ import { HistoryIcon } from '../components/icons/HistoryIcon';
 import { UsersIcon } from '../components/icons/UsersIcon';
 import { formatUTCDate } from '../utils/formatting';
 import { useModal } from '../contexts/ModalContext';
+import { BookOpen, ExternalLink } from 'lucide-react';
+import { EventRulesDetailsModal } from '../components/EventRulesDetailsModal';
 
 const Events: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -25,6 +27,7 @@ const Events: React.FC = () => {
     const [festival, setFestival] = useState<Festival | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [selectedEventForRules, setSelectedEventForRules] = useState<any | null>(null);
 
     const fetchEvents = useCallback(async () => {
         if (!id || !token) return;
@@ -108,7 +111,25 @@ const Events: React.FC = () => {
                                         ⏳ Last date to register: {formatUTCDate(deadline, { day: 'numeric', month: 'long', year: 'numeric' })}
                                     </p>
                                 )}
-                                <p className="mt-3 text-sm text-slate-500 flex-grow">{event.description}</p>
+                                <p className="mt-3 text-sm text-slate-500 line-clamp-2">{event.description}</p>
+                                
+                                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedEventForRules(event)}
+                                        className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-700 font-bold hover:underline cursor-pointer"
+                                    >
+                                        <BookOpen className="w-3.5 h-3.5" /> View Rules & Details
+                                    </button>
+                                    <Link
+                                        to={`/events/${event.id}`}
+                                        target="_blank"
+                                        className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-600"
+                                        title="Preview public page"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                    </Link>
+                                </div>
                             </div>
                             <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                                 <div className="flex items-center gap-4">
@@ -135,6 +156,12 @@ const Events: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <EventRulesDetailsModal
+                event={selectedEventForRules}
+                isOpen={!!selectedEventForRules}
+                onClose={() => setSelectedEventForRules(null)}
+            />
         </div>
     );
 };

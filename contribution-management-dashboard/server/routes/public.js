@@ -139,6 +139,8 @@ router.get('/public/events', async (req, res) => {
                 e.id, 
                 e.name, 
                 e.description, 
+                e.rules,
+                e.image_data as "image",
                 e.event_date as "eventDate", 
                 e.start_time as "startTime", 
                 e.end_time as "endTime", 
@@ -162,6 +164,62 @@ router.get('/public/events', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Failed to fetch public events' }); }
+});
+
+router.get('/public/events/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { rows } = await db.query(`
+            SELECT 
+                e.id, 
+                e.festival_id as "festivalId",
+                f.name as "festivalName",
+                e.name, 
+                e.description, 
+                e.rules,
+                e.image_data as "image",
+                e.event_date as "eventDate", 
+                e.start_time as "startTime", 
+                e.end_time as "endTime", 
+                e.venue, 
+                e.registration_deadline as "registrationDeadline",
+                e.registration_form_schema as "registrationFormSchema",
+                COALESCE(
+                    (
+                        SELECT json_agg(json_build_object(
+                            'name', c.name,
+                            'contactNumber', c.contact_number,
+                            'email', c.email
+                        ))
+                        FROM event_contact_persons c
+                        WHERE c.event_id = e.id
+                    ), '[]'::json
+                ) as "contactPersons"
+            FROM events e
+            LEFT JOIN festivals f ON e.festival_id = f.id
+            WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [id]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Event not found' });
+        }
+        
+        const event = rows[0];
+        if (typeof event.registrationFormSchema === 'string') {
+            try {
+                event.registrationFormSchema = JSON.parse(event.registrationFormSchema);
+            } catch (e) {
+                event.registrationFormSchema = [];
+            }
+        }
+        if (event.startTime) event.startTime = event.startTime.substring(0, 5);
+        if (event.endTime) event.endTime = event.endTime.substring(0, 5);
+
+        res.json(event);
+    } catch (err) {
+        console.error('Error fetching event by id:', err);
+        res.status(500).json({ error: 'Failed to fetch event details' });
+    }
 });
 
 router.post('/public/events/:id/register', async (req, res) => {

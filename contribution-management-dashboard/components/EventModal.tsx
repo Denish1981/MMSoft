@@ -38,6 +38,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
     const [registrationDeadline, setRegistrationDeadline] = useState('');
     const [venue, setVenue] = useState('');
     const [description, setDescription] = useState('');
+    const [rules, setRules] = useState('');
     const [image, setImage] = useState<string | undefined>();
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -63,6 +64,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             
             setVenue(raw.venue || '');
             setDescription(raw.description || '');
+            setRules(raw.rules || '');
             
             const rawImg = raw.image ?? raw.image_data ?? undefined;
             setImage(rawImg);
@@ -89,6 +91,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setRegistrationDeadline('');
             setVenue('');
             setDescription('');
+            setRules('');
             setImage(undefined);
             setImagePreview(null);
             setContactPersons([{ name: '', contactNumber: '', email: '' }]);
@@ -166,12 +169,13 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             endTime: endTime || null, 
             venue, 
             description, 
+            rules: rules.trim() || null,
             image,
             registrationDeadline: registrationDeadline ? registrationDeadline : null,
             contactPersons: contactPersons.filter(c => c.name && c.contactNumber), // Filter out empty contacts
             registrationFormSchema: formSchema,
         };
-        onSubmit(submissionData);
+        onSubmit(submissionData as any);
     };
     
 
@@ -200,6 +204,8 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                         setVenue={setVenue}
                         description={description}
                         setDescription={setDescription}
+                        rules={rules}
+                        setRules={setRules}
                         imagePreview={imagePreview}
                         onFileChange={handleFileChange}
                         onOpenCamera={() => setIsCameraOpen(true)}

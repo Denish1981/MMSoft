@@ -17,6 +17,8 @@ interface EventBasicDetailsSectionProps {
     setVenue: (val: string) => void;
     description: string;
     setDescription: (val: string) => void;
+    rules: string;
+    setRules: (val: string) => void;
     imagePreview: string | null;
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onOpenCamera: () => void;
@@ -38,6 +40,8 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
     setVenue,
     description,
     setDescription,
+    rules,
+    setRules,
     imagePreview,
     onFileChange,
     onOpenCamera,
@@ -97,8 +101,34 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
                 <input type="text" id="venue" value={venue} onChange={e => setVenue(e.target.value)} className="mt-1 block w-full input-style" required />
             </div>
             <div>
-                <label htmlFor="description" className="block text-sm font-medium text-slate-700">Description (Optional)</label>
-                <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={3} className="mt-1 block w-full input-style" />
+                <label htmlFor="description" className="block text-sm font-medium text-slate-700">Event Overview & Description (Optional)</label>
+                <textarea 
+                    id="description" 
+                    value={description} 
+                    onChange={e => setDescription(e.target.value)} 
+                    rows={3} 
+                    placeholder="Brief overview of the celebration, theme, who can join..."
+                    className="mt-1 block w-full input-style" 
+                />
+            </div>
+            <div>
+                <div className="flex items-center justify-between">
+                    <label htmlFor="rules" className="block text-sm font-medium text-slate-700">
+                        Event Rules & Guidelines (Optional)
+                    </label>
+                    <span className="text-xs text-slate-400">Shown in rules modal & guidelines page</span>
+                </div>
+                <textarea 
+                    id="rules" 
+                    value={rules} 
+                    onChange={e => setRules(e.target.value)} 
+                    rows={4} 
+                    placeholder="Enter each rule on a new line or bullet point:&#10;• Maximum 4 minutes per dance performance&#10;• Audio track must be submitted 48 hours prior&#10;• Report to backstage 30 mins before stage time"
+                    className="mt-1 block w-full input-style font-mono text-xs" 
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                    Tip: Separate each rule by a new line. They will be formatted cleanly into itemized checklists for participants.
+                </p>
             </div>
             <div>
                 <label className="block text-sm font-medium text-slate-700">Event Image (Optional)</label>

@@ -45,6 +45,7 @@ import TrustDetailsPage from './pages/TrustDetailsPage';
 import FoodCouponsPage from './pages/FoodCoupons';
 import { Schedules } from './pages/Schedules';
 import MultiEventRegistrationPage from './pages/MultiEventRegistrationPage';
+import EventDetailsPage from './pages/EventDetailsPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -67,6 +68,8 @@ const App: React.FC = () => {
                                 {/* Public Routes */}
                                 <Route path="/" element={<PublicHomePage />} />
                                 <Route path="/trust-details" element={<TrustDetailsPage />} />
+                                <Route path="/events/:id" element={<EventDetailsPage />} />
+                                <Route path="/event/:id" element={<EventDetailsPage />} />
                                 <Route path="/photos" element={<PhotoAlbumsListPage />} />
                                 <Route path="/album/:id" element={<PhotoAlbumPage />} />
                                 <Route path="/festivals/:id/register-stall" element={<StallRegistrationPage />} />
