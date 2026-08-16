@@ -44,14 +44,15 @@ export interface EventContactPerson {
   email?: string;
 }
 
-export type RegistrationFormFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox';
+export type RegistrationFormFieldType = 'text' | 'number' | 'email' | 'tel' | 'textarea' | 'select' | 'checkbox' | 'file' | 'audio';
 
 export interface RegistrationFormField {
   name: string;
   label: string;
   type: RegistrationFormFieldType;
   required: boolean;
-  options?: string; // Comma-separated for select
+  options?: string; // Comma-separated for select, or accepted file formats for file/audio (e.g. '.mp3,.wav,.m4a')
+  helpText?: string; // Optional helper instructions shown beneath the field
 }
 
 export interface Event {

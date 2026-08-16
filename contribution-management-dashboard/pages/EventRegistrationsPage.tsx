@@ -141,6 +141,41 @@ const EventRegistrationsPage: React.FC = () => {
             if (forExport) return value ? 'Yes' : 'No';
             return value ? '✔️' : '❌';
         }
+        
+        // Handle Audio / File data URLs
+        if (typeof value === 'string' && value.startsWith('data:audio')) {
+            const filename = registration.formData[`${key}_filename`] || 'Audio Track';
+            if (forExport) return filename;
+            return (
+                <div className="flex items-center gap-2">
+                    <audio controls className="h-8 max-w-[180px]" src={value}>
+                        Your browser does not support audio.
+                    </audio>
+                    <a
+                        href={value}
+                        download={filename}
+                        className="text-xs text-blue-600 hover:underline shrink-0"
+                    >
+                        Download
+                    </a>
+                </div>
+            );
+        }
+
+        if (typeof value === 'string' && value.startsWith('data:')) {
+            const filename = registration.formData[`${key}_filename`] || 'Uploaded File';
+            if (forExport) return filename;
+            return (
+                <a
+                    href={value}
+                    download={filename}
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                >
+                    📁 Download {filename}
+                </a>
+            );
+        }
+
         return value || 'N/A';
     };
 

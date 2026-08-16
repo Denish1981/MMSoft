@@ -32,12 +32,15 @@ export const EventRegistrationSchemaSection: React.FC<EventRegistrationSchemaSec
                                 <div>
                                     <label className="block text-xs font-medium text-slate-600">Field Type</label>
                                     <select value={field.type} onChange={e => onSchemaChange(index, 'type', e.target.value)} className="mt-1 block w-full input-style text-sm bg-white" disabled={isDefault}>
-                                        <option value="text">Text</option>
+                                        <option value="text">Text (Single Line)</option>
+                                        <option value="textarea">Text Area (Multi-line / Member Names)</option>
+                                        <option value="audio">Audio / Song Track (.mp3, .wav, .m4a)</option>
+                                        <option value="file">File / Document Upload</option>
+                                        <option value="number">Number</option>
+                                        <option value="select">Dropdown</option>
+                                        <option value="checkbox">Checkbox (Yes/No)</option>
                                         <option value="email">Email</option>
                                         <option value="tel">Phone</option>
-                                        <option value="textarea">Text Area</option>
-                                        <option value="select">Dropdown</option>
-                                        <option value="checkbox">Checkbox</option>
                                     </select>
                                 </div>
                                 <div className="flex items-end">
@@ -50,8 +53,15 @@ export const EventRegistrationSchemaSection: React.FC<EventRegistrationSchemaSec
                             {field.type === 'select' && (
                                 <div className="mt-4">
                                     <label className="block text-xs font-medium text-slate-600">Dropdown Options</label>
-                                    <input type="text" value={field.options} onChange={e => onSchemaChange(index, 'options', e.target.value)} placeholder="e.g., Small, Medium, Large" className="mt-1 block w-full input-style text-sm" />
+                                    <input type="text" value={field.options || ''} onChange={e => onSchemaChange(index, 'options', e.target.value)} placeholder="e.g., Solo, Duet, Group" className="mt-1 block w-full input-style text-sm" />
                                     <p className="text-xs text-slate-500 mt-1">Enter comma-separated values.</p>
+                                </div>
+                            )}
+                            {(field.type === 'audio' || field.type === 'file') && (
+                                <div className="mt-4">
+                                    <label className="block text-xs font-medium text-slate-600">Accepted Formats / Guidance</label>
+                                    <input type="text" value={field.options || ''} onChange={e => onSchemaChange(index, 'options', e.target.value)} placeholder={field.type === 'audio' ? "e.g. .mp3, .wav, .m4a, .aac (Max 15MB)" : "e.g. .pdf, .jpg, .png, .mp3"} className="mt-1 block w-full input-style text-sm" />
+                                    <p className="text-xs text-slate-500 mt-1">Donors will be able to upload their track/document either upon registration or anytime later from their portal.</p>
                                 </div>
                             )}
                             {!isDefault && (

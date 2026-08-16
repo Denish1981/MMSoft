@@ -7,14 +7,16 @@ import { API_URL } from '../config';
 import { 
     Heart, Calendar, Store, Bell, CheckCircle2, XCircle, Clock, 
     RefreshCw, PlusCircle, Building2, Phone, User as UserIcon, X, Receipt, Layers,
-    Ticket, Eye, FileText, Mail, Users, HelpCircle
+    Ticket, Eye, FileText, Mail, Users, HelpCircle, Music, Edit3, AlertCircle,
+    Play, Pause, Download, Volume2
 } from 'lucide-react';
 import StallRegistrationModal from '../components/StallRegistrationModal';
 import { RegistrationModal, PublicEvent } from '../components/RegistrationModal';
-import type { Festival as PublicFestival } from '../types/index';
+import type { Festival as PublicFestival, RegistrationFormField } from '../types/index';
 import { formatReceiptNo, ReceiptData } from '../utils/receiptUtils';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { HouseholdRosterManager } from '../components/donor/HouseholdRosterManager';
+import { EventPerformanceDetailsModal } from '../components/donor/EventPerformanceDetailsModal';
 
 interface ContributionItem {
     id: number;
@@ -56,6 +58,8 @@ interface EventRegistrationItem {
     email?: string;
     paymentProofImage?: string;
     formData?: Record<string, any>;
+    registrationFormSchema?: RegistrationFormField[];
+    registrationDeadline?: string | null;
 }
 
 interface UpcomingEvent {
@@ -67,6 +71,117 @@ interface UpcomingEvent {
     venue: string;
     registrationFormSchema?: any[];
 }
+
+const MiniAudioPlayer: React.FC<{
+    audioSrc: string;
+    fileName?: string;
+    fileSize?: string;
+    label?: string;
+}> = ({ audioSrc, fileName, fileSize, label }) => {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const togglePlay = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!audioRef.current) return;
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        } else {
+            // Pause any previously playing audio across the document
+            const allAudios = document.querySelectorAll('audio');
+            allAudios.forEach(a => {
+                if (a !== audioRef.current) {
+                    a.pause();
+                }
+            });
+            audioRef.current.play()
+                .then(() => setIsPlaying(true))
+                .catch((err) => console.error('Error playing audio:', err));
+        }
+    };
+
+    const handleTimeUpdate = () => {
+        if (audioRef.current) {
+            setCurrentTime(audioRef.current.currentTime);
+        }
+    };
+
+    const handleLoadedMetadata = () => {
+        if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+        }
+    };
+
+    const handleEnded = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+    };
+
+    const formatTime = (seconds: number) => {
+        if (isNaN(seconds) || seconds === 0) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    return (
+        <div className="flex items-center justify-between gap-2.5 p-2 bg-gradient-to-r from-blue-50/90 via-indigo-50/80 to-blue-50/90 border border-blue-200/80 rounded-xl text-xs w-full shadow-2xs">
+            <audio
+                ref={audioRef}
+                src={audioSrc}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onEnded={handleEnded}
+                onPause={() => setIsPlaying(false)}
+                preload="metadata"
+            />
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <button
+                    type="button"
+                    onClick={togglePlay}
+                    className={`w-8 h-8 rounded-lg font-bold flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs ${
+                        isPlaying 
+                            ? 'bg-amber-500 text-white hover:bg-amber-600 ring-2 ring-amber-300' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                    title={isPlaying ? 'Pause Track' : 'Play Preview'}
+                >
+                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 truncate">
+                        <Music className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="font-bold text-slate-800 truncate text-[11px]" title={fileName || label || 'Audio Track'}>
+                            {fileName || label || 'Audio Track'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                        {duration > 0 ? (
+                            <span className="font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                        ) : (
+                            <span>{fileSize || 'Attached Audio'}</span>
+                        )}
+                        {fileSize && duration > 0 && (
+                            <span className="text-slate-400">• {fileSize}</span>
+                        )}
+                    </div>
+                </div>
+            </div>
+            <a
+                href={audioSrc}
+                download={fileName || 'audio-track.mp3'}
+                onClick={(e) => e.stopPropagation()}
+                className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-100/60 rounded-lg transition-colors shrink-0 cursor-pointer"
+                title="Download Track"
+            >
+                <Download className="w-3.5 h-3.5" />
+            </a>
+        </div>
+    );
+};
 
 const DonorPortalPage: React.FC = () => {
     const navigate = useNavigate();
@@ -85,6 +200,7 @@ const DonorPortalPage: React.FC = () => {
     const [viewingImage, setViewingImage] = useState<string | null>(null);
     const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
     const [selectedRegForDetails, setSelectedRegForDetails] = useState<EventRegistrationItem | null>(null);
+    const [selectedRegForPerformance, setSelectedRegForPerformance] = useState<EventRegistrationItem | null>(null);
 
     const getParticipantName = (e: EventRegistrationItem) => {
         return e.name || e.formData?.name || e.formData?.participantName || e.formData?.fullName || 'Participant';
@@ -114,8 +230,80 @@ const DonorPortalPage: React.FC = () => {
         ]);
         return Object.entries(formData).filter(([key, val]) => {
             const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return !internalKeys.has(cleanKey) && val !== null && val !== undefined && val !== '';
+            if (internalKeys.has(cleanKey)) return false;
+            if (key.endsWith('_filename') || key.endsWith('_filesize')) return false;
+            // Filter out base64 data URLs / files so they don't render as raw text encoding
+            if (typeof val === 'string' && (val.startsWith('data:') || (val.length > 250 && !val.includes(' ')))) return false;
+            return val !== null && val !== undefined && val !== '';
         });
+    };
+
+    interface FormFieldAttachment {
+        key: string;
+        label: string;
+        dataUrl: string;
+        fileName?: string;
+        fileSize?: string;
+        isAudio: boolean;
+    }
+
+    const getFormDataAttachments = (formData?: Record<string, any>): FormFieldAttachment[] => {
+        if (!formData) return [];
+        const attachments: FormFieldAttachment[] = [];
+        
+        Object.entries(formData).forEach(([key, val]) => {
+            if (typeof val === 'string' && (val.startsWith('data:') || (val.length > 300 && !val.includes(' ')))) {
+                const isAudio = val.startsWith('data:audio') || 
+                                key.toLowerCase().includes('audio') || 
+                                key.toLowerCase().includes('song') || 
+                                key.toLowerCase().includes('track') || 
+                                key.toLowerCase().includes('music');
+                
+                attachments.push({
+                    key,
+                    label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    dataUrl: val,
+                    fileName: formData[`${key}_filename`] || (isAudio ? `${key}.mp3` : `${key}.dat`),
+                    fileSize: formData[`${key}_filesize`] || '',
+                    isAudio
+                });
+            }
+        });
+
+        return attachments;
+    };
+
+    /**
+     * Checks if an event registration has pending required questions/fields or optional fields
+     */
+    const getAdditionalDetailsStatus = (reg: EventRegistrationItem) => {
+        const schema = (reg.registrationFormSchema || []).filter(
+            f => f.name !== 'name' && f.name !== 'email' && f.name !== 'phone_number' && f.name !== 'tower_number' && f.name !== 'flat_number'
+        );
+
+        if (schema.length === 0) {
+            return { hasCustomFields: false, isPendingRequired: false, missingRequiredCount: 0, totalFields: 0, completedCount: 0 };
+        }
+
+        const formData = reg.formData || {};
+        const requiredFields = schema.filter(f => f.required);
+        const missingRequired = requiredFields.filter(f => {
+            const val = formData[f.name];
+            return val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0);
+        });
+
+        const completedCount = schema.filter(f => {
+            const val = formData[f.name];
+            return val !== undefined && val !== null && val !== '' && !(Array.isArray(val) && val.length === 0);
+        }).length;
+
+        return {
+            hasCustomFields: true,
+            isPendingRequired: missingRequired.length > 0,
+            missingRequiredCount: missingRequired.length,
+            totalFields: schema.length,
+            completedCount
+        };
     };
 
     const openReceipt = (c: ContributionItem) => {
@@ -354,7 +542,10 @@ const DonorPortalPage: React.FC = () => {
                         }`}
                     >
                         <Calendar className="w-4 h-4" />
-                        My Event Registrations ({eventRegistrations.length})
+                        <span>My Event Registrations ({eventRegistrations.length})</span>
+                        {eventRegistrations.some(r => getAdditionalDetailsStatus(r).isPendingRequired) && (
+                            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Required details pending submission" />
+                        )}
                     </button>
                     {/* <button
                         onClick={() => setActiveTab('announcements')}
@@ -674,6 +865,11 @@ const DonorPortalPage: React.FC = () => {
                                                             <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-300 font-bold text-xs rounded-full border border-blue-400/30">
                                                                 {regs.length} Participant{regs.length > 1 ? 's' : ''} Registered
                                                             </span>
+                                                            {regs.some(r => getAdditionalDetailsStatus(r).isPendingRequired) && (
+                                                                <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 font-bold text-xs rounded-full border border-amber-400/40 flex items-center gap-1">
+                                                                    <AlertCircle className="w-3 h-3 text-amber-400" /> Action Required
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 mt-1.5 font-medium">
                                                             <span className="flex items-center gap-1">
@@ -696,9 +892,14 @@ const DonorPortalPage: React.FC = () => {
                                                         const pEmail = getParticipantEmail(reg);
                                                         const pTowerFlat = getParticipantTowerFlat(reg);
                                                         const extraFields = getExtraFormData(reg.formData);
+                                                        const detailsStatus = getAdditionalDetailsStatus(reg);
 
                                                         return (
-                                                            <div key={reg.id || idx} className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:border-blue-300 transition-all">
+                                                            <div key={reg.id || idx} className={`bg-white rounded-xl border p-4 shadow-xs flex flex-col justify-between transition-all ${
+                                                                detailsStatus.isPendingRequired
+                                                                    ? 'border-amber-300 ring-1 ring-amber-200 bg-amber-50/20'
+                                                                    : 'border-slate-200 hover:border-blue-300'
+                                                            }`}>
                                                                 <div className="space-y-3">
                                                                     {/* Header row */}
                                                                     <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
@@ -708,9 +909,22 @@ const DonorPortalPage: React.FC = () => {
                                                                             </span>
                                                                             <h5 className="font-bold text-slate-900 text-sm mt-0.5">{pName}</h5>
                                                                         </div>
-                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px] rounded-md">
-                                                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Confirmed
-                                                                        </span>
+                                                                        <div className="flex flex-col items-end gap-1">
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[11px] rounded-md">
+                                                                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Confirmed
+                                                                            </span>
+                                                                            {detailsStatus.hasCustomFields && (
+                                                                                detailsStatus.isPendingRequired ? (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 font-bold text-[10px] rounded-md animate-pulse">
+                                                                                        <AlertCircle className="w-3 h-3 text-amber-600" /> Details Needed ({detailsStatus.missingRequiredCount} Required)
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 font-medium text-[10px] rounded-md">
+                                                                                        <CheckCircle2 className="w-3 h-3 text-blue-500" /> Details Provided
+                                                                                    </span>
+                                                                                )
+                                                                            )}
+                                                                        </div>
                                                                     </div>
 
                                                                     {/* Contact & Flat Info */}
@@ -734,6 +948,49 @@ const DonorPortalPage: React.FC = () => {
                                                                             </div>
                                                                         )}
                                                                     </div>
+
+                                                                    {/* Pending Action Banner if required fields missing */}
+                                                                    {detailsStatus.isPendingRequired && (
+                                                                        <div className="p-2.5 bg-amber-50 border border-amber-200/80 rounded-lg flex items-start gap-2 text-xs text-amber-900">
+                                                                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                                                            <div className="leading-snug">
+                                                                                <strong className="font-semibold text-amber-800">Action Required:</strong> Please click <em>"Additional Details"</em> to submit mandatory performance track or information for this event.
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Audio & File Attachments Mini Player */}
+                                                                    {getFormDataAttachments(reg.formData).length > 0 && (
+                                                                        <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                                                                            {getFormDataAttachments(reg.formData).map(att => (
+                                                                                att.isAudio ? (
+                                                                                    <MiniAudioPlayer
+                                                                                        key={att.key}
+                                                                                        audioSrc={att.dataUrl}
+                                                                                        fileName={att.fileName}
+                                                                                        fileSize={att.fileSize}
+                                                                                        label={att.label}
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div key={att.key} className="flex items-center justify-between p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                                                                                        <div className="flex items-center gap-2 truncate">
+                                                                                            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                                                                            <span className="font-bold text-slate-800 truncate text-[11px]">{att.fileName || att.label}</span>
+                                                                                            {att.fileSize && <span className="text-[10px] text-slate-400">({att.fileSize})</span>}
+                                                                                        </div>
+                                                                                        <a
+                                                                                            href={att.dataUrl}
+                                                                                            download={att.fileName || `${att.key}.dat`}
+                                                                                            className="p-1 text-slate-500 hover:text-blue-700 rounded-md"
+                                                                                            title="Download file"
+                                                                                        >
+                                                                                            <Download className="w-3.5 h-3.5" />
+                                                                                        </a>
+                                                                                    </div>
+                                                                                )
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
 
                                                                     {/* Extra Custom Form Answers */}
                                                                     {extraFields.length > 0 && (
@@ -762,6 +1019,18 @@ const DonorPortalPage: React.FC = () => {
                                                                                 <Eye className="w-3.5 h-3.5" />
                                                                             </button>
                                                                         )}
+                                                                        <button
+                                                                            onClick={() => setSelectedRegForPerformance(reg)}
+                                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 font-bold rounded-lg transition-all text-[11px] cursor-pointer shadow-xs ${
+                                                                                detailsStatus.isPendingRequired
+                                                                                    ? 'bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 animate-bounce-subtle'
+                                                                                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
+                                                                            }`}
+                                                                            title="Submit or update additional details / tracks / files"
+                                                                        >
+                                                                            <Music className={`w-3 h-3 ${detailsStatus.isPendingRequired ? 'text-white' : 'text-amber-600'}`} />
+                                                                            {detailsStatus.isPendingRequired ? 'Submit Details Required' : 'Additional Details'}
+                                                                        </button>
                                                                         <button
                                                                             onClick={() => setSelectedRegForDetails(reg)}
                                                                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors text-[11px] cursor-pointer"
@@ -1046,6 +1315,42 @@ const DonorPortalPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Submitted Audio & File Attachments */}
+                            {getFormDataAttachments(selectedRegForDetails.formData).length > 0 && (
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Submitted Audio & Attachments:</h4>
+                                    <div className="space-y-2">
+                                        {getFormDataAttachments(selectedRegForDetails.formData).map(att => (
+                                            att.isAudio ? (
+                                                <MiniAudioPlayer
+                                                    key={att.key}
+                                                    audioSrc={att.dataUrl}
+                                                    fileName={att.fileName}
+                                                    fileSize={att.fileSize}
+                                                    label={att.label}
+                                                />
+                                            ) : (
+                                                <div key={att.key} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                                                        <span className="font-bold text-slate-800 truncate">{att.fileName || att.label}</span>
+                                                        {att.fileSize && <span className="text-slate-400">({att.fileSize})</span>}
+                                                    </div>
+                                                    <a
+                                                        href={att.dataUrl}
+                                                        download={att.fileName || `${att.key}.dat`}
+                                                        className="p-1.5 text-slate-600 hover:text-blue-700 bg-white border border-slate-200 rounded-lg"
+                                                        title="Download file"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </a>
+                                                </div>
+                                            )
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Custom Form Answers */}
                             {getExtraFormData(selectedRegForDetails.formData).length > 0 && (
                                 <div className="space-y-2">
@@ -1110,6 +1415,17 @@ const DonorPortalPage: React.FC = () => {
 
             {/* Receipt Modal */}
             <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
+
+            {/* Performance & Track Submission Modal */}
+            <EventPerformanceDetailsModal
+                isOpen={!!selectedRegForPerformance}
+                onClose={() => setSelectedRegForPerformance(null)}
+                registration={selectedRegForPerformance as any}
+                token={token}
+                onSuccess={(updatedReg) => {
+                    setEventRegistrations(prev => prev.map(r => r.id === updatedReg.id ? { ...r, ...updatedReg } : r));
+                }}
+            />
         </div>
     );
 };

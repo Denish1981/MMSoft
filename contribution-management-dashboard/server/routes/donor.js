@@ -69,7 +69,9 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
             `SELECT er.id, er.event_id AS "eventId", e.name AS "eventName", 
                     e.event_date AS "eventDate", e.venue, er.submitted_at AS "submittedAt", 
                     er.form_data AS "formData", er.name, er.email,
-                    er.payment_proof_image AS "paymentProofImage"
+                    er.payment_proof_image AS "paymentProofImage",
+                    e.registration_form_schema AS "registrationFormSchema",
+                    e.registration_deadline AS "registrationDeadline"
              FROM event_registrations er 
              LEFT JOIN events e ON er.event_id = e.id 
              WHERE er.user_id = $1 
@@ -299,6 +301,75 @@ router.post('/member-events', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('Error in /api/donor/member-events:', err);
         res.status(500).json({ error: err.message || 'Failed to update member event registrations' });
+    }
+});
+
+// Update event submission answers / performance details / audio track
+router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user && req.user.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const registrationId = parseInt(req.params.id, 10);
+        if (isNaN(registrationId)) {
+            return res.status(400).json({ error: 'Invalid registration ID' });
+        }
+
+        const { formData, paymentProofImage } = req.body;
+
+        // Verify registration belongs to this user or user's contact details
+        const regRes = await db.query(
+            `SELECT er.id, er.form_data, er.user_id, er.event_id, e.name as event_name, e.registration_deadline, e.event_date
+             FROM event_registrations er
+             JOIN events e ON er.event_id = e.id
+             WHERE er.id = $1`,
+            [registrationId]
+        );
+
+        if (regRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Registration not found' });
+        }
+
+        const reg = regRes.rows[0];
+
+        // Check ownership
+        const userRes = await db.query('SELECT username, mobile_number, tower_number, flat_number FROM users WHERE id = $1', [userId]);
+        const u = userRes.rows[0] || {};
+        const userEmail = u.username ? String(u.username).trim() : '';
+        const userMobile = u.mobile_number ? String(u.mobile_number).trim() : '';
+
+        const isOwner = reg.user_id === userId ||
+            (userEmail && (reg.email === userEmail || reg.form_data?.email === userEmail)) ||
+            (userMobile && (reg.form_data?.phone_number === userMobile || reg.form_data?.mobile_number === userMobile || reg.form_data?.contact_number === userMobile));
+
+        if (!isOwner) {
+            return res.status(403).json({ error: 'You do not have permission to modify this registration.' });
+        }
+
+        // Merge existing formData with new answers
+        const updatedFormData = {
+            ...(reg.form_data || {}),
+            ...(formData || {})
+        };
+
+        const updateRes = await db.query(
+            `UPDATE event_registrations 
+             SET form_data = $1,
+                 payment_proof_image = COALESCE($2, payment_proof_image)
+             WHERE id = $3
+             RETURNING id, event_id AS "eventId", name, email, form_data AS "formData", payment_proof_image AS "paymentProofImage"`,
+            [JSON.stringify(updatedFormData), paymentProofImage || null, registrationId]
+        );
+
+        res.json({
+            message: 'Performance details and files saved successfully!',
+            registration: updateRes.rows[0]
+        });
+    } catch (err) {
+        console.error('Error updating registration details:', err);
+        res.status(500).json({ error: err.message || 'Failed to update registration details' });
     }
 });
 
