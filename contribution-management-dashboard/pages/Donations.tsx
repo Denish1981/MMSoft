@@ -58,7 +58,19 @@ const Contributions: React.FC = () => {
                     return d.type === 'Miscellaneous' || d.type?.startsWith('Miscellaneous:');
                 }
             })
-            .filter(d => searchTerm === '' || d.donorName.toLowerCase().includes(searchTerm.toLowerCase()))
+            .filter(d => {
+                if (searchTerm.trim() === '') return true;
+                const term = searchTerm.toLowerCase().trim();
+                const towerFlat = `${d.towerNumber || ''}-${d.flatNumber || ''}`.toLowerCase();
+                return (
+                    d.donorName.toLowerCase().includes(term) ||
+                    (d.donorEmail && d.donorEmail.toLowerCase().includes(term)) ||
+                    (d.mobileNumber && d.mobileNumber.includes(term)) ||
+                    (d.towerNumber && d.towerNumber.toLowerCase().includes(term)) ||
+                    (d.flatNumber && d.flatNumber.toLowerCase().includes(term)) ||
+                    towerFlat.includes(term)
+                );
+            })
             .filter(d => filterCampaign === 'all' || (d.campaignId !== null && d.campaignId.toString() === filterCampaign));
     }, [approvedContributions, searchTerm, filterCampaign, activeTab]);
 
@@ -203,7 +215,7 @@ const Contributions: React.FC = () => {
                         <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                             <input
                                 type="text"
-                                placeholder={activeTab === 'miscellaneous' ? "Search by name or source..." : "Search by donor name..."}
+                                placeholder={activeTab === 'miscellaneous' ? "Search by name or source..." : "Search by donor name, flat (e.g. 42-1110)..."}
                                 className="w-full md:w-1/3 px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                                 onChange={e => setSearchTerm(e.target.value)}
                             />

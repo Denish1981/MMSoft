@@ -66,10 +66,14 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
             <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50">
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Receipt No</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                             {activeTab === 'miscellaneous' ? 'Name / Source' : 'Donor'}
                         </th>
+                        {activeTab === 'individual' && (
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Tower - Flat
+                            </th>
+                        )}
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
                         {activeTab === 'individual' && (
@@ -84,63 +88,71 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
                     {paginatedContributions.length > 0 ? (
-                        paginatedContributions.map(contribution => (
-                            <tr key={contribution.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-xs font-bold font-mono text-blue-700">
-                                    {formatReceiptNo(contribution.id, activeTab === 'miscellaneous' ? 'misc' : 'contribution')}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
-                                    {contribution.donorEmail && <div className="text-xs text-slate-500">{contribution.donorEmail}</div>}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">{formatCurrency(contribution.amount)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
-                                {activeTab === 'individual' && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
-                                )}
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                    {(contribution.festivalId && festivalMap?.get(contribution.festivalId)) || (contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(contribution.date)}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    {contribution.image ? (
-                                        <img 
-                                            src={contribution.image} 
-                                            alt="Contribution" 
-                                            className="h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform mx-auto"
-                                            onClick={() => onViewImage(contribution.image!)}
-                                        />
-                                    ) : (
-                                        <span className="text-slate-400 text-xs">N/A</span>
+                        paginatedContributions.map(contribution => {
+                            const towerFlat = contribution.towerNumber && contribution.flatNumber
+                                ? `${contribution.towerNumber}-${contribution.flatNumber}`
+                                : (contribution.towerNumber || contribution.flatNumber || 'N/A');
+
+                            return (
+                                <tr key={contribution.id} className="hover:bg-slate-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium text-slate-900">{contribution.donorName}</div>
+                                        {contribution.donorEmail && <div className="text-xs text-slate-500">{contribution.donorEmail}</div>}
+                                    </td>
+                                    {activeTab === 'individual' && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-700">
+                                            {towerFlat}
+                                        </td>
                                     )}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <ContributionStatusBadge status={contribution.status} />
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div className="flex items-center space-x-3">
-                                        <button onClick={() => openReceipt(contribution)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors" title="View / Download Receipt">
-                                            <ReceiptIcon className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => onGenerateNote(contribution)} className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded transition-colors" title="Generate Thank You Note">
-                                           <SparklesIcon className="w-4 h-4"/>
-                                        </button>
-                                        <button onClick={() => onViewHistory(contribution)} className="text-slate-500 hover:text-blue-600 p-1 hover:bg-slate-100 rounded transition-colors" title="View History">
-                                            <HistoryIcon className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900 p-1 hover:bg-slate-100 rounded transition-colors" title="Edit Contribution">
-                                            <EditIcon className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors" title="Delete Contribution">
-                                            <DeleteIcon className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">{formatCurrency(contribution.amount)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
+                                    {activeTab === 'individual' && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
+                                    )}
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        {(contribution.festivalId && festivalMap?.get(contribution.festivalId)) || (contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'N/A'}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{formatUTCDate(contribution.date)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        {contribution.image ? (
+                                            <img 
+                                                src={contribution.image} 
+                                                alt="Contribution" 
+                                                className="h-10 w-16 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform mx-auto"
+                                                onClick={() => onViewImage(contribution.image!)}
+                                            />
+                                        ) : (
+                                            <span className="text-slate-400 text-xs">N/A</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <ContributionStatusBadge status={contribution.status} />
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div className="flex items-center space-x-3">
+                                            <button onClick={() => openReceipt(contribution)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded transition-colors" title="View / Download Receipt">
+                                                <ReceiptIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => onGenerateNote(contribution)} className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded transition-colors" title="Generate Thank You Note">
+                                               <SparklesIcon className="w-4 h-4"/>
+                                            </button>
+                                            <button onClick={() => onViewHistory(contribution)} className="text-slate-500 hover:text-blue-600 p-1 hover:bg-slate-100 rounded transition-colors" title="View History">
+                                                <HistoryIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => onEdit(contribution)} className="text-slate-600 hover:text-slate-900 p-1 hover:bg-slate-100 rounded transition-colors" title="Edit Contribution">
+                                                <EditIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => onDelete(contribution.id)} className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors" title="Delete Contribution">
+                                                <DeleteIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })
                     ) : (
                         <tr>
-                            <td colSpan={activeTab === 'individual' ? 10 : 9} className="text-center py-10 text-slate-500">
+                            <td colSpan={activeTab === 'individual' ? 10 : 8} className="text-center py-10 text-slate-500">
                                 {totalContributionsCount === 0 ? "No contributions have been added yet." : "No contributions match your current filters."}
                             </td>
                         </tr>
