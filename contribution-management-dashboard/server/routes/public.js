@@ -15,7 +15,7 @@ const getUserIdFromReq = async (req) => {
     }
 };
 
-const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, email, mobileNumber }) => {
+const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, email, mobileNumber, client = db }) => {
     try {
         let userTower = towerNumber ? String(towerNumber).trim() : null;
         let userFlat = flatNumber ? String(flatNumber).trim() : null;
@@ -23,7 +23,7 @@ const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, emai
         let userMobile = mobileNumber ? String(mobileNumber).trim() : null;
 
         if (userId) {
-            const userRes = await db.query('SELECT username, mobile_number, tower_number, flat_number FROM users WHERE id = $1', [userId]);
+            const userRes = await client.query('SELECT username, mobile_number, tower_number, flat_number FROM users WHERE id = $1', [userId]);
             if (userRes.rows.length > 0) {
                 const u = userRes.rows[0];
                 if (!userEmail && u.username) userEmail = String(u.username).trim();
@@ -91,7 +91,7 @@ const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, emai
             LIMIT 1
         `;
 
-        const { rows } = await db.query(query, params);
+        const { rows } = await client.query(query, params);
         return rows.length > 0;
     } catch (err) {
         console.error('Error in checkApprovedContribution:', err);
@@ -462,6 +462,34 @@ router.post('/public/events/:id/register', async (req, res) => {
             return res.status(403).json({
                 error: 'Registration failed: You must have at least one approved contribution to register for events, festivals, or stalls.'
             });
+        }
+
+        // Validate group members household contribution if group registration
+        const memberArray = formData.group_members || formData.groupMembers || formData.members;
+        if (Array.isArray(memberArray) && memberArray.length > 0) {
+            for (let i = 0; i < memberArray.length; i++) {
+                const gm = memberArray[i];
+                if (typeof gm === 'object' && gm !== null) {
+                    const mName = (gm.name || '').trim();
+                    const tNum = (gm.towerNumber || gm.tower_number || gm.tower || '').trim();
+                    const fNum = (gm.flatNumber || gm.flat_number || gm.flat || '').trim();
+
+                    if (mName || tNum || fNum) {
+                        if (tNum && fNum) {
+                            const memberHasContribution = await checkApprovedContribution({
+                                towerNumber: tNum,
+                                flatNumber: fNum
+                            });
+
+                            if (!memberHasContribution) {
+                                return res.status(403).json({
+                                    error: `Registration rejected for member "${mName || 'Member ' + (i + 2)}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Deduplication & Group Roster check
@@ -927,4 +955,5 @@ router.get('/public/trust-details', async (req, res) => {
     }
 });
 
+router.checkApprovedContribution = checkApprovedContribution;
 module.exports = router;

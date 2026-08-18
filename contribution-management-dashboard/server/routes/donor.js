@@ -1,6 +1,8 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware } = require('../auth/middleware');
+const publicRoutes = require('./public');
+const checkApprovedContribution = publicRoutes.checkApprovedContribution;
 
 const router = express.Router();
 
@@ -273,33 +275,48 @@ router.post('/member-events', authMiddleware, async (req, res) => {
                         throw new Error(`Registration for "${evt.name}" closed on ${formattedCutoff}.`);
                     }
 
-                    // Validate group constraints if it's a group event
+                    // Validate group constraints and member contributions if it's a group event
                     const groupDataForEvt = eventGroupData[evt.id] || {};
                     if (evt.is_group_event) {
                         const rawMembers = Array.isArray(groupDataForEvt.groupMembers) ? groupDataForEvt.groupMembers : [];
-                        const groupMembers = rawMembers.filter(m => m && m.name && m.name.trim());
-                        const totalMembers = 1 + groupMembers.length; // cleanMemberName + additional
-                        const minSize = evt.min_group_size || 1;
-                        const maxSize = evt.max_group_size || 20;
+                        const validRosterMembers = [];
 
                         for (let i = 0; i < rawMembers.length; i++) {
                             const gm = rawMembers[i];
                             const memberNum = i + 2;
-                            if (!gm.name || !gm.name.trim()) {
+                            const mName = (gm.name || '').trim();
+                            if (!mName) {
                                 throw new Error(`Full Name is required for Member #${memberNum} in "${evt.name}".`);
                             }
                             const tNum = (gm.towerNumber || gm.tower_number || gm.tower || '').trim();
                             const fNum = (gm.flatNumber || gm.flat_number || gm.flat || '').trim();
                             if (!tNum) {
-                                throw new Error(`Tower Number is mandatory for Member #${memberNum} (${gm.name}) in "${evt.name}".`);
+                                throw new Error(`Tower Number is mandatory for Member #${memberNum} (${mName}) in "${evt.name}".`);
                             }
                             if (!fNum) {
-                                throw new Error(`Flat Number is mandatory for Member #${memberNum} (${gm.name}) in "${evt.name}".`);
+                                throw new Error(`Flat Number is mandatory for Member #${memberNum} (${mName}) in "${evt.name}".`);
                             }
+
+                            // Verify that this member's household has an approved contribution
+                            const memberHasContribution = await checkApprovedContribution({
+                                towerNumber: tNum,
+                                flatNumber: fNum,
+                                client
+                            });
+
+                            if (!memberHasContribution) {
+                                throw new Error(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}) in "${evt.name}": No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
+                            }
+
+                            validRosterMembers.push(gm);
                         }
 
+                        const totalMembers = 1 + validRosterMembers.length; // cleanMemberName + approved members
+                        const minSize = evt.min_group_size || 1;
+                        const maxSize = evt.max_group_size || 20;
+
                         if (totalMembers < minSize) {
-                            throw new Error(`"${evt.name}" requires at least ${minSize} participants. Please add more members to your team roster.`);
+                            throw new Error(`"${evt.name}" requires at least ${minSize} participants with approved contributions. Currently eligible: ${totalMembers}.`);
                         }
                         if (totalMembers > maxSize) {
                             throw new Error(`"${evt.name}" allows a maximum of ${maxSize} participants. Current team has ${totalMembers}.`);
@@ -440,6 +457,41 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
             ...(reg.form_data || {}),
             ...(formData || {})
         };
+
+        // If updating group members, validate each member's household contribution
+        const incomingMembers = updatedFormData.group_members || updatedFormData.groupMembers;
+        if (Array.isArray(incomingMembers) && incomingMembers.length > 0) {
+            for (let i = 0; i < incomingMembers.length; i++) {
+                const gm = incomingMembers[i];
+                const memberNum = i + 2;
+                const mName = (gm.name || '').trim();
+                const tNum = (gm.towerNumber || gm.tower_number || gm.tower || '').trim();
+                const fNum = (gm.flatNumber || gm.flat_number || gm.flat || '').trim();
+
+                if (mName || tNum || fNum) {
+                    if (!mName) {
+                        return res.status(400).json({ error: `Full Name is required for Member #${memberNum}.` });
+                    }
+                    if (!tNum) {
+                        return res.status(400).json({ error: `Tower Number is mandatory for Member #${memberNum} (${mName}).` });
+                    }
+                    if (!fNum) {
+                        return res.status(400).json({ error: `Flat Number is mandatory for Member #${memberNum} (${mName}).` });
+                    }
+
+                    const memberHasContribution = await checkApprovedContribution({
+                        towerNumber: tNum,
+                        flatNumber: fNum
+                    });
+
+                    if (!memberHasContribution) {
+                        return res.status(400).json({
+                            error: `Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`
+                        });
+                    }
+                }
+            }
+        }
 
         const updateRes = await db.query(
             `UPDATE event_registrations 

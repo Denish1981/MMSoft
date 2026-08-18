@@ -296,6 +296,32 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
         setIsSubmitting(true);
 
         try {
+            // Client-side pre-check for household contributions of additional members
+            for (const evtId of selectedEventIds) {
+                const evt = events.find(e => e.id === evtId);
+                if (evt?.isGroupEvent) {
+                    const groupInfo = eventGroupData[evtId] || { groupName: '', groupMembers: [] };
+                    for (let i = 0; i < groupInfo.groupMembers.length; i++) {
+                        const gm = groupInfo.groupMembers[i];
+                        const memberNum = i + 2;
+                        const tNum = (gm.towerNumber || '').trim();
+                        const fNum = (gm.flatNumber || '').trim();
+                        const mName = (gm.name || `Member #${memberNum}`).trim();
+
+                        if (tNum && fNum) {
+                            const checkUrl = `${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(tNum)}&flatNumber=${encodeURIComponent(fNum)}`;
+                            const checkResp = await fetch(checkUrl);
+                            if (checkResp.ok) {
+                                const checkData = await checkResp.json();
+                                if (!checkData.hasApprovedContribution && !checkData.contributionExists) {
+                                    throw new Error(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}) in "${evt.name}": No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json'
             };

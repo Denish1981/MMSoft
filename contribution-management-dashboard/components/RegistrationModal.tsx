@@ -185,6 +185,34 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
             return;
         }
 
+        // Validate each additional group member's household contribution
+        if (isGroup && groupMembers.length > 0) {
+            for (let i = 0; i < groupMembers.length; i++) {
+                const gm = groupMembers[i];
+                const memberNum = i + 2;
+                const tNum = (gm.towerNumber || '').trim();
+                const fNum = (gm.flatNumber || '').trim();
+                const mName = (gm.name || `Member #${memberNum}`).trim();
+
+                if (tNum && fNum) {
+                    try {
+                        const checkUrl = `${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(tNum)}&flatNumber=${encodeURIComponent(fNum)}`;
+                        const checkResp = await fetch(checkUrl);
+                        if (checkResp.ok) {
+                            const checkData = await checkResp.json();
+                            if (!checkData.hasApprovedContribution && !checkData.contributionExists) {
+                                setError(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
+                                setIsLoading(false);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Member contribution check error:', e);
+                    }
+                }
+            }
+        }
+
         try {
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
