@@ -23,6 +23,14 @@ interface EventBasicDetailsSectionProps {
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     onOpenCamera: () => void;
     onClearImage: () => void;
+    isGroupEvent?: boolean;
+    setIsGroupEvent?: (val: boolean) => void;
+    minGroupSize?: number;
+    setMinGroupSize?: (val: number) => void;
+    maxGroupSize?: number;
+    setMaxGroupSize?: (val: number) => void;
+    allowDuplicateMembers?: boolean;
+    setAllowDuplicateMembers?: (val: boolean) => void;
 }
 
 export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> = ({
@@ -46,6 +54,14 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
     onFileChange,
     onOpenCamera,
     onClearImage,
+    isGroupEvent = false,
+    setIsGroupEvent,
+    minGroupSize = 1,
+    setMinGroupSize,
+    maxGroupSize = 20,
+    setMaxGroupSize,
+    allowDuplicateMembers = false,
+    setAllowDuplicateMembers,
 }) => {
     return (
         <div className="space-y-4">
@@ -58,6 +74,72 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
                     <label htmlFor="eventDate" className="block text-sm font-medium text-slate-700">Event Date</label>
                     <input type="date" id="eventDate" value={eventDate} onChange={e => setEventDate(e.target.value)} className="mt-1 block w-full input-style" required />
                 </div>
+            </div>
+
+            {/* Group Event Configuration & Member Deduplication */}
+            <div className="p-4 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-3">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <label className="flex items-center gap-2 text-sm font-bold text-indigo-950 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={isGroupEvent}
+                                onChange={e => setIsGroupEvent && setIsGroupEvent(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <span>Is this a Group / Team Event? (e.g. Group Dance, Drama, Band, Sports)</span>
+                        </label>
+                        <p className="text-xs text-indigo-700/80 ml-6 mt-0.5">
+                            Allows team captains to register team names and add member rosters with automatic duplicate prevention.
+                        </p>
+                    </div>
+                </div>
+
+                {isGroupEvent && (
+                    <div className="ml-6 space-y-3 pt-2 border-t border-indigo-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700">Minimum Group Size</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={maxGroupSize || 50}
+                                    value={minGroupSize}
+                                    onChange={e => setMinGroupSize && setMinGroupSize(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                                    className="mt-1 block w-full input-style text-xs"
+                                />
+                                <span className="text-[11px] text-slate-500">Minimum participants required</span>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700">Maximum Group Size</label>
+                                <input
+                                    type="number"
+                                    min={minGroupSize || 1}
+                                    max={100}
+                                    value={maxGroupSize}
+                                    onChange={e => setMaxGroupSize && setMaxGroupSize(Math.max(minGroupSize || 1, parseInt(e.target.value, 10) || 20))}
+                                    className="mt-1 block w-full input-style text-xs"
+                                />
+                                <span className="text-[11px] text-slate-500">Maximum participants allowed</span>
+                            </div>
+                        </div>
+
+                        <div className="p-3 bg-white rounded-lg border border-indigo-100 shadow-2xs space-y-1">
+                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={!allowDuplicateMembers}
+                                    onChange={e => setAllowDuplicateMembers && setAllowDuplicateMembers(!e.target.checked)}
+                                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                />
+                                <span>🛡️ Member Deduplication: Prevent members from being registered in multiple teams for this event</span>
+                            </label>
+                            <p className="text-[11px] text-slate-500 ml-6">
+                                When active, the system automatically checks participant names & mobile numbers across all team submissions to reject duplicate entries.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>

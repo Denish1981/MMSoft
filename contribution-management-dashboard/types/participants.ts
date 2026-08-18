@@ -6,6 +6,15 @@ export interface EventRegistration {
   formData: Record<string, any>;
   submittedAt: string; // ISO String
   paymentProofImage?: string;
+  isGroupRegistration?: boolean;
+  groupName?: string;
+  groupMembers?: Array<{
+    name: string;
+    phone?: string;
+    email?: string;
+    age?: string | number;
+    role?: string;
+  }>;
 }
 
 export interface StallRegistrationProduct {

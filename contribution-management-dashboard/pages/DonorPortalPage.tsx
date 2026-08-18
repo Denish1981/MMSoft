@@ -60,6 +60,10 @@ interface EventRegistrationItem {
     formData?: Record<string, any>;
     registrationFormSchema?: RegistrationFormField[];
     registrationDeadline?: string | null;
+    isGroupEvent?: boolean;
+    minGroupSize?: number;
+    maxGroupSize?: number;
+    allowDuplicateMembers?: boolean;
 }
 
 interface UpcomingEvent {
@@ -226,7 +230,8 @@ const DonorPortalPage: React.FC = () => {
         const internalKeys = new Set([
             'name', 'fullname', 'participantname', 'phone_number', 'contact_number', 
             'mobile_number', 'phone', 'mobile', 'email', 'tower_number', 'flat_number', 
-            'tower', 'flat', 'id', 'user_id'
+            'tower', 'flat', 'id', 'user_id', 'group_name', 'groupname', 'group_members', 
+            'groupmembers', 'members', 'teamname', 'teammembers'
         ]);
         return Object.entries(formData).filter(([key, val]) => {
             const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -234,6 +239,8 @@ const DonorPortalPage: React.FC = () => {
             if (key.endsWith('_filename') || key.endsWith('_filesize')) return false;
             // Filter out base64 data URLs / files so they don't render as raw text encoding
             if (typeof val === 'string' && (val.startsWith('data:') || (val.length > 250 && !val.includes(' ')))) return false;
+            // Exclude arrays/objects that might render as [object Object]
+            if (typeof val === 'object' && val !== null) return false;
             return val !== null && val !== undefined && val !== '';
         });
     };
@@ -277,9 +284,16 @@ const DonorPortalPage: React.FC = () => {
      * Checks if an event registration has pending required questions/fields or optional fields
      */
     const getAdditionalDetailsStatus = (reg: EventRegistrationItem) => {
-        const schema = (reg.registrationFormSchema || []).filter(
-            f => f.name !== 'name' && f.name !== 'email' && f.name !== 'phone_number' && f.name !== 'tower_number' && f.name !== 'flat_number'
-        );
+        const schema = (reg.registrationFormSchema || []).filter(f => {
+            const clean = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (clean === 'name' || clean === 'email' || clean === 'phonenumber' || clean === 'contactnumber' || clean === 'mobilenumber' || clean === 'townumber' || clean === 'towernumber' || clean === 'flatnumber' || clean === 'tower' || clean === 'flat') {
+                return false;
+            }
+            if (clean === 'groupmembers' || clean === 'groupname' || clean === 'teamname' || clean === 'teammembers' || clean === 'members') {
+                return false;
+            }
+            return true;
+        });
 
         if (schema.length === 0) {
             return { hasCustomFields: false, isPendingRequired: false, missingRequiredCount: 0, totalFields: 0, completedCount: 0 };
@@ -948,6 +962,45 @@ const DonorPortalPage: React.FC = () => {
                                                                             </div>
                                                                         )}
                                                                     </div>
+
+                                                                    {/* Group Info Badge if Group Event */}
+                                                                    {(reg.formData?.group_name || reg.formData?.groupName || reg.isGroupEvent) && (
+                                                                        <div className="p-2.5 bg-indigo-50/80 border border-indigo-200/80 rounded-xl space-y-1.5 text-xs">
+                                                                            <div className="flex items-center justify-between font-bold text-indigo-950">
+                                                                                <span className="flex items-center gap-1.5">
+                                                                                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                                                                    {reg.formData?.group_name || reg.formData?.groupName ? (
+                                                                                        <span>Team: <strong className="text-indigo-900">{reg.formData?.group_name || reg.formData?.groupName}</strong></span>
+                                                                                    ) : (
+                                                                                        <span className="italic text-indigo-600">Group Event</span>
+                                                                                    )}
+                                                                                </span>
+                                                                                {Array.isArray(reg.formData?.group_members || reg.formData?.groupMembers) && (
+                                                                                    <span className="text-[10px] bg-indigo-200/60 text-indigo-800 px-2 py-0.5 rounded-full font-bold">
+                                                                                        {1 + (reg.formData?.group_members || reg.formData?.groupMembers).length} Members
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            {Array.isArray(reg.formData?.group_members || reg.formData?.groupMembers) && (reg.formData?.group_members || reg.formData?.groupMembers).length > 0 && (
+                                                                                <div className="flex flex-wrap gap-1 pt-1">
+                                                                                    <span className="px-1.5 py-0.5 bg-white text-indigo-900 border border-indigo-200 text-[10px] font-bold rounded">
+                                                                                        ★ {pName} (Lead)
+                                                                                    </span>
+                                                                                    {(reg.formData?.group_members || reg.formData?.groupMembers).map((gm: any, gmIdx: number) => {
+                                                                                        const memberName = typeof gm === 'string' ? gm : (gm.name || `Member ${gmIdx + 2}`);
+                                                                                        const towerFlat = typeof gm === 'object' && (gm.towerNumber || gm.tower_number || gm.tower) && (gm.flatNumber || gm.flat_number || gm.flat)
+                                                                                            ? ` (${gm.towerNumber || gm.tower_number || gm.tower}-${gm.flatNumber || gm.flat_number || gm.flat})`
+                                                                                            : '';
+                                                                                        return (
+                                                                                            <span key={gmIdx} className="px-1.5 py-0.5 bg-white text-slate-700 border border-indigo-100 text-[10px] rounded">
+                                                                                                {memberName}{towerFlat}
+                                                                                            </span>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
 
                                                                     {/* Pending Action Banner if required fields missing */}
                                                                     {detailsStatus.isPendingRequired && (

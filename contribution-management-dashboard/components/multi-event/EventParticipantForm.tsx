@@ -88,12 +88,23 @@ export const EventParticipantForm: React.FC<EventParticipantFormProps> = ({
             {/* Header banner for event */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                 <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                         <h4 className="text-base font-bold text-slate-900">{event.name}</h4>
-                        <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                            {participants.length} Participant{participants.length !== 1 ? 's' : ''}
-                        </span>
+                        {event.isGroupEvent ? (
+                            <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">
+                                👥 Group Event ({participants.length}/{event.maxGroupSize || 20} members, min {event.minGroupSize || 1})
+                            </span>
+                        ) : (
+                            <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                                {participants.length} Participant{participants.length !== 1 ? 's' : ''}
+                            </span>
+                        )}
+                        {!event.allowDuplicateMembers && (
+                            <span className="text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-md border border-emerald-200">
+                                🛡️ Deduplicated
+                            </span>
+                        )}
                     </div>
                     <p className="text-xs text-slate-500 mt-1 flex items-center gap-3">
                         <span><Calendar className="w-3.5 h-3.5 inline mr-1 text-slate-400" />{event.eventDate}</span>

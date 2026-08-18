@@ -55,6 +55,15 @@ export interface RegistrationFormField {
   helpText?: string; // Optional helper instructions shown beneath the field
 }
 
+export interface GroupMember {
+  id?: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  age?: string | number;
+  role?: string;
+}
+
 export interface Event {
   id: number;
   festivalId: number;
@@ -71,6 +80,10 @@ export interface Event {
   registrationFormSchema: RegistrationFormField[];
   contactPersons: EventContactPerson[];
   registrationCount?: number;
+  isGroupEvent?: boolean;
+  minGroupSize?: number;
+  maxGroupSize?: number;
+  allowDuplicateMembers?: boolean;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;

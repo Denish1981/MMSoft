@@ -16,6 +16,9 @@ interface EventRegistrationItemWithSchema {
     formData?: Record<string, any>;
     registrationFormSchema?: RegistrationFormField[];
     registrationDeadline?: string | null;
+    isGroupEvent?: boolean;
+    minGroupSize?: number;
+    maxGroupSize?: number;
 }
 
 interface EventPerformanceDetailsModalProps {
@@ -35,18 +38,86 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
 }) => {
     if (!isOpen || !registration) return null;
 
-    const schema = (registration.registrationFormSchema || []).filter(
-        f => f.name !== 'name' && f.name !== 'email' && f.name !== 'phone_number' && f.name !== 'tower_number' && f.name !== 'flat_number'
+    const initialFormData = registration.formData || {};
+
+    const isGroupEvent = Boolean(
+        registration.isGroupEvent || 
+        initialFormData.group_name || 
+        initialFormData.groupName || 
+        initialFormData.group_members || 
+        initialFormData.groupMembers
     );
 
-    const initialFormData = registration.formData || {};
+    const schema = (registration.registrationFormSchema || []).filter(f => {
+        const clean = f.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (clean === 'name' || clean === 'email' || clean === 'phonenumber' || clean === 'contactnumber' || clean === 'mobilenumber' || clean === 'townumber' || clean === 'towernumber' || clean === 'flatnumber' || clean === 'tower' || clean === 'flat') {
+            return false;
+        }
+        // If it's a group event or group fields, hide them from dynamic schema fields since they are managed by the dedicated Group / Troupe section
+        if (clean === 'groupmembers' || clean === 'groupname' || clean === 'teamname' || clean === 'teammembers' || clean === 'members') {
+            return false;
+        }
+        return true;
+    });
+
     const [answers, setAnswers] = useState<Record<string, any>>(() => {
         const initial: Record<string, any> = {};
         schema.forEach(field => {
             initial[field.name] = initialFormData[field.name] ?? '';
         });
+        if (registration.isGroupEvent || initialFormData.group_name || initialFormData.group_members) {
+            initial.group_name = initialFormData.group_name || initialFormData.groupName || '';
+            const rawMembers = Array.isArray(initialFormData.group_members) 
+                ? initialFormData.group_members 
+                : (Array.isArray(initialFormData.groupMembers) ? initialFormData.groupMembers : []);
+            
+            initial.group_members = rawMembers.map((m: any) => {
+                if (typeof m === 'string') {
+                    return { name: m, towerNumber: '', flatNumber: '', phone: '' };
+                }
+                return {
+                    name: m?.name || '',
+                    towerNumber: m?.towerNumber || m?.tower_number || m?.tower || '',
+                    flatNumber: m?.flatNumber || m?.flat_number || m?.flat || '',
+                    phone: m?.phone || m?.phone_number || m?.mobile_number || '',
+                    role: m?.role || ''
+                };
+            });
+        }
         return initial;
     });
+
+    const isGroup = Boolean(registration.isGroupEvent || initialFormData.group_name || initialFormData.group_members);
+    const groupMembers: Array<{ name: string; towerNumber?: string; flatNumber?: string; phone?: string; role?: string }> = Array.isArray(answers.group_members) ? answers.group_members : [];
+
+    const handleAddMember = () => {
+        const max = registration.maxGroupSize || 20;
+        if (groupMembers.length + 1 >= max) return;
+        setAnswers(prev => ({
+            ...prev,
+            group_members: [...(Array.isArray(prev.group_members) ? prev.group_members : []), { name: '', towerNumber: '', flatNumber: '', phone: '' }]
+        }));
+    };
+
+    const handleRemoveMember = (idx: number) => {
+        setAnswers(prev => ({
+            ...prev,
+            group_members: (Array.isArray(prev.group_members) ? prev.group_members : []).filter((_, i) => i !== idx)
+        }));
+    };
+
+    const handleMemberFieldChange = (idx: number, field: 'name' | 'towerNumber' | 'flatNumber' | 'phone', val: string) => {
+        setAnswers(prev => {
+            const list = [...(Array.isArray(prev.group_members) ? prev.group_members : [])];
+            if (list[idx]) {
+                list[idx] = { ...list[idx], [field]: val };
+            }
+            return {
+                ...prev,
+                group_members: list
+            };
+        });
+    };
 
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -119,6 +190,36 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
         setIsSaving(true);
         setErrorMessage('');
         setSuccessMessage('');
+
+        // Validate group details if it's a group event
+        if (isGroup) {
+            const gName = (answers.group_name || '').trim();
+            if (!gName) {
+                setErrorMessage('Group / Team Name is required.');
+                setIsSaving(false);
+                return;
+            }
+
+            for (let i = 0; i < groupMembers.length; i++) {
+                const gm = groupMembers[i];
+                const memberNum = i + 2;
+                if (!gm.name || !gm.name.trim()) {
+                    setErrorMessage(`Please provide the Full Name for Member #${memberNum}.`);
+                    setIsSaving(false);
+                    return;
+                }
+                if (!gm.towerNumber || !gm.towerNumber.trim()) {
+                    setErrorMessage(`Tower Number is mandatory for Member #${memberNum} (${gm.name || 'Unnamed'}).`);
+                    setIsSaving(false);
+                    return;
+                }
+                if (!gm.flatNumber || !gm.flatNumber.trim()) {
+                    setErrorMessage(`Flat Number is mandatory for Member #${memberNum} (${gm.name || 'Unnamed'}).`);
+                    setIsSaving(false);
+                    return;
+                }
+            }
+        }
 
         try {
             const headers: Record<string, string> = {
@@ -204,7 +305,125 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
                         </div>
                     )}
 
-                    {schema.length === 0 ? (
+                    {/* Group Details Section if Group Event */}
+                    {isGroup && (
+                        <div className="space-y-3 p-4 rounded-xl bg-indigo-50/70 border border-indigo-200">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                                    👥 Group / Troupe Details
+                                </span>
+                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                                    Team Size: {1 + groupMembers.filter(m => m.name.trim()).length} (Req: {registration.minGroupSize || 1}-{registration.maxGroupSize || 20})
+                                </span>
+                            </div>
+
+                            {/* Group Name */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-800 mb-1">
+                                    Group / Team Name <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={answers.group_name || ''}
+                                    onChange={e => handleTextChange('group_name', e.target.value)}
+                                    placeholder="e.g., Rhythm Dancers, Starlight Crew"
+                                    className="w-full text-xs px-3 py-2 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                                />
+                            </div>
+
+                            {/* Additional Roster */}
+                            <div className="space-y-2 pt-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-slate-700">
+                                        Additional Performers / Group Members
+                                    </span>
+                                    {(1 + groupMembers.length) < (registration.maxGroupSize || 20) && (
+                                        <button
+                                            type="button"
+                                            onClick={handleAddMember}
+                                            className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-white border border-indigo-200 hover:border-indigo-300 px-2 py-0.5 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                                        >
+                                            + Add Member
+                                        </button>
+                                    )}
+                                </div>
+
+                                {groupMembers.map((gm, mIdx) => (
+                                    <div key={mIdx} className="p-2.5 bg-white rounded-lg border border-indigo-100 shadow-2xs space-y-2">
+                                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                                            <span>Member #{mIdx + 2}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveMember(mIdx)}
+                                                className="text-rose-500 hover:text-rose-700 flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
+                                                title="Remove member"
+                                            >
+                                                <Trash2 className="w-3 h-3" /> Remove
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                                            <div className="sm:col-span-5">
+                                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                    Full Name <span className="text-rose-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={gm.name}
+                                                    onChange={e => handleMemberFieldChange(mIdx, 'name', e.target.value)}
+                                                    placeholder="Full Name"
+                                                    className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                    Tower <span className="text-rose-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={gm.towerNumber || ''}
+                                                    onChange={e => handleMemberFieldChange(mIdx, 'towerNumber', e.target.value)}
+                                                    placeholder="e.g. A"
+                                                    className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                    Flat <span className="text-rose-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={gm.flatNumber || ''}
+                                                    onChange={e => handleMemberFieldChange(mIdx, 'flatNumber', e.target.value)}
+                                                    placeholder="e.g. 502"
+                                                    className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                            <div className="sm:col-span-3">
+                                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                    Phone (Optional)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={gm.phone || ''}
+                                                    onChange={e => handleMemberFieldChange(mIdx, 'phone', e.target.value)}
+                                                    placeholder="Phone"
+                                                    className="w-full text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {groupMembers.length === 0 && (
+                                    <p className="text-[11px] text-indigo-700/80 italic">
+                                        No additional performers added yet. Use "+ Add Member" to include fellow performers.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {schema.length === 0 && !isGroup ? (
                         <div className="text-center py-8 text-slate-500 text-sm">
                             <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                             No special requirements or custom fields needed for this event.

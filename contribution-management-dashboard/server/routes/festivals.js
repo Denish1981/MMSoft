@@ -78,6 +78,10 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
                 e.image_data as "image", 
                 e.registration_deadline as "registrationDeadline",
                 e.registration_form_schema as "registrationFormSchema",
+                e.is_group_event as "isGroupEvent",
+                e.min_group_size as "minGroupSize",
+                e.max_group_size as "maxGroupSize",
+                e.allow_duplicate_members as "allowDuplicateMembers",
                 (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id) as "registrationCount"
             FROM events e
             WHERE e.festival_id = $1 AND e.deleted_at IS NULL
@@ -88,6 +92,10 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
         for (const event of events) {
              const contactsRes = await db.query('SELECT name, contact_number as "contactNumber", email FROM event_contact_persons WHERE event_id = $1', [event.id]);
              event.contactPersons = contactsRes.rows;
+             event.isGroupEvent = Boolean(event.isGroupEvent);
+             event.minGroupSize = event.minGroupSize || 1;
+             event.maxGroupSize = event.maxGroupSize || 20;
+             event.allowDuplicateMembers = Boolean(event.allowDuplicateMembers);
              if (typeof event.registrationFormSchema === 'string') {
                  try {
                      event.registrationFormSchema = JSON.parse(event.registrationFormSchema);

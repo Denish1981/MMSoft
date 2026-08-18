@@ -222,6 +222,10 @@ const applySchema = async (client) => {
             rules TEXT,
             registration_form_schema JSONB,
             registration_deadline TIMESTAMPTZ,
+            is_group_event BOOLEAN DEFAULT false,
+            min_group_size INTEGER DEFAULT 1,
+            max_group_size INTEGER DEFAULT 20,
+            allow_duplicate_members BOOLEAN DEFAULT false,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
@@ -334,6 +338,10 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_used INTEGER DEFAULT 0;');
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;');
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS rules TEXT;');
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS is_group_event BOOLEAN DEFAULT false;');
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS min_group_size INTEGER DEFAULT 1;');
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS max_group_size INTEGER DEFAULT 20;');
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS allow_duplicate_members BOOLEAN DEFAULT false;');
 
     // Performance Indexes
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_deleted_status_date ON contributions (deleted_at, status, date DESC);');

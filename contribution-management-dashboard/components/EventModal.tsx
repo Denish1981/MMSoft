@@ -44,6 +44,10 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [contactPersons, setContactPersons] = useState<EventContactPerson[]>([{ name: '', contactNumber: '', email: '' }]);
     const [formSchema, setFormSchema] = useState<RegistrationFormField[]>(defaultFormSchema);
+    const [isGroupEvent, setIsGroupEvent] = useState(false);
+    const [minGroupSize, setMinGroupSize] = useState(1);
+    const [maxGroupSize, setMaxGroupSize] = useState(20);
+    const [allowDuplicateMembers, setAllowDuplicateMembers] = useState(false);
     
     useEffect(() => {
         if (eventToEdit) {
@@ -65,6 +69,11 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setVenue(raw.venue || '');
             setDescription(raw.description || '');
             setRules(raw.rules || '');
+
+            setIsGroupEvent(Boolean(raw.isGroupEvent ?? raw.is_group_event ?? false));
+            setMinGroupSize(raw.minGroupSize ?? raw.min_group_size ?? 1);
+            setMaxGroupSize(raw.maxGroupSize ?? raw.max_group_size ?? 20);
+            setAllowDuplicateMembers(Boolean(raw.allowDuplicateMembers ?? raw.allow_duplicate_members ?? false));
             
             const rawImg = raw.image ?? raw.image_data ?? undefined;
             setImage(rawImg);
@@ -92,6 +101,10 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setVenue('');
             setDescription('');
             setRules('');
+            setIsGroupEvent(false);
+            setMinGroupSize(1);
+            setMaxGroupSize(20);
+            setAllowDuplicateMembers(false);
             setImage(undefined);
             setImagePreview(null);
             setContactPersons([{ name: '', contactNumber: '', email: '' }]);
@@ -174,6 +187,10 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             registrationDeadline: registrationDeadline ? registrationDeadline : null,
             contactPersons: contactPersons.filter(c => c.name && c.contactNumber), // Filter out empty contacts
             registrationFormSchema: formSchema,
+            isGroupEvent,
+            minGroupSize,
+            maxGroupSize,
+            allowDuplicateMembers,
         };
         onSubmit(submissionData as any);
     };
@@ -210,6 +227,14 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                         onFileChange={handleFileChange}
                         onOpenCamera={() => setIsCameraOpen(true)}
                         onClearImage={() => { setImage(undefined); setImagePreview(null); }}
+                        isGroupEvent={isGroupEvent}
+                        setIsGroupEvent={setIsGroupEvent}
+                        minGroupSize={minGroupSize}
+                        setMinGroupSize={setMinGroupSize}
+                        maxGroupSize={maxGroupSize}
+                        setMaxGroupSize={setMaxGroupSize}
+                        allowDuplicateMembers={allowDuplicateMembers}
+                        setAllowDuplicateMembers={setAllowDuplicateMembers}
                     />
 
                     <EventRegistrationSchemaSection

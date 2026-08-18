@@ -100,7 +100,14 @@ const Events: React.FC = () => {
                                 </div>
                             </div>
                             <div className="p-4 flex flex-col flex-grow">
-                                <h3 className="text-lg font-bold text-slate-800">{event.name}</h3>
+                                <div className="flex items-start justify-between gap-2">
+                                    <h3 className="text-lg font-bold text-slate-800">{event.name}</h3>
+                                    {event.isGroupEvent && (
+                                        <span className="shrink-0 text-[11px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-200">
+                                            👥 Group ({event.minGroupSize || 1}-{event.maxGroupSize || 20})
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="mt-2 text-sm text-slate-600 flex items-center space-x-4">
                                     {eventDate && <span>🗓️ {formatUTCDate(eventDate, { day: 'numeric', month: 'long', year: 'numeric'})}</span>}
                                     {startTime && <span>⏰ {formatTime(startTime)}{endTime ? ` - ${formatTime(endTime)}` : ''}</span>}

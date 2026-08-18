@@ -71,7 +71,11 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
                     er.form_data AS "formData", er.name, er.email,
                     er.payment_proof_image AS "paymentProofImage",
                     e.registration_form_schema AS "registrationFormSchema",
-                    e.registration_deadline AS "registrationDeadline"
+                    e.registration_deadline AS "registrationDeadline",
+                    e.is_group_event AS "isGroupEvent",
+                    e.min_group_size AS "minGroupSize",
+                    e.max_group_size AS "maxGroupSize",
+                    e.allow_duplicate_members AS "allowDuplicateMembers"
              FROM event_registrations er 
              LEFT JOIN events e ON er.event_id = e.id 
              WHERE er.user_id = $1 
@@ -101,6 +105,10 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
                 e.venue,
                 e.registration_deadline AS "registrationDeadline",
                 e.registration_form_schema AS "registrationFormSchema",
+                e.is_group_event AS "isGroupEvent",
+                e.min_group_size AS "minGroupSize",
+                e.max_group_size AS "maxGroupSize",
+                e.allow_duplicate_members AS "allowDuplicateMembers",
                 COALESCE(
                     (
                         SELECT json_agg(json_build_object(
@@ -166,7 +174,7 @@ const checkUserApprovedContribution = async (userId) => {
 
 router.post('/member-events', authMiddleware, async (req, res) => {
     const userId = req.user.id;
-    const { memberName, memberPhone, memberEmail, selectedEventIds = [] } = req.body;
+    const { memberName, memberPhone, memberEmail, selectedEventIds = [], eventGroupData = {} } = req.body;
 
     if (!memberName || !memberName.trim()) {
         return res.status(400).json({ error: 'Member name is required.' });
@@ -232,7 +240,7 @@ router.post('/member-events', authMiddleware, async (req, res) => {
             if (eventsToAdd.length > 0) {
                 const now = new Date();
                 const eventsCheck = await client.query(
-                    'SELECT id, name, event_date, registration_deadline FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL',
+                    'SELECT id, name, event_date, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL',
                     [eventsToAdd]
                 );
                 for (const evt of eventsCheck.rows) {
@@ -264,12 +272,89 @@ router.post('/member-events', authMiddleware, async (req, res) => {
                         const formattedCutoff = new Date(cutoffDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                         throw new Error(`Registration for "${evt.name}" closed on ${formattedCutoff}.`);
                     }
+
+                    // Validate group constraints if it's a group event
+                    const groupDataForEvt = eventGroupData[evt.id] || {};
+                    if (evt.is_group_event) {
+                        const rawMembers = Array.isArray(groupDataForEvt.groupMembers) ? groupDataForEvt.groupMembers : [];
+                        const groupMembers = rawMembers.filter(m => m && m.name && m.name.trim());
+                        const totalMembers = 1 + groupMembers.length; // cleanMemberName + additional
+                        const minSize = evt.min_group_size || 1;
+                        const maxSize = evt.max_group_size || 20;
+
+                        for (let i = 0; i < rawMembers.length; i++) {
+                            const gm = rawMembers[i];
+                            const memberNum = i + 2;
+                            if (!gm.name || !gm.name.trim()) {
+                                throw new Error(`Full Name is required for Member #${memberNum} in "${evt.name}".`);
+                            }
+                            const tNum = (gm.towerNumber || gm.tower_number || gm.tower || '').trim();
+                            const fNum = (gm.flatNumber || gm.flat_number || gm.flat || '').trim();
+                            if (!tNum) {
+                                throw new Error(`Tower Number is mandatory for Member #${memberNum} (${gm.name}) in "${evt.name}".`);
+                            }
+                            if (!fNum) {
+                                throw new Error(`Flat Number is mandatory for Member #${memberNum} (${gm.name}) in "${evt.name}".`);
+                            }
+                        }
+
+                        if (totalMembers < minSize) {
+                            throw new Error(`"${evt.name}" requires at least ${minSize} participants. Please add more members to your team roster.`);
+                        }
+                        if (totalMembers > maxSize) {
+                            throw new Error(`"${evt.name}" allows a maximum of ${maxSize} participants. Current team has ${totalMembers}.`);
+                        }
+                    }
+
+                    // Duplicate check against existing external registrations for this event
+                    if (!evt.allow_duplicate_members) {
+                        const groupMembers = Array.isArray(groupDataForEvt.groupMembers) ? groupDataForEvt.groupMembers : [];
+                        const allCandidateNames = [cleanMemberName, ...groupMembers.map(m => m.name)].filter(Boolean).map(n => n.trim().toLowerCase());
+                        const candidatePhone = (memberPhone || defaultMobile || '').replace(/\D/g, '');
+
+                        const otherRegs = await client.query(
+                            'SELECT id, name, email, form_data FROM event_registrations WHERE event_id = $1 AND user_id != $2',
+                            [evt.id, userId]
+                        );
+
+                        for (const row of otherRegs.rows) {
+                            const regData = row.form_data || {};
+                            const memberArray = regData.group_members || regData.groupMembers || regData.members || regData.team_members || [];
+                            const allNamesInReg = [row.name, regData.name, ...(Array.isArray(memberArray) ? memberArray.map(m => (typeof m === 'string' ? m : m?.name)) : [])].filter(Boolean).map(n => n.trim().toLowerCase());
+                            const allPhonesInReg = [regData.phone_number, regData.mobile_number, regData.contact_number, ...(Array.isArray(memberArray) ? memberArray.map(m => (typeof m === 'object' ? m?.phone : '')) : [])].filter(Boolean).map(p => p.replace(/\D/g, ''));
+
+                            for (const cName of allCandidateNames) {
+                                if (allNamesInReg.includes(cName)) {
+                                    const teamLabel = regData.group_name || regData.groupName || row.name || 'another group';
+                                    throw new Error(`Registration Conflict: "${cName}" is already registered for "${evt.name}" under ${teamLabel}. Duplicate registrations are not allowed for this event.`);
+                                }
+                            }
+
+                            if (candidatePhone && candidatePhone.length >= 7 && allPhonesInReg.includes(candidatePhone)) {
+                                const teamLabel = regData.group_name || regData.groupName || row.name || 'another group';
+                                throw new Error(`Registration Conflict: Contact phone for "${cleanMemberName}" is already registered for "${evt.name}" under ${teamLabel}.`);
+                            }
+                        }
+                    }
                 }
             }
 
             for (const evtId of eventsToAdd) {
                 const pEmail = (memberEmail || defaultEmail).trim();
                 const pPhone = (memberPhone || defaultMobile).trim();
+                const groupDataForEvt = eventGroupData[evtId] || {};
+                const validGroupMembers = Array.isArray(groupDataForEvt.groupMembers)
+                    ? groupDataForEvt.groupMembers
+                        .filter(m => m && m.name && m.name.trim())
+                        .map(m => ({
+                            name: m.name.trim(),
+                            towerNumber: (m.towerNumber || m.tower_number || m.tower || '').trim(),
+                            flatNumber: (m.flatNumber || m.flat_number || m.flat || '').trim(),
+                            phone: (m.phone || m.phone_number || m.mobile_number || '').trim(),
+                            role: m.role || 'Member'
+                        }))
+                    : [];
+
                 const formData = {
                     name: cleanMemberName,
                     phone_number: pPhone,
@@ -278,7 +363,9 @@ router.post('/member-events', authMiddleware, async (req, res) => {
                     email: pEmail,
                     tower_number: tower,
                     flat_number: flat,
-                    is_household_member: true
+                    is_household_member: true,
+                    ...(groupDataForEvt.groupName ? { group_name: groupDataForEvt.groupName.trim() } : {}),
+                    ...(validGroupMembers.length > 0 ? { group_members: validGroupMembers } : {})
                 };
 
                 await client.query(

@@ -142,6 +142,29 @@ const EventRegistrationsPage: React.FC = () => {
             return value ? '✔️' : '❌';
         }
         
+        // Handle group members array
+        if (key === 'group_members' || key === 'groupMembers' || key === 'members') {
+            const members = Array.isArray(value) ? value : [];
+            if (members.length === 0) return forExport ? 'None' : '-';
+            if (forExport) {
+                return members.map(m => (typeof m === 'string' ? m : `${m.name}${m.phone ? ` (${m.phone})` : ''}`)).join('; ');
+            }
+            return (
+                <div className="space-y-1">
+                    <span className="inline-block px-2 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-md border border-indigo-200">
+                        {members.length} Member{members.length !== 1 ? 's' : ''}
+                    </span>
+                    <ul className="text-xs text-slate-600 list-disc list-inside">
+                        {members.map((m, mIdx) => (
+                            <li key={mIdx}>
+                                {typeof m === 'string' ? m : `${m.name} ${m.phone ? `(${m.phone})` : ''}`}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        }
+
         // Handle Audio / File data URLs
         if (typeof value === 'string' && value.startsWith('data:audio')) {
             const filename = registration.formData[`${key}_filename`] || 'Audio Track';

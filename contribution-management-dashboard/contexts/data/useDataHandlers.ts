@@ -278,11 +278,15 @@ export function useDataHandlers({
         try {
             const response = await fetch(url, { method, headers: getAuthHeaders(), body: JSON.stringify(data) });
             if (response.status === 401) { logout(); return; }
-            if (!response.ok) throw new Error('Failed to save event');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || 'Failed to save event');
+            }
             setEventDataVersion(v => v + 1);
         } catch (error) {
             console.error('Failed to save event:', error);
-            alert('Failed to save event.');
+            alert(error instanceof Error ? error.message : 'Failed to save event.');
+            throw error;
         }
     }, [getAuthHeaders, logout, setEventDataVersion]);
 

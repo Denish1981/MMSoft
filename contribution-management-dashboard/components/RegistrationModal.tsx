@@ -23,6 +23,10 @@ export interface PublicEvent {
     registrationDeadline?: string | null;
     registrationFormSchema: RegistrationFormField[];
     contactPersons?: EventContactPerson[];
+    isGroupEvent?: boolean;
+    minGroupSize?: number;
+    maxGroupSize?: number;
+    allowDuplicateMembers?: boolean;
 }
 
 interface RegistrationModalProps {
@@ -33,9 +37,16 @@ interface RegistrationModalProps {
 export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onClose }) => {
     const { user, token } = useAuth();
     const [formData, setFormData] = useState<Record<string, any>>({});
+    const [groupMembers, setGroupMembers] = useState<Array<{ name: string; towerNumber: string; flatNumber: string; phone: string; role?: string }>>([
+        { name: '', towerNumber: '', flatNumber: '', phone: '', role: '' }
+    ]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [isSuccess, setIsSuccess] = useState(false);
+
+    const isGroup = Boolean(event.isGroupEvent);
+    const minSize = event.minGroupSize || 1;
+    const maxSize = event.maxGroupSize || 20;
 
     useEffect(() => {
         if (!user) return;
@@ -61,6 +72,23 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleGroupMemberChange = (index: number, field: 'name' | 'towerNumber' | 'flatNumber' | 'phone' | 'role', value: string) => {
+        const updated = [...groupMembers];
+        updated[index] = { ...updated[index], [field]: value };
+        setGroupMembers(updated);
+    };
+
+    const addGroupMember = () => {
+        if (groupMembers.length + 1 >= maxSize) return;
+        setGroupMembers([...groupMembers, { name: '', towerNumber: '', flatNumber: '', phone: '', role: '' }]);
+    };
+
+    const removeGroupMember = (index: number) => {
+        if (groupMembers.length > 1) {
+            setGroupMembers(groupMembers.filter((_, i) => i !== index));
+        }
+    };
+
     const isClosed = isEventRegistrationClosed(event.registrationDeadline, event.eventDate);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -71,6 +99,60 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
         }
         setIsLoading(true);
         setError('');
+
+        // If it is a group event, validate roster
+        if (isGroup) {
+            const gName = (formData['group_name'] || '').trim();
+            if (!gName) {
+                setError('Please provide a Group / Team Name.');
+                setIsLoading(false);
+                return;
+            }
+
+            for (let i = 0; i < groupMembers.length; i++) {
+                const gm = groupMembers[i];
+                const memberNum = i + 2;
+                if (!gm.name || !gm.name.trim()) {
+                    setError(`Please provide the Full Name for Member #${memberNum}.`);
+                    setIsLoading(false);
+                    return;
+                }
+                if (!gm.towerNumber || !gm.towerNumber.trim()) {
+                    setError(`Tower Number is mandatory for Member #${memberNum} (${gm.name || 'Unnamed'}).`);
+                    setIsLoading(false);
+                    return;
+                }
+                if (!gm.flatNumber || !gm.flatNumber.trim()) {
+                    setError(`Flat Number is mandatory for Member #${memberNum} (${gm.name || 'Unnamed'}).`);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            const validMembers = groupMembers.filter(m => m.name.trim() !== '');
+            const leadName = (formData['name'] || user?.fullName || '').trim();
+            const totalCount = validMembers.length + (leadName ? 1 : 0);
+
+            if (totalCount < minSize) {
+                setError(`This group event requires at least ${minSize} participants. Please add more members to your team roster.`);
+                setIsLoading(false);
+                return;
+            }
+            if (totalCount > maxSize) {
+                setError(`This group event allows a maximum of ${maxSize} participants. Please adjust your roster.`);
+                setIsLoading(false);
+                return;
+            }
+
+            // Check for duplicate names/phones within the group
+            const names = [leadName, ...validMembers.map(m => m.name.trim().toLowerCase())].filter(Boolean);
+            const nameSet = new Set(names);
+            if (nameSet.size !== names.length) {
+                setError('Duplicate member detected: Each member in your group must be distinct.');
+                setIsLoading(false);
+                return;
+            }
+        }
 
         const towerNumber = formData['tower_number'] || formData['towerNumber'] || user?.towerNumber;
         const flatNumber = formData['flat_number'] || formData['flatNumber'] || user?.flatNumber;
@@ -107,13 +189,15 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const submissionBody = {
-                formData
+            const submissionPayload = {
+                ...formData,
+                ...(isGroup ? { group_members: groupMembers.filter(m => m.name.trim() !== '') } : {})
             };
+
             const response = await fetch(`${API_URL}/public/events/${event.id}/register`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify(submissionBody),
+                body: JSON.stringify({ formData: submissionPayload }),
             });
             if (!response.ok) {
                 const data = await response.json();
@@ -166,18 +250,157 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                        {(event.registrationFormSchema || []).map(field => (
-                            <div key={field.name}>
-                                {field.type !== 'checkbox' && (
-                                    <label htmlFor={field.name} className="block text-sm font-medium text-slate-700">{field.label} {field.required && '*'}</label>
-                                )}
-                                {renderField(field)}
+                        {isGroup && (
+                            <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-900">
+                                        👥 Group Event Registration
+                                    </h4>
+                                    <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full">
+                                        Size: {minSize} - {maxSize} members
+                                    </span>
+                                </div>
+                                <p className="text-xs text-indigo-800">
+                                    Please enter your team/group name and provide the details of all group members. Duplicate participants across groups are automatically checked.
+                                </p>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                                        Group / Team Name <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. Rhythm Divas, Royal Dancers"
+                                        value={formData['group_name'] || ''}
+                                        onChange={e => handleInputChange('group_name', e.target.value)}
+                                        className="w-full input-style text-xs"
+                                    />
+                                </div>
                             </div>
-                        ))}
+                        )}
 
-                        {error && <p className="text-sm text-red-600 pt-2">{error}</p>}
+                        <div className="border-t border-slate-100 pt-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                                {isGroup ? '1. Team Captain / Primary Contact' : 'Participant Details'}
+                            </h4>
+                            <div className="space-y-3">
+                                {(event.registrationFormSchema || [])
+                                    .filter(field => {
+                                        const clean = (field.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                                        if (isGroup && (clean === 'groupmembers' || clean === 'groupname' || clean === 'teamname' || clean === 'teammembers' || clean === 'members')) {
+                                            return false;
+                                        }
+                                        return true;
+                                    })
+                                    .map(field => (
+                                        <div key={field.name}>
+                                            {field.type !== 'checkbox' && (
+                                                <label htmlFor={field.name} className="block text-xs font-medium text-slate-700">{field.label} {field.required && '*'}</label>
+                                            )}
+                                            {renderField(field)}
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+
+                        {/* Group Member Roster */}
+                        {isGroup && (
+                            <div className="border-t border-slate-200 pt-3 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                                        2. Additional Group Members ({groupMembers.length + 1}/{maxSize})
+                                    </h4>
+                                    <button
+                                        type="button"
+                                        onClick={addGroupMember}
+                                        disabled={groupMembers.length + 1 >= maxSize}
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 disabled:text-slate-400 cursor-pointer"
+                                    >
+                                        + Add Member
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2.5">
+                                    {groupMembers.map((member, idx) => (
+                                        <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 relative">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-bold text-slate-600">Member #{idx + 2}</span>
+                                                {groupMembers.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeGroupMember(idx)}
+                                                        className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                                                <div className="sm:col-span-5">
+                                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                        Full Name <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Full Name"
+                                                        required
+                                                        value={member.name}
+                                                        onChange={e => handleGroupMemberChange(idx, 'name', e.target.value)}
+                                                        className="w-full input-style text-xs"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-2">
+                                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                        Tower <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. A"
+                                                        required
+                                                        value={member.towerNumber}
+                                                        onChange={e => handleGroupMemberChange(idx, 'towerNumber', e.target.value)}
+                                                        className="w-full input-style text-xs"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-2">
+                                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                        Flat <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. 502"
+                                                        required
+                                                        value={member.flatNumber}
+                                                        onChange={e => handleGroupMemberChange(idx, 'flatNumber', e.target.value)}
+                                                        className="w-full input-style text-xs"
+                                                    />
+                                                </div>
+                                                <div className="sm:col-span-3">
+                                                    <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                                                        Phone (Optional)
+                                                    </label>
+                                                    <input
+                                                        type="tel"
+                                                        placeholder="Phone"
+                                                        value={member.phone}
+                                                        onChange={e => handleGroupMemberChange(idx, 'phone', e.target.value)}
+                                                        className="w-full input-style text-xs"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
+                                <p className="text-xs font-semibold text-rose-700">{error}</p>
+                            </div>
+                        )}
                         <div className="pt-2">
-                            <button type="submit" disabled={isLoading} className="w-full px-4 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:bg-slate-400">
+                            <button type="submit" disabled={isLoading} className="w-full px-4 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:bg-slate-400 cursor-pointer">
                                 {isLoading ? 'Submitting...' : 'Submit Registration'}
                             </button>
                         </div>

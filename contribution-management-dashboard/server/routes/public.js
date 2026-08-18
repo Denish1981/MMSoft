@@ -99,6 +99,181 @@ const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, emai
     }
 };
 
+/**
+ * Helper to extract all participant records from a registration object or form data
+ */
+function extractParticipantsFromRegistration(regName, regEmail, formData = {}) {
+    const participants = [];
+    
+    // Primary registrant / Team leader
+    const pName = (regName || formData.name || formData.fullName || formData.registrant_name || formData.registrantName || formData.participantName || '').trim();
+    const pPhone = (formData.phone_number || formData.mobile_number || formData.contact_number || formData.phone || '').trim();
+    const pEmail = (regEmail || formData.email || '').trim();
+    const groupName = (formData.group_name || formData.groupName || formData.team_name || formData.teamName || '').trim();
+    
+    if (pName) {
+        participants.push({
+            name: pName,
+            phone: pPhone,
+            email: pEmail,
+            isLead: true,
+            groupName: groupName
+        });
+    }
+
+    // Check group_members or members array
+    const memberArray = formData.group_members || formData.groupMembers || formData.members || formData.team_members || formData.teamMembers || formData.participants;
+    if (Array.isArray(memberArray)) {
+        for (const m of memberArray) {
+            if (!m) continue;
+            if (typeof m === 'string') {
+                const cleanName = m.trim();
+                if (cleanName && cleanName.toLowerCase() !== pName.toLowerCase()) {
+                    participants.push({ name: cleanName, phone: '', email: '', isLead: false, groupName });
+                }
+            } else if (typeof m === 'object') {
+                const mName = (m.name || m.fullName || m.participantName || '').trim();
+                const mPhone = (m.phone || m.phone_number || m.mobile_number || m.contact_number || '').trim();
+                const mEmail = (m.email || '').trim();
+                if (mName) {
+                    const isSameAsLead = pName.toLowerCase() === mName.toLowerCase();
+                    if (!isSameAsLead) {
+                        participants.push({ name: mName, phone: mPhone, email: mEmail, isLead: false, groupName });
+                    }
+                }
+            }
+        }
+    } else if (typeof memberArray === 'string' && memberArray.trim()) {
+        const names = memberArray.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+        for (const nm of names) {
+            if (nm.toLowerCase() !== pName.toLowerCase()) {
+                participants.push({ name: nm, phone: '', email: '', isLead: false, groupName });
+            }
+        }
+    }
+
+    return { primaryLead: pName, groupName, participants };
+}
+
+/**
+ * Validates candidates against existing event registrations to prevent duplicate member participation
+ */
+async function checkEventDuplicateParticipants(eventId, candidates, options = {}) {
+    const { excludeRegistrationId = null, client = db } = options;
+
+    const eventRes = await client.query(
+        'SELECT id, name, is_group_event, min_group_size, max_group_size, allow_duplicate_members FROM events WHERE id = $1',
+        [eventId]
+    );
+    if (eventRes.rows.length === 0) return { ok: true };
+
+    const evt = eventRes.rows[0];
+    const isGroup = Boolean(evt.is_group_event);
+    const allowDuplicates = Boolean(evt.allow_duplicate_members);
+
+    if (allowDuplicates) {
+        return { ok: true };
+    }
+
+    // If it is a group event, enforce min & max group sizes if specified
+    if (isGroup && candidates && candidates.length > 0) {
+        const minSize = evt.min_group_size || 1;
+        const maxSize = evt.max_group_size || 50;
+        if (candidates.length < minSize) {
+            return {
+                ok: false,
+                error: `Group size validation failed: "${evt.name}" requires at least ${minSize} participant(s) per group. You currently have ${candidates.length}.`
+            };
+        }
+        if (candidates.length > maxSize) {
+            return {
+                ok: false,
+                error: `Group size validation failed: "${evt.name}" allows a maximum of ${maxSize} participants per group. You have ${candidates.length}.`
+            };
+        }
+    }
+
+    // 1. Internal self-check within the candidate list
+    const seenNames = new Set();
+    const seenPhones = new Set();
+    for (const c of candidates) {
+        const normName = (c.name || '').trim().toLowerCase();
+        const normPhone = (c.phone || c.phone_number || c.contact_number || c.mobile_number || '').replace(/\D/g, '');
+        if (normName) {
+            if (seenNames.has(normName)) {
+                return {
+                    ok: false,
+                    error: `Duplicate in submission: Member "${c.name}" is listed more than once in this registration roster.`
+                };
+            }
+            seenNames.add(normName);
+        }
+        if (normPhone && normPhone.length >= 7) {
+            if (seenPhones.has(normPhone)) {
+                return {
+                    ok: false,
+                    error: `Duplicate contact: Multiple members in this registration share mobile number (${c.phone || c.phone_number || c.contact_number}). Each member should have a distinct or valid identifier.`
+                };
+            }
+            seenPhones.add(normPhone);
+        }
+    }
+
+    // 2. Fetch all existing registrations for this event
+    let query = 'SELECT id, name, email, form_data FROM event_registrations WHERE event_id = $1';
+    let params = [eventId];
+    if (excludeRegistrationId) {
+        query += ' AND id != $2';
+        params.push(excludeRegistrationId);
+    }
+
+    const existingRes = await client.query(query, params);
+
+    for (const row of existingRes.rows) {
+        const regData = row.form_data || {};
+        const extracted = extractParticipantsFromRegistration(row.name, row.email, regData);
+        const existingGroupOrLead = extracted.groupName ? `team "${extracted.groupName}"` : `registration under "${extracted.primaryLead || row.name}"`;
+
+        for (const existingParticipant of extracted.participants) {
+            const exName = (existingParticipant.name || '').trim().toLowerCase();
+            const exPhone = (existingParticipant.phone || '').replace(/\D/g, '');
+            const exEmail = (existingParticipant.email || '').trim().toLowerCase();
+
+            for (const cand of candidates) {
+                const candName = (cand.name || '').trim().toLowerCase();
+                const candPhone = (cand.phone || cand.phone_number || cand.contact_number || cand.mobile_number || '').replace(/\D/g, '');
+                const candEmail = (cand.email || '').trim().toLowerCase();
+
+                let isConflict = false;
+
+                // If candidate phone matches registered member phone
+                if (candPhone && exPhone && candPhone.length >= 7 && candPhone === exPhone) {
+                    isConflict = true;
+                }
+                // If candidate email matches
+                else if (candEmail && exEmail && candEmail.includes('@') && candEmail === exEmail) {
+                    isConflict = true;
+                }
+                // If exact name matches
+                else if (candName && exName && candName === exName) {
+                    isConflict = true;
+                }
+
+                if (isConflict) {
+                    const memberDisplay = cand.name || existingParticipant.name || 'A team member';
+                    return {
+                        ok: false,
+                        conflictMember: memberDisplay,
+                        error: `Registration Conflict: "${memberDisplay}" is already registered for "${evt.name}" (${existingGroupOrLead}). Members of the same group/performance cannot register multiple times for the same event.`
+                    };
+                }
+            }
+        }
+    }
+
+    return { ok: true };
+}
+
 const isEventRegistrationClosed = (registrationDeadline, eventDate) => {
     const now = new Date();
     if (registrationDeadline) {
@@ -147,6 +322,10 @@ router.get('/public/events', async (req, res) => {
                 e.venue, 
                 e.registration_deadline as "registrationDeadline",
                 e.registration_form_schema as "registrationFormSchema",
+                e.is_group_event as "isGroupEvent",
+                e.min_group_size as "minGroupSize",
+                e.max_group_size as "maxGroupSize",
+                e.allow_duplicate_members as "allowDuplicateMembers",
                 COALESCE(
                     (
                         SELECT json_agg(json_build_object(
@@ -184,6 +363,10 @@ router.get('/public/events/:id', async (req, res) => {
                 e.venue, 
                 e.registration_deadline as "registrationDeadline",
                 e.registration_form_schema as "registrationFormSchema",
+                e.is_group_event as "isGroupEvent",
+                e.min_group_size as "minGroupSize",
+                e.max_group_size as "maxGroupSize",
+                e.allow_duplicate_members as "allowDuplicateMembers",
                 COALESCE(
                     (
                         SELECT json_agg(json_build_object(
@@ -222,6 +405,22 @@ router.get('/public/events/:id', async (req, res) => {
     }
 });
 
+// Pre-flight check endpoint for duplicate members
+router.post('/public/events/:id/check-duplicate-members', async (req, res) => {
+    const { id } = req.params;
+    const { candidates = [], excludeRegistrationId = null } = req.body;
+    try {
+        const checkResult = await checkEventDuplicateParticipants(id, candidates, { excludeRegistrationId });
+        if (!checkResult.ok) {
+            return res.status(200).json({ hasConflict: true, conflictMessage: checkResult.error, conflictMember: checkResult.conflictMember });
+        }
+        res.status(200).json({ hasConflict: false });
+    } catch (err) {
+        console.error('Error checking duplicate members:', err);
+        res.status(500).json({ error: 'Failed to validate group roster duplicate check' });
+    }
+});
+
 router.post('/public/events/:id/register', async (req, res) => {
     const { id } = req.params;
     const { formData, paymentProofImage } = req.body;
@@ -231,7 +430,7 @@ router.post('/public/events/:id/register', async (req, res) => {
     }
 
     try {
-        const eventRes = await db.query('SELECT name, event_date, registration_deadline FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
+        const eventRes = await db.query('SELECT name, event_date, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
         if (eventRes.rows.length === 0) {
             return res.status(404).json({ error: 'Event not found' });
         }
@@ -265,6 +464,15 @@ router.post('/public/events/:id/register', async (req, res) => {
             });
         }
 
+        // Deduplication & Group Roster check
+        const extracted = extractParticipantsFromRegistration(formData.name, email, formData);
+        const duplicateCheck = await checkEventDuplicateParticipants(id, extracted.participants);
+        if (!duplicateCheck.ok) {
+            return res.status(409).json({
+                error: duplicateCheck.error
+            });
+        }
+
         await db.query(
             'INSERT INTO event_registrations (event_id, name, email, form_data, payment_proof_image, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
             [id, formData.name, formData.email || email, formData, paymentProofImage, userId]
@@ -272,7 +480,7 @@ router.post('/public/events/:id/register', async (req, res) => {
         res.status(201).json({ message: 'Registration successful' });
     } catch (err) {
         console.error('Error submitting event registration:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });
 
@@ -288,7 +496,7 @@ router.post('/public/events/batch-register', async (req, res) => {
     }
 
     try {
-        const eventsCheck = await db.query('SELECT id, name, event_date, registration_deadline FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL', [eventIds]);
+        const eventsCheck = await db.query('SELECT id, name, event_date, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL', [eventIds]);
         for (const evt of eventsCheck.rows) {
             if (isEventRegistrationClosed(evt.registration_deadline, evt.event_date)) {
                 const cutoffDate = evt.registration_deadline || evt.event_date;
@@ -320,13 +528,47 @@ router.post('/public/events/batch-register', async (req, res) => {
             });
         }
 
+        // Deduplication & Group Roster pre-check across all selected events
+        for (const eventId of eventIds) {
+            const participantsList = eventParticipants && (
+                (Array.isArray(eventParticipants[eventId]) && eventParticipants[eventId].length > 0)
+                ? eventParticipants[eventId]
+                : (Array.isArray(eventParticipants[String(eventId)]) && eventParticipants[String(eventId)].length > 0)
+                ? eventParticipants[String(eventId)]
+                : (Array.isArray(eventParticipants[Number(eventId)]) && eventParticipants[Number(eventId)].length > 0)
+                ? eventParticipants[Number(eventId)]
+                : null
+            );
+
+            let candidates = [];
+            if (participantsList) {
+                candidates = participantsList.map(p => ({
+                    name: (p.name || p.participantName || formData.name || '').trim(),
+                    phone: (p.phone || p.phone_number || p.contact_number || p.mobile_number || mobileNumber || '').trim(),
+                    email: (p.email || email || '').trim(),
+                    groupName: (p.group_name || p.groupName || formData.group_name || formData.groupName || '').trim()
+                }));
+            } else {
+                const specificData = (eventSpecificForms && eventSpecificForms[eventId]) || {};
+                const combined = { ...formData, ...specificData };
+                const extracted = extractParticipantsFromRegistration(combined.name, email, combined);
+                candidates = extracted.participants;
+            }
+
+            const duplicateCheck = await checkEventDuplicateParticipants(eventId, candidates);
+            if (!duplicateCheck.ok) {
+                return res.status(409).json({
+                    error: duplicateCheck.error
+                });
+            }
+        }
+
         const client = await db.getPool().connect();
         let totalRegistrationsCount = 0;
 
         try {
             await client.query('BEGIN');
             for (const eventId of eventIds) {
-                // Check if multiple participants are provided for this event
                 const participantsList = eventParticipants && (
                     (Array.isArray(eventParticipants[eventId]) && eventParticipants[eventId].length > 0)
                     ? eventParticipants[eventId]

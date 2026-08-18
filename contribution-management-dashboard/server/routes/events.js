@@ -20,6 +20,10 @@ const formatEventResponse = (event, contacts) => {
         registrationDeadline: event.registration_deadline,
         registrationFormSchema: event.registration_form_schema,
         contactPersons: contacts,
+        isGroupEvent: Boolean(event.is_group_event),
+        minGroupSize: event.min_group_size || 1,
+        maxGroupSize: event.max_group_size || 20,
+        allowDuplicateMembers: Boolean(event.allow_duplicate_members),
         createdAt: event.created_at,
         updatedAt: event.updated_at,
     };
@@ -28,7 +32,10 @@ const formatEventResponse = (event, contacts) => {
 router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:events:view'), async (req, res) => {
     const { id } = req.params;
     try {
-        const eventRes = await db.query('SELECT name, festival_id, rules, registration_form_schema, registration_deadline as "registrationDeadline" FROM events WHERE id = $1 AND deleted_at IS NULL', [id]);
+        const eventRes = await db.query(
+            'SELECT name, festival_id, rules, registration_form_schema, registration_deadline as "registrationDeadline", is_group_event as "isGroupEvent", min_group_size as "minGroupSize", max_group_size as "maxGroupSize", allow_duplicate_members as "allowDuplicateMembers" FROM events WHERE id = $1 AND deleted_at IS NULL',
+            [id]
+        );
         if (eventRes.rows.length === 0) {
             return res.status(404).json({ error: 'Event not found' });
         }
@@ -47,7 +54,11 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
                 festivalId: eventRes.rows[0].festival_id,
                 rules: eventRes.rows[0].rules,
                 registrationFormSchema: eventRes.rows[0].registration_form_schema,
-                registrationDeadline: eventRes.rows[0].registrationDeadline
+                registrationDeadline: eventRes.rows[0].registrationDeadline,
+                isGroupEvent: Boolean(eventRes.rows[0].isGroupEvent),
+                minGroupSize: eventRes.rows[0].minGroupSize || 1,
+                maxGroupSize: eventRes.rows[0].maxGroupSize || 20,
+                allowDuplicateMembers: Boolean(eventRes.rows[0].allowDuplicateMembers),
             },
             registrations: registrationsRes.rows
         });
@@ -61,12 +72,17 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
 
 router.post('/', authMiddleware, permissionMiddleware('action:create'), async (req, res) => {
     const { festivalId, name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, contactPersons = [], registrationFormSchema = [] } = req.body;
+    const isGroupEvent = Boolean(req.body.isGroupEvent ?? req.body.is_group_event ?? false);
+    const minGroupSize = parseInt(req.body.minGroupSize ?? req.body.min_group_size, 10) || 1;
+    const maxGroupSize = parseInt(req.body.maxGroupSize ?? req.body.max_group_size, 10) || 20;
+    const allowDuplicateMembers = Boolean(req.body.allowDuplicateMembers ?? req.body.allow_duplicate_members ?? false);
+
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const eventRes = await client.query(
-            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, rules, image_data, registration_form_schema, registration_deadline) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null]
+            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, rules, image_data, registration_form_schema, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *',
+            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers]
         );
         const newEvent = eventRes.rows[0];
 
@@ -83,7 +99,7 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error creating event:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: err.message || 'Internal server error' });
     } finally {
         client.release();
     }
@@ -92,6 +108,11 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
 router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
     const { id } = req.params;
     const { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, contactPersons = [], registrationFormSchema = [] } = req.body;
+    const isGroupEvent = Boolean(req.body.isGroupEvent ?? req.body.is_group_event ?? false);
+    const minGroupSize = parseInt(req.body.minGroupSize ?? req.body.min_group_size, 10) || 1;
+    const maxGroupSize = parseInt(req.body.maxGroupSize ?? req.body.max_group_size, 10) || 20;
+    const allowDuplicateMembers = Boolean(req.body.allowDuplicateMembers ?? req.body.allow_duplicate_members ?? false);
+
     const client = await db.getPool().connect();
 
     try {
@@ -101,14 +122,14 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
         const oldEventData = oldDataRes.rows[0];
         
         const eventRes = await client.query(
-            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, rules=$7, image_data=$8, registration_form_schema=$9, registration_deadline=$10, updated_at=NOW() WHERE id=$11 RETURNING *',
-            [name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, id]
+            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, rules=$7, image_data=$8, registration_form_schema=$9, registration_deadline=$10, is_group_event=$11, min_group_size=$12, max_group_size=$13, allow_duplicate_members=$14, updated_at=NOW() WHERE id=$15 RETURNING *',
+            [name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers, id]
         );
 
         await logChanges(client, {
             historyTable: 'events_history', recordId: id, changedByUserId: req.user.id,
-            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, registrationFormSchema: JSON.stringify(registrationFormSchema) },
-            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', rules: 'rules', image: 'image_data', registrationDeadline: 'registration_deadline', registrationFormSchema: 'registration_form_schema' }
+            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, registrationFormSchema: JSON.stringify(registrationFormSchema), isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers },
+            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', rules: 'rules', image: 'image_data', registrationDeadline: 'registration_deadline', registrationFormSchema: 'registration_form_schema', isGroupEvent: 'is_group_event', minGroupSize: 'min_group_size', maxGroupSize: 'max_group_size', allowDuplicateMembers: 'allow_duplicate_members' }
         });
         
         // Log changes to contacts as a single text entry for simplicity
@@ -140,7 +161,7 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
     } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error updating event:', err);
-        res.status(500).json({ error: 'Failed to update event' });
+        res.status(500).json({ error: err.message || 'Failed to update event' });
     } finally {
         client.release();
     }
