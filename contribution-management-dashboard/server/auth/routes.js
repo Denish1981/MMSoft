@@ -60,6 +60,29 @@ router.post('/register', async (req, res) => {
         if (roleId) {
             await client.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)', [userId, roleId]);
         }
+
+        // Link any unassigned offline contributions for this household flat or email
+        await client.query(`
+            UPDATE contributions 
+            SET user_id = $1,
+                donor_name = CASE 
+                    WHEN (donor_name IS NULL OR donor_name = '' OR donor_name LIKE 'Tower %' OR donor_name LIKE 'Flat %' OR donor_name = 'Household Donor') AND $2 != '' AND $2 NOT LIKE '%@%'
+                    THEN $2 
+                    ELSE donor_name 
+                END,
+                donor_email = CASE WHEN (donor_email IS NULL OR donor_email = '') AND $3 != '' THEN $3 ELSE donor_email END,
+                mobile_number = CASE WHEN (mobile_number IS NULL OR mobile_number = '') AND $4 != '' THEN $4 ELSE mobile_number END
+            WHERE deleted_at IS NULL 
+              AND user_id IS NULL
+              AND (
+                ($5 != '' AND $6 != '' AND (
+                    (LOWER(TRIM(tower_number)) = LOWER(TRIM($5)) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($6)))
+                    OR (REPLACE(LOWER(TRIM(tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($5)), 'tower', '') AND LOWER(TRIM(flat_number)) = LOWER(TRIM($6)))
+                ))
+                OR ($3 != '' AND LOWER(TRIM(donor_email)) = LOWER(TRIM($3)))
+              )
+        `, [userId, fullName || '', username || '', mobileNumber || '', towerNumber || '', flatNumber || '']);
+
         await client.query('COMMIT');
 
         const token = await createSession(userId);

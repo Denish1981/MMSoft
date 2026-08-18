@@ -44,37 +44,22 @@ const checkApprovedContribution = async ({ userId, towerNumber, flatNumber, emai
 
         if (userTower && userFlat) {
             conditions.push(`(
-                (
-                    (LOWER(TRIM(c.tower_number)) = LOWER(TRIM($${paramIdx})) AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($${paramIdx + 1})))
-                    OR (REPLACE(LOWER(TRIM(c.tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($${paramIdx})), 'tower', '') AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($${paramIdx + 1})))
-                    OR (REGEXP_REPLACE(LOWER(c.tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx}), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(c.flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx + 1}), '[^0-9a-z]', '', 'g'))
-                )
-                OR c.user_id IN (
-                    SELECT id FROM users 
-                    WHERE (LOWER(TRIM(tower_number)) = LOWER(TRIM($${paramIdx})) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($${paramIdx + 1})))
-                       OR (REPLACE(LOWER(TRIM(tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($${paramIdx})), 'tower', '') AND LOWER(TRIM(flat_number)) = LOWER(TRIM($${paramIdx + 1})))
-                       OR (REGEXP_REPLACE(LOWER(tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx}), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx + 1}), '[^0-9a-z]', '', 'g'))
-                )
+                (LOWER(TRIM(c.tower_number)) = LOWER(TRIM($${paramIdx})) AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($${paramIdx + 1})))
+                OR (REPLACE(LOWER(TRIM(c.tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($${paramIdx})), 'tower', '') AND LOWER(TRIM(c.flat_number)) = LOWER(TRIM($${paramIdx + 1})))
+                OR (REGEXP_REPLACE(LOWER(c.tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx}), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(c.flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($${paramIdx + 1}), '[^0-9a-z]', '', 'g'))
             )`);
             params.push(userTower, userFlat);
             paramIdx += 2;
         }
 
         if (userEmail) {
-            conditions.push(`(
-                LOWER(TRIM(c.donor_email)) = LOWER(TRIM($${paramIdx})) 
-                OR c.user_id IN (SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($${paramIdx})))
-            )`);
+            conditions.push(`LOWER(TRIM(c.donor_email)) = LOWER(TRIM($${paramIdx}))`);
             params.push(userEmail);
             paramIdx++;
         }
 
         if (userMobile) {
-            conditions.push(`(
-                c.mobile_number = $${paramIdx} 
-                OR REPLACE(c.mobile_number, ' ', '') = REPLACE($${paramIdx}, ' ', '')
-                OR c.user_id IN (SELECT id FROM users WHERE mobile_number = $${paramIdx} OR REPLACE(mobile_number, ' ', '') = REPLACE($${paramIdx}, ' ', ''))
-            )`);
+            conditions.push(`(c.mobile_number = $${paramIdx} OR REPLACE(c.mobile_number, ' ', '') = REPLACE($${paramIdx}, ' ', ''))`);
             params.push(userMobile);
             paramIdx++;
         }

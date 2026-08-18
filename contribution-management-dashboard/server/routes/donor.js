@@ -29,7 +29,7 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
              FROM contributions c 
              LEFT JOIN festivals f ON c.festival_id = f.id
              LEFT JOIN campaigns cmp ON c.campaign_id = cmp.id 
-             WHERE (
+             WHERE c.deleted_at IS NULL AND (
                  c.user_id = $1 
                  OR (
                      $2 != '' AND $3 != '' AND (
@@ -38,17 +38,11 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
                          OR (REGEXP_REPLACE(LOWER(c.tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($2), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(c.flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($3), '[^0-9a-z]', '', 'g'))
                      )
                  )
-                 OR (
-                     $2 != '' AND $3 != '' AND c.user_id IN (
-                         SELECT id FROM users 
-                         WHERE (LOWER(TRIM(tower_number)) = LOWER(TRIM($2)) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($3)))
-                            OR (REPLACE(LOWER(TRIM(tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($2)), 'tower', '') AND LOWER(TRIM(flat_number)) = LOWER(TRIM($3)))
-                            OR (REGEXP_REPLACE(LOWER(tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($2), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($3), '[^0-9a-z]', '', 'g'))
-                     )
-                 )
-             ) AND c.deleted_at IS NULL 
+                 OR ($4 != '' AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM($4)))
+                 OR ($5 != '' AND (c.mobile_number = $5 OR REPLACE(c.mobile_number, ' ', '') = REPLACE($5, ' ', '')))
+             )
              ORDER BY c.date DESC`,
-            [userId, tower, flat]
+            [userId, tower, flat, userEmail, mobile]
         );
 
         // Fetch My Stall Registrations
@@ -509,6 +503,83 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('Error updating registration details:', err);
         res.status(500).json({ error: err.message || 'Failed to update registration details' });
+    }
+});
+
+router.put('/contributions/:id/claim-coupons', authMiddleware, async (req, res) => {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { numberOfCoupons } = req.body;
+
+    try {
+        const userRes = await db.query(
+            'SELECT tower_number, flat_number, full_name, username, mobile_number FROM users WHERE id = $1',
+            [userId]
+        );
+        if (userRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const u = userRes.rows[0];
+        const tower = u.tower_number || '';
+        const flat = u.flat_number || '';
+
+        // Check ownership via user_id OR household tower+flat match
+        const contribRes = await db.query(
+            `SELECT * FROM contributions 
+             WHERE id = $1 AND deleted_at IS NULL 
+               AND (
+                 user_id = $2 
+                 OR (
+                     $3 != '' AND $4 != '' AND (
+                         (LOWER(TRIM(tower_number)) = LOWER(TRIM($3)) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($4)))
+                         OR (REPLACE(LOWER(TRIM(tower_number)), 'tower', '') = REPLACE(LOWER(TRIM($3)), 'tower', '') AND LOWER(TRIM(flat_number)) = LOWER(TRIM($4)))
+                         OR (REGEXP_REPLACE(LOWER(tower_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($3), '[^0-9a-z]', '', 'g') AND REGEXP_REPLACE(LOWER(flat_number), '[^0-9a-z]', '', 'g') = REGEXP_REPLACE(LOWER($4), '[^0-9a-z]', '', 'g'))
+                     )
+                 )
+               )`,
+            [id, userId, tower, flat]
+        );
+
+        if (contribRes.rows.length === 0) {
+            return res.status(403).json({ error: 'Contribution not found or not associated with your household.' });
+        }
+
+        const contrib = contribRes.rows[0];
+        const amount = parseFloat(contrib.amount);
+        if (isNaN(amount) || amount < 1500) {
+            return res.status(400).json({ error: 'Food coupons are only available for contributions of ₹1,500 or more.' });
+        }
+
+        const requestedCoupons = parseInt(numberOfCoupons, 10);
+        if (isNaN(requestedCoupons) || requestedCoupons < 0 || requestedCoupons > 4) {
+            return res.status(400).json({ error: 'Number of coupons must be between 0 and 4.' });
+        }
+
+        // Update coupons and link user profile if missing
+        const updateRes = await db.query(
+            `UPDATE contributions 
+             SET number_of_coupons = $1,
+                 user_id = COALESCE(user_id, $2),
+                 donor_name = CASE 
+                     WHEN (donor_name IS NULL OR donor_name = '' OR donor_name LIKE 'Tower %' OR donor_name LIKE 'Flat %' OR donor_name = 'Household Donor') AND $3 != '' AND $3 NOT LIKE '%@%'
+                     THEN $3 
+                     ELSE donor_name 
+                 END,
+                 donor_email = CASE WHEN (donor_email IS NULL OR donor_email = '') AND $4 != '' THEN $4 ELSE donor_email END,
+                 mobile_number = CASE WHEN (mobile_number IS NULL OR mobile_number = '') AND $5 != '' THEN $5 ELSE mobile_number END,
+                 updated_at = NOW()
+             WHERE id = $6
+             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type`,
+            [requestedCoupons, userId, u.full_name || '', u.username || '', u.mobile_number || '', id]
+        );
+
+        res.json({
+            message: 'Food coupons updated successfully!',
+            contribution: updateRes.rows[0]
+        });
+    } catch (err) {
+        console.error('Error claiming food coupons:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 

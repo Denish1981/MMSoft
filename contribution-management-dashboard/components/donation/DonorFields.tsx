@@ -16,6 +16,7 @@ interface DonorFieldsProps {
     disabledDonorName?: boolean;
     disabledTowerNumber?: boolean;
     disabledFlatNumber?: boolean;
+    isManagerOrAdmin?: boolean;
 }
 
 export const DonorFields: React.FC<DonorFieldsProps> = ({
@@ -33,15 +34,19 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
     disabledDonorName = false,
     disabledTowerNumber = false,
     disabledFlatNumber = false,
+    isManagerOrAdmin = false,
 }) => {
     const baseInputClass = "mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500";
     const disabledInputClass = "bg-slate-100 text-slate-600 cursor-not-allowed";
+
+    const isNameRequired = isMiscellaneous ? true : !isManagerOrAdmin;
+    const isContactRequired = !isManagerOrAdmin;
 
     return (
         <div className="space-y-4">
             <div>
                 <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">
-                    {isMiscellaneous ? 'Name / Source *' : 'Donor Name *'}
+                    {isMiscellaneous ? 'Name / Source *' : isManagerOrAdmin ? 'Donor Name (Optional)' : 'Donor Name *'}
                 </label>
                 <input 
                     type="text" 
@@ -50,31 +55,36 @@ export const DonorFields: React.FC<DonorFieldsProps> = ({
                     onChange={e => setDonorName(e.target.value)} 
                     disabled={disabledDonorName}
                     readOnly={disabledDonorName}
+                    placeholder={isManagerOrAdmin && !isMiscellaneous ? "Auto-assigned to Flat if left blank" : undefined}
                     className={`${baseInputClass} ${disabledDonorName ? disabledInputClass : ''}`} 
-                    required 
+                    required={isNameRequired} 
                 />
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label htmlFor="donorEmail" className="block text-sm font-medium text-slate-700">Donor Email *</label>
+                    <label htmlFor="donorEmail" className="block text-sm font-medium text-slate-700">
+                        {isContactRequired ? 'Donor Email *' : 'Donor Email (Optional)'}
+                    </label>
                     <input 
                         type="email" 
                         id="donorEmail" 
                         value={donorEmail} 
                         onChange={e => setDonorEmail(e.target.value)} 
                         className={baseInputClass} 
-                        required
+                        required={isContactRequired}
                     />
                 </div>
                 <div>
-                    <label htmlFor="mobileNumber" className="block text-sm font-medium text-slate-700">Mobile Number *</label>
+                    <label htmlFor="mobileNumber" className="block text-sm font-medium text-slate-700">
+                        {isContactRequired ? 'Mobile Number *' : 'Mobile Number (Optional)'}
+                    </label>
                     <input 
                         type="tel" 
                         id="mobileNumber" 
                         value={mobileNumber} 
                         onChange={e => setMobileNumber(e.target.value)} 
                         className={baseInputClass} 
-                        required
+                        required={isContactRequired}
                     />
                 </div>
             </div>

@@ -82,40 +82,67 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
         }
     }
 
-    const userId = req.user ? req.user.id : null;
-
     let dbTowerNumber = towerNumber;
     let dbFlatNumber = flatNumber;
-    try {
-        if (userId) {
-            const userRes = await db.query('SELECT tower_number, flat_number, mobile_number, full_name FROM users WHERE id = $1', [userId]);
-            if (userRes.rows.length > 0) {
-                if (!dbTowerNumber) dbTowerNumber = userRes.rows[0].tower_number;
-                if (!dbFlatNumber) dbFlatNumber = userRes.rows[0].flat_number;
-            }
+    let targetUserId = null;
 
-            // Save supplied profile info to user account for future auto-fills
-            if (towerNumber || flatNumber || mobileNumber || donorName) {
-                await db.query(
-                    `UPDATE users SET 
-                        tower_number = COALESCE(NULLIF($1, ''), tower_number),
-                        flat_number = COALESCE(NULLIF($2, ''), flat_number),
-                        mobile_number = COALESCE(NULLIF($3, ''), mobile_number),
-                        full_name = CASE WHEN $4 != '' AND $4 NOT LIKE '%@%' THEN $4 ELSE full_name END
-                     WHERE id = $5`,
-                    [towerNumber || '', flatNumber || '', mobileNumber || '', donorName || '', userId]
+    try {
+        if (isManagerOrAdmin) {
+            // If created by Admin/Manager on behalf of a household:
+            // Do NOT overwrite the Admin's own profile!
+            // Check if a registered resident user already exists for this Tower/Flat or Email
+            if (dbTowerNumber && dbFlatNumber) {
+                const residentRes = await db.query(
+                    `SELECT id FROM users 
+                     WHERE (LOWER(TRIM(tower_number)) = LOWER(TRIM($1)) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($2)))
+                     LIMIT 1`,
+                    [dbTowerNumber, dbFlatNumber]
                 );
+                if (residentRes.rows.length > 0) {
+                    targetUserId = residentRes.rows[0].id;
+                }
+            } else if (donorEmail) {
+                const residentRes = await db.query('SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1)) LIMIT 1', [donorEmail]);
+                if (residentRes.rows.length > 0) {
+                    targetUserId = residentRes.rows[0].id;
+                }
+            }
+        } else {
+            // Normal donor self-submitting:
+            targetUserId = req.user ? req.user.id : null;
+            if (targetUserId) {
+                const userRes = await db.query('SELECT tower_number, flat_number FROM users WHERE id = $1', [targetUserId]);
+                if (userRes.rows.length > 0) {
+                    if (!dbTowerNumber) dbTowerNumber = userRes.rows[0].tower_number;
+                    if (!dbFlatNumber) dbFlatNumber = userRes.rows[0].flat_number;
+                }
+
+                if (towerNumber || flatNumber || mobileNumber || donorName) {
+                    await db.query(
+                        `UPDATE users SET 
+                            tower_number = COALESCE(NULLIF($1, ''), tower_number),
+                            flat_number = COALESCE(NULLIF($2, ''), flat_number),
+                            mobile_number = COALESCE(NULLIF($3, ''), mobile_number),
+                            full_name = CASE WHEN $4 != '' AND $4 NOT LIKE '%@%' THEN $4 ELSE full_name END
+                         WHERE id = $5`,
+                        [towerNumber || '', flatNumber || '', mobileNumber || '', donorName || '', targetUserId]
+                    );
+                }
             }
         }
 
         // Clamp number_of_coupons to max 4 on server side
         const clampedCoupons = Math.min(4, Math.max(0, parseInt(numberOfCoupons, 10) || 0));
 
+        const finalDonorName = (donorName && donorName.trim()) 
+            ? donorName.trim() 
+            : (dbTowerNumber && dbFlatNumber ? `Tower ${dbTowerNumber} - Flat ${dbFlatNumber}` : 'Household Donor');
+
         const result = await db.query(
             `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image, user_id) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
              RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"`,
-            [donorName, donorEmail, mobileNumber, dbTowerNumber, dbFlatNumber, amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, image, userId]
+            [finalDonorName, donorEmail || null, mobileNumber || null, dbTowerNumber || 'N/A', dbFlatNumber || 'N/A', amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, image, targetUserId]
         );
         const row = result.rows[0];
         if (row.image) {
@@ -155,12 +182,33 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
             }
 
             const clampedCoupons = Math.min(4, Math.max(0, parseInt(c.numberOfCoupons, 10) || 0));
+            const finalDonorName = (c.donorName && c.donorName.trim()) 
+                ? c.donorName.trim() 
+                : (c.towerNumber && c.flatNumber ? `Tower ${c.towerNumber} - Flat ${c.flatNumber}` : 'Household Donor');
+
+            let bulkTargetUserId = null;
+            if (c.towerNumber && c.flatNumber) {
+                const residentRes = await client.query(
+                    `SELECT id FROM users 
+                     WHERE (LOWER(TRIM(tower_number)) = LOWER(TRIM($1)) AND LOWER(TRIM(flat_number)) = LOWER(TRIM($2)))
+                     LIMIT 1`,
+                    [c.towerNumber, c.flatNumber]
+                );
+                if (residentRes.rows.length > 0) {
+                    bulkTargetUserId = residentRes.rows[0].id;
+                }
+            } else if (c.donorEmail) {
+                const residentRes = await client.query('SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1)) LIMIT 1', [c.donorEmail]);
+                if (residentRes.rows.length > 0) {
+                    bulkTargetUserId = residentRes.rows[0].id;
+                }
+            }
 
             const result = await client.query(`
-                INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+                INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image, user_id) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
                 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"
-            `, [c.donorName, c.donorEmail, c.mobileNumber, c.towerNumber, c.flatNumber, c.amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type, c.image]);
+            `, [finalDonorName, c.donorEmail || null, c.mobileNumber || null, c.towerNumber || 'N/A', c.flatNumber || 'N/A', c.amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type, c.image, bulkTargetUserId]);
             const row = result.rows[0];
             if (row.image) {
                 row.image = `/api/contributions/${row.id}/image`;

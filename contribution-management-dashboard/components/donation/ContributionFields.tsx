@@ -17,6 +17,7 @@ interface ContributionFieldsProps {
     festivalId: number | null;
     setFestivalId: (val: number | null) => void;
     festivals: Festival[];
+    isManagerOrAdmin?: boolean;
 }
 
 export const ContributionFields: React.FC<ContributionFieldsProps> = ({
@@ -35,6 +36,7 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
     festivalId,
     setFestivalId,
     festivals,
+    isManagerOrAdmin = false,
 }) => {
     const isMisc = selectedDropdownType === 'Miscellaneous';
     const parsedAmount = parseFloat(amount);
@@ -92,6 +94,7 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
                             value={numberOfCoupons} 
                             disabled={!isAmountEligibleForCoupons}
                             readOnly={!isAmountEligibleForCoupons}
+                            placeholder={isManagerOrAdmin ? "0" : undefined}
                             onChange={e => {
                                 const val = e.target.value;
                                 if (val !== '' && parseInt(val, 10) > 4) {
@@ -106,7 +109,7 @@ export const ContributionFields: React.FC<ContributionFieldsProps> = ({
                                     ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
                                     : 'border-slate-300 bg-white focus:ring-blue-500 focus:border-blue-500'
                             }`} 
-                            required 
+                            required={!isManagerOrAdmin} 
                             min="0"
                             max="4"
                         />

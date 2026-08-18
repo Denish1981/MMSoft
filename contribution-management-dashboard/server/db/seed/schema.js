@@ -328,6 +328,11 @@ const applySchema = async (client) => {
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS family_roster JSONB DEFAULT '[]'::jsonb;");
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS festival_id INTEGER REFERENCES festivals(id) ON DELETE SET NULL;');
+    await client.query('ALTER TABLE contributions ALTER COLUMN donor_name DROP NOT NULL;');
+    await client.query('ALTER TABLE contributions ALTER COLUMN donor_email DROP NOT NULL;');
+    await client.query('ALTER TABLE contributions ALTER COLUMN mobile_number DROP NOT NULL;');
+    await client.query('ALTER TABLE contributions ALTER COLUMN tower_number DROP NOT NULL;');
+    await client.query('ALTER TABLE contributions ALTER COLUMN flat_number DROP NOT NULL;');
     await client.query('ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS tower_number VARCHAR(50);');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
@@ -361,6 +366,28 @@ const applySchema = async (client) => {
     await client.query('CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions (role_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_manager_approval_audit_user ON manager_approval_audit (user_id);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_manager_approval_audit_entity ON manager_approval_audit (entity_type, entity_id);');
+
+    // Clean up any admin accounts where tower/flat were inadvertently set when creating contributions for residents
+    await client.query(`
+        UPDATE users 
+        SET tower_number = NULL, flat_number = NULL 
+        WHERE id IN (
+            SELECT ur.user_id FROM user_roles ur 
+            JOIN roles r ON ur.role_id = r.id 
+            WHERE r.name IN ('Admin', 'Super Admin')
+        );
+    `);
+
+    // Clean up contributions where user_id points to an Admin account instead of a genuine resident donor
+    await client.query(`
+        UPDATE contributions 
+        SET user_id = NULL 
+        WHERE user_id IN (
+            SELECT ur.user_id FROM user_roles ur 
+            JOIN roles r ON ur.role_id = r.id 
+            WHERE r.name IN ('Admin', 'Super Admin')
+        );
+    `);
 };
 
 module.exports = { applySchema };

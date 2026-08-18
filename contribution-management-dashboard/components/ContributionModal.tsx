@@ -194,17 +194,36 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
         const numAmount = parseFloat(amount);
         const isAmountEligible = !isNaN(numAmount) && numAmount >= 1500;
 
-        if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || numberOfCoupons === '')) || !date || !image) {
-            alert('Please fill out all required fields and upload a payment proof or receipt image.');
-            return;
+        if (isManagerOrAdmin) {
+            if (isMisc) {
+                if (!donorName.trim() || !amount || !festivalId || !date || !image) {
+                    alert('Please specify Name/Source, Amount, Festival, Date, and upload a receipt image.');
+                    return;
+                }
+            } else {
+                if (!towerNumber.trim() || !flatNumber.trim() || !amount || !festivalId || !date || !image) {
+                    alert('Please specify Tower Number, Flat Number, Amount, Festival, Date, and upload a payment proof/receipt image.');
+                    return;
+                }
+            }
+        } else {
+            if (!donorName || !donorEmail || !mobileNumber || !amount || !festivalId || (!isMisc && (!towerNumber || !flatNumber || numberOfCoupons === '')) || !date || !image) {
+                alert('Please fill out all required fields and upload a payment proof or receipt image.');
+                return;
+            }
         }
 
-        let couponCount = isMisc || !isAmountEligible ? 0 : parseInt(numberOfCoupons, 10);
-        if (isNaN(couponCount) || couponCount < 0) couponCount = 0;
-        if (!isMisc && isAmountEligible && couponCount > 4) {
-            couponCount = 4;
-            setNumberOfCoupons('4');
-            alert('Maximum 4 coupons are allowed per contribution. The coupon count has been set to 4. Please contact GTMM if you need more than 4 coupons.');
+        let couponCount = 0;
+        if (!isMisc && isAmountEligible) {
+            if (numberOfCoupons !== '') {
+                couponCount = parseInt(numberOfCoupons, 10);
+                if (isNaN(couponCount) || couponCount < 0) couponCount = 0;
+                if (couponCount > 4) {
+                    couponCount = 4;
+                    setNumberOfCoupons('4');
+                    alert('Maximum 4 coupons are allowed per contribution. The coupon count has been set to 4.');
+                }
+            }
         }
 
         const finalType = selectedDropdownType === 'Other' 
@@ -216,10 +235,14 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
         const selectedFest = activeFestivals.find(f => f.id === festivalId);
         const derivedCampaignId = selectedFest?.campaignId || (contributionToEdit?.campaignId ?? null);
 
+        const finalDonorName = donorName.trim() 
+            ? donorName.trim() 
+            : (!isMisc && towerNumber && flatNumber ? `Tower ${towerNumber} - Flat ${flatNumber}` : 'Household Donor');
+
         const submissionData: Omit<Contribution, 'id' | 'createdAt' | 'updatedAt'> = {
-            donorName,
-            donorEmail,
-            mobileNumber,
+            donorName: finalDonorName,
+            donorEmail: donorEmail.trim() || undefined,
+            mobileNumber: mobileNumber.trim() || undefined,
             towerNumber: isMisc ? 'N/A' : towerNumber,
             flatNumber: isMisc ? 'N/A' : flatNumber,
             amount: parseFloat(amount),
@@ -241,16 +264,24 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const disabledTowerNumber = isDonorUser && isDonorPortalPage && Boolean(user?.towerNumber);
     const disabledFlatNumber = isDonorUser && isDonorPortalPage && Boolean(user?.flatNumber);
 
-    const isFormValid = Boolean(
-        donorName.trim() &&
-        donorEmail.trim() &&
-        mobileNumber.trim() &&
-        amount.trim() &&
-        festivalId &&
-        date &&
-        image &&
-        (isMiscellaneous || (towerNumber.trim() && flatNumber.trim() && numberOfCoupons !== ''))
-    );
+    const isFormValid = isManagerOrAdmin
+        ? Boolean(
+            amount.trim() &&
+            festivalId &&
+            date &&
+            image &&
+            (isMiscellaneous ? donorName.trim() : (towerNumber.trim() && flatNumber.trim()))
+        )
+        : Boolean(
+            donorName.trim() &&
+            donorEmail.trim() &&
+            mobileNumber.trim() &&
+            amount.trim() &&
+            festivalId &&
+            date &&
+            image &&
+            (isMiscellaneous || (towerNumber.trim() && flatNumber.trim() && numberOfCoupons !== ''))
+        );
 
     return (
         <>
@@ -279,6 +310,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
                             disabledDonorName={disabledDonorName}
                             disabledTowerNumber={disabledTowerNumber}
                             disabledFlatNumber={disabledFlatNumber}
+                            isManagerOrAdmin={isManagerOrAdmin}
                         />
 
                         <ContributionFields
@@ -297,6 +329,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
                             festivalId={festivalId}
                             setFestivalId={setFestivalId}
                             festivals={activeFestivals}
+                            isManagerOrAdmin={isManagerOrAdmin}
                         />
 
                         <ImageUploadSection

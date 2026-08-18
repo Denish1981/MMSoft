@@ -94,12 +94,19 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!formData.donorName || !formData.amount || !formData.campaignId || !formData.towerNumber || !formData.flatNumber || !formData.date || !formData.image) {
-            setError('Please fill out all required fields, including uploading a receipt or payment proof image.');
+        if (!formData.amount || !formData.campaignId || !formData.towerNumber || !formData.flatNumber || !formData.date || !formData.image) {
+            setError('Please fill out all required fields, including Tower, Flat, Amount, Campaign, Date, and uploading a receipt or payment proof image.');
             return;
         }
 
-        onAddToList(formData);
+        const submissionItem = {
+            ...formData,
+            donorName: formData.donorName.trim() || `Tower ${formData.towerNumber} - Flat ${formData.flatNumber}`,
+            donorEmail: formData.donorEmail?.trim() || undefined,
+            mobileNumber: formData.mobileNumber?.trim() || undefined,
+        };
+
+        onAddToList(submissionItem);
         
         // Reset form, but keep campaign, date, and type for faster entry
         setFormData(prev => ({
@@ -118,8 +125,16 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
             <form onSubmit={handleSubmit} className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-1">
-                        <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">Donor Name</label>
-                        <input type="text" id="donorName" name="donorName" value={formData.donorName} onChange={handleInputChange} className="mt-1 block w-full input-style" required />
+                        <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">Donor Name (Optional)</label>
+                        <input 
+                            type="text" 
+                            id="donorName" 
+                            name="donorName" 
+                            placeholder="Auto-assigned if empty" 
+                            value={formData.donorName} 
+                            onChange={handleInputChange} 
+                            className="mt-1 block w-full input-style" 
+                        />
                     </div>
                      <div className="md:col-span-1">
                         <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number *</label>
