@@ -16,6 +16,60 @@ router.get('/', authMiddleware, permissionMiddleware('page:participants:view'), 
                 r1.name,
                 r1.email,
                 r1.form_data->>'phone_number' as "phoneNumber",
+                COALESCE(
+                    r1.form_data->>'tower_number',
+                    r1.form_data->>'towerNumber',
+                    r1.form_data->>'tower',
+                    (
+                        SELECT c.tower_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.tower_number IS NOT NULL 
+                          AND (
+                            (
+                              r1.form_data->>'phone_number' IS NOT NULL 
+                              AND (
+                                c.mobile_number = r1.form_data->>'phone_number' 
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(r1.form_data->>'phone_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              r1.email IS NOT NULL 
+                              AND r1.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(r1.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "towerNumber",
+                COALESCE(
+                    r1.form_data->>'flat_number',
+                    r1.form_data->>'flatNumber',
+                    r1.form_data->>'flat',
+                    (
+                        SELECT c.flat_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.flat_number IS NOT NULL 
+                          AND (
+                            (
+                              r1.form_data->>'phone_number' IS NOT NULL 
+                              AND (
+                                c.mobile_number = r1.form_data->>'phone_number' 
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(r1.form_data->>'phone_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              r1.email IS NOT NULL 
+                              AND r1.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(r1.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "flatNumber",
                 CAST((
                     SELECT COUNT(DISTINCT r2.event_id)
                     FROM event_registrations r2
@@ -54,12 +108,132 @@ router.get('/:name/:phone', authMiddleware, permissionMiddleware('page:participa
     
     try {
         const query = phoneNumber
-            ? `SELECT r.name, r.email, r.form_data->>'phone_number' as "phoneNumber", e.name as "eventName", e.event_date as "eventDate", r.submitted_at as "submittedAt"
+            ? `SELECT 
+                r.name, 
+                r.email, 
+                r.form_data->>'phone_number' as "phoneNumber",
+                COALESCE(
+                    r.form_data->>'tower_number',
+                    r.form_data->>'towerNumber',
+                    r.form_data->>'tower',
+                    (
+                        SELECT c.tower_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.tower_number IS NOT NULL 
+                          AND (
+                            (
+                              r.form_data->>'phone_number' IS NOT NULL 
+                              AND (
+                                c.mobile_number = r.form_data->>'phone_number' 
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(r.form_data->>'phone_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              r.email IS NOT NULL 
+                              AND r.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(r.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "towerNumber",
+                COALESCE(
+                    r.form_data->>'flat_number',
+                    r.form_data->>'flatNumber',
+                    r.form_data->>'flat',
+                    (
+                        SELECT c.flat_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.flat_number IS NOT NULL 
+                          AND (
+                            (
+                              r.form_data->>'phone_number' IS NOT NULL 
+                              AND (
+                                c.mobile_number = r.form_data->>'phone_number' 
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(r.form_data->>'phone_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              r.email IS NOT NULL 
+                              AND r.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(r.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "flatNumber",
+                e.name as "eventName", 
+                e.event_date as "eventDate", 
+                r.submitted_at as "submittedAt"
                FROM event_registrations r
                JOIN events e ON r.event_id = e.id
                WHERE LOWER(r.name) = LOWER($1) AND r.form_data->>'phone_number' = $2
                ORDER BY e.event_date DESC`
-            : `SELECT r.name, r.email, r.form_data->>'phone_number' as "phoneNumber", e.name as "eventName", e.event_date as "eventDate", r.submitted_at as "submittedAt"
+            : `SELECT 
+                r.name, 
+                r.email, 
+                r.form_data->>'phone_number' as "phoneNumber",
+                COALESCE(
+                    r.form_data->>'tower_number',
+                    r.form_data->>'towerNumber',
+                    r.form_data->>'tower',
+                    (
+                        SELECT c.tower_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.tower_number IS NOT NULL 
+                          AND (
+                            (
+                              r.form_data->>'phone_number' IS NOT NULL 
+                              AND (
+                                c.mobile_number = r.form_data->>'phone_number' 
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(r.form_data->>'phone_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              r.email IS NOT NULL 
+                              AND r.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(r.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "towerNumber",
+                COALESCE(
+                    r.form_data->>'flat_number',
+                    r.form_data->>'flatNumber',
+                    r.form_data->>'flat',
+                    (
+                        SELECT c.flat_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.flat_number IS NOT NULL 
+                          AND (
+                            (
+                              r.form_data->>'phone_number' IS NOT NULL 
+                              AND (
+                                c.mobile_number = r.form_data->>'phone_number' 
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(r.form_data->>'phone_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              r.email IS NOT NULL 
+                              AND r.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(r.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "flatNumber",
+                e.name as "eventName", 
+                e.event_date as "eventDate", 
+                r.submitted_at as "submittedAt"
                FROM event_registrations r
                JOIN events e ON r.event_id = e.id
                WHERE LOWER(r.name) = LOWER($1) AND r.form_data->>'phone_number' IS NULL
@@ -77,7 +251,9 @@ router.get('/:name/:phone', authMiddleware, permissionMiddleware('page:participa
             participant: {
                 name: rows[0].name,
                 email: rows[0].email,
-                phoneNumber: rows[0].phoneNumber
+                phoneNumber: rows[0].phoneNumber,
+                towerNumber: rows[0].towerNumber,
+                flatNumber: rows[0].flatNumber
             },
             registrations: rows.map(({ eventName, eventDate, submittedAt }) => ({
                 eventName,

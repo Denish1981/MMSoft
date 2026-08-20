@@ -50,6 +50,9 @@ const ParticipantDetailsPage: React.FC = () => {
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">{participant.name}</h2>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+                           {(participant.towerNumber || participant.flatNumber) && (
+                               <span>🏢 Tower: {participant.towerNumber || 'N/A'}, Flat: {participant.flatNumber || 'N/A'}</span>
+                           )}
                            {participant.email && <span>📧 {participant.email}</span>}
                            {participant.phoneNumber && <span>📞 {participant.phoneNumber}</span>}
                         </div>

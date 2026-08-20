@@ -48,6 +48,8 @@ export interface UniqueParticipant {
   name: string;
   email?: string;
   phoneNumber?: string;
+  towerNumber?: string;
+  flatNumber?: string;
   registrationCount: number;
   events?: string[];
   lastRegisteredAt: string; // ISO String
@@ -64,6 +66,8 @@ export interface ParticipantRegistrationHistory {
         name: string;
         email?: string;
         phoneNumber?: string;
+        towerNumber?: string;
+        flatNumber?: string;
     };
     registrations: ParticipantDetails[];
 }
