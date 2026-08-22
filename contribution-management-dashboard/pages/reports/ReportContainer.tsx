@@ -3,7 +3,9 @@ import React from 'react';
 
 interface ReportContainerProps {
     title: string;
-    onExport: () => void;
+    onExport?: () => void;
+    exportButtonText?: string;
+    extraActions?: React.ReactNode;
     children: React.ReactNode;
 }
 
@@ -16,18 +18,23 @@ const ExportIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 
-const ReportContainer: React.FC<ReportContainerProps> = ({ title, onExport, children }) => {
+const ReportContainer: React.FC<ReportContainerProps> = ({ title, onExport, exportButtonText = 'Export to CSV', extraActions, children }) => {
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
                 <h2 className="text-xl font-semibold text-slate-800">{title}</h2>
-                <button
-                    onClick={onExport}
-                    className="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-                >
-                    <ExportIcon className="w-5 h-5 mr-2" />
-                    Export to CSV
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    {extraActions}
+                    {onExport && (
+                        <button
+                            onClick={onExport}
+                            className="flex items-center justify-center bg-green-600 text-white px-4 py-2 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 text-sm font-medium"
+                        >
+                            <ExportIcon className="w-4 h-4 mr-2" />
+                            {exportButtonText}
+                        </button>
+                    )}
+                </div>
             </div>
             {children}
         </div>

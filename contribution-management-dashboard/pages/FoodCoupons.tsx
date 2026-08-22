@@ -5,6 +5,7 @@ import { TicketIcon } from '../components/icons/TicketIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { SaveIcon } from '../components/icons/SaveIcon';
+import { TOWER_OPTIONS, normalizeTowerNumber, normalizeFlatNumber } from '../utils/donorLocationUtils';
 
 export const FoodCouponsPage: React.FC = () => {
     const { contributions, handleUpdateContributionCoupons, festivalMap } = useData();
@@ -27,13 +28,19 @@ export const FoodCouponsPage: React.FC = () => {
 
     // List of unique tower numbers for quick filter dropdown
     const uniqueTowers = useMemo(() => {
-        const towers = new Set<string>();
+        const towers = new Set<string>(TOWER_OPTIONS);
         contributions.forEach(c => {
-            if (c.towerNumber && c.towerNumber.trim()) {
-                towers.add(c.towerNumber.trim());
+            const t = normalizeTowerNumber(c.towerNumber);
+            if (t) {
+                towers.add(t);
             }
         });
-        return Array.from(towers).sort();
+        return Array.from(towers).sort((a, b) => {
+            const numA = parseInt(a, 10);
+            const numB = parseInt(b, 10);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return a.localeCompare(b);
+        });
     }, [contributions]);
 
     // Contributions that have requested food coupons (or all completed/approved contributions)
@@ -46,14 +53,18 @@ export const FoodCouponsPage: React.FC = () => {
         return foodCouponContributions.filter(c => {
             // Tower filter
             if (towerFilter) {
-                if (!c.towerNumber || !c.towerNumber.toLowerCase().includes(towerFilter.toLowerCase().trim())) {
+                const normC = normalizeTowerNumber(c.towerNumber);
+                const normFilter = normalizeTowerNumber(towerFilter) || towerFilter.toLowerCase().trim();
+                if (!normC.toLowerCase().includes(normFilter.toLowerCase()) && !(c.towerNumber || '').toLowerCase().includes(normFilter.toLowerCase())) {
                     return false;
                 }
             }
 
             // Flat filter
             if (flatFilter) {
-                if (!c.flatNumber || !c.flatNumber.toLowerCase().includes(flatFilter.toLowerCase().trim())) {
+                const normC = normalizeFlatNumber(c.flatNumber);
+                const normFilter = normalizeFlatNumber(flatFilter) || flatFilter.toLowerCase().trim();
+                if (!normC.toLowerCase().includes(normFilter.toLowerCase()) && !(c.flatNumber || '').toLowerCase().includes(normFilter.toLowerCase())) {
                     return false;
                 }
             }
