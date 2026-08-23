@@ -204,12 +204,12 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
                     id="rules" 
                     value={rules} 
                     onChange={e => setRules(e.target.value)} 
-                    rows={4} 
-                    placeholder="Enter each rule on a new line or bullet point:&#10;• Maximum 4 minutes per dance performance&#10;• Audio track must be submitted 48 hours prior&#10;• Report to backstage 30 mins before stage time"
+                    rows={5} 
+                    placeholder="Enter flat rules or categorized 2-level rules:&#10;&#10;Song Rules:&#10;• Rule 1&#10;• Rule 2&#10;&#10;Costume Rules:&#10;• Rule 1&#10;• Rule 2"
                     className="mt-1 block w-full input-style font-mono text-xs" 
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                    Tip: Separate each rule by a new line. They will be formatted cleanly into itemized checklists for participants.
+                    Tip: Enter rules as a simple list or group them into categories using headings (e.g. <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-[11px]">Song Rules:</code>). Both single-level and 2-level formats are automatically supported.
                 </p>
             </div>
             <div>

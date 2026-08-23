@@ -8,6 +8,8 @@ import {
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
 import { isEventRegistrationClosed } from '../types/events';
+import { parseEventRules } from '../utils/ruleUtils';
+import { EventRulesRenderer } from '../components/event-rules/EventRulesRenderer';
 import { useAuth } from '../contexts/AuthContext';
 import type { PublicEvent } from '../components/RegistrationModal';
 
@@ -94,16 +96,6 @@ export const EventDetailsPage: React.FC = () => {
         return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
-    const parseRules = (rulesText?: string | null): string[] => {
-        if (!rulesText || !rulesText.trim()) return [];
-        return rulesText
-            .split(/\r?\n/)
-            .map(line => line.trim())
-            .filter(line => line.length > 0)
-            .map(line => line.replace(/^[\s•\-\*]+/, '').replace(/^\d+[\.\)]\s*/, '').trim())
-            .filter(line => line.length > 0);
-    };
-
     const shareUrl = window.location.href;
 
     const handleCopyShareLink = async () => {
@@ -154,7 +146,8 @@ export const EventDetailsPage: React.FC = () => {
     }
 
     const isClosed = isEventRegistrationClosed(event.registrationDeadline, event.eventDate);
-    const rulesList = parseRules(event.rules);
+    const parsedRules = parseEventRules(event.rules);
+    const totalRuleCount = parsedRules.totalCount;
 
     return (
         <div className="bg-slate-50 min-h-screen flex flex-col justify-between">
@@ -318,32 +311,14 @@ export const EventDetailsPage: React.FC = () => {
                                     <ShieldAlert className="w-5 h-5 text-amber-600" />
                                     <h2 className="text-xl font-bold text-slate-900">Rules & Regulations</h2>
                                 </div>
-                                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
-                                    {rulesList.length} criteria
-                                </span>
+                                {totalRuleCount > 0 && (
+                                    <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
+                                        {totalRuleCount} {totalRuleCount === 1 ? 'criterion' : 'criteria'}
+                                    </span>
+                                )}
                             </div>
 
-                            {rulesList.length > 0 ? (
-                                <div className="grid grid-cols-1 gap-3">
-                                    {rulesList.map((rule, idx) => (
-                                        <div 
-                                            key={idx}
-                                            className="flex items-start gap-4 p-4 bg-amber-50/40 hover:bg-amber-50 rounded-2xl border border-amber-200/80 transition-colors shadow-2xs"
-                                        >
-                                            <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                                                {idx + 1}
-                                            </div>
-                                            <div className="text-slate-800 text-sm sm:text-base leading-relaxed font-medium">
-                                                {rule}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 text-sm text-center italic">
-                                    Standard community festival rules apply. Please arrive promptly at the venue on the event date.
-                                </div>
-                            )}
+                            <EventRulesRenderer rulesText={event.rules} variant="page" />
                         </div>
 
                         {/* Section 3: Event Coordinators */}

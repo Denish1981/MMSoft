@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { formatUTCDate } from '../utils/formatting';
 import { isEventRegistrationClosed } from '../types/events';
+import { parseEventRules } from '../utils/ruleUtils';
+import { EventRulesRenderer } from './event-rules/EventRulesRenderer';
 import type { PublicEvent } from './RegistrationModal';
 
 interface EventRulesDetailsModalProps {
@@ -37,18 +39,8 @@ export const EventRulesDetailsModal: React.FC<EventRulesDetailsModalProps> = ({
         return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
-    // Parse rules string into clean individual rule items
-    const parseRules = (rulesText?: string | null): string[] => {
-        if (!rulesText || !rulesText.trim()) return [];
-        return rulesText
-            .split(/\r?\n/)
-            .map(line => line.trim())
-            .filter(line => line.length > 0)
-            .map(line => line.replace(/^[\s•\-\*]+/, '').replace(/^\d+[\.\)]\s*/, '').trim())
-            .filter(line => line.length > 0);
-    };
-
-    const rulesList = parseRules(event.rules);
+    const parsedRules = parseEventRules(event.rules);
+    const totalRuleCount = parsedRules.totalCount;
 
     // Share link generation
     const shareUrl = `${window.location.origin}${window.location.pathname}#/events/${event.id}`;
@@ -191,30 +183,14 @@ export const EventRulesDetailsModal: React.FC<EventRulesDetailsModalProps> = ({
                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                                 <ShieldAlert className="w-4 h-4 text-amber-600" /> Rules & Guidelines
                             </h3>
-                            <span className="text-xs font-semibold text-slate-400">
-                                {rulesList.length} criteria
-                            </span>
+                            {totalRuleCount > 0 && (
+                                <span className="text-xs font-semibold text-slate-400">
+                                    {totalRuleCount} {totalRuleCount === 1 ? 'criterion' : 'criteria'}
+                                </span>
+                            )}
                         </div>
 
-                        {rulesList.length > 0 ? (
-                            <div className="space-y-2.5">
-                                {rulesList.map((rule, idx) => (
-                                    <div 
-                                        key={idx}
-                                        className="flex items-start gap-3 p-3 bg-amber-50/50 hover:bg-amber-50 rounded-xl border border-amber-200/70 transition-colors text-sm text-slate-800"
-                                    >
-                                        <span className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">
-                                            {idx + 1}
-                                        </span>
-                                        <span className="leading-snug">{rule}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 italic text-center">
-                                Standard community celebration guidelines apply. Please follow coordinator instructions on the event day.
-                            </div>
-                        )}
+                        <EventRulesRenderer rulesText={event.rules} variant="modal" />
                     </div>
 
                     {/* Contact Persons / Coordinators */}
