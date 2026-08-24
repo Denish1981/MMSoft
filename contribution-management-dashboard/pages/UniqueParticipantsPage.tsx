@@ -84,8 +84,23 @@ const UniqueParticipantsPage: React.FC = () => {
     const handleExport = () => {
         const dataToExport: Record<string, any>[] = [];
         filteredParticipants.forEach(p => {
-            const formattedDate = p.lastRegisteredAt ? new Date(p.lastRegisteredAt).toLocaleString() : 'N/A';
-            if (p.events && p.events.length > 0) {
+            const formattedLastRegisteredDate = p.lastRegisteredAt ? new Date(p.lastRegisteredAt).toLocaleString() : 'N/A';
+            if (p.eventDetails && p.eventDetails.length > 0) {
+                p.eventDetails.forEach(detail => {
+                    const formattedEventDate = detail.eventDate ? formatUTCDate(detail.eventDate) : 'N/A';
+                    dataToExport.push({
+                        'Name': p.name,
+                        'Tower Number': p.towerNumber || 'N/A',
+                        'Flat Number': p.flatNumber || 'N/A',
+                        'Email': p.email || 'N/A',
+                        'Phone Number': p.phoneNumber || 'N/A',
+                        'Event Participated': detail.eventName || 'N/A',
+                        'Event Date': formattedEventDate,
+                        'Total Registrations': p.registrationCount,
+                        'Last Registered On': formattedLastRegisteredDate,
+                    });
+                });
+            } else if (p.events && p.events.length > 0) {
                 p.events.forEach(eventName => {
                     dataToExport.push({
                         'Name': p.name,
@@ -94,8 +109,9 @@ const UniqueParticipantsPage: React.FC = () => {
                         'Email': p.email || 'N/A',
                         'Phone Number': p.phoneNumber || 'N/A',
                         'Event Participated': eventName,
+                        'Event Date': 'N/A',
                         'Total Registrations': p.registrationCount,
-                        'Last Registered On': formattedDate,
+                        'Last Registered On': formattedLastRegisteredDate,
                     });
                 });
             } else {
@@ -106,8 +122,9 @@ const UniqueParticipantsPage: React.FC = () => {
                     'Email': p.email || 'N/A',
                     'Phone Number': p.phoneNumber || 'N/A',
                     'Event Participated': 'N/A',
+                    'Event Date': 'N/A',
                     'Total Registrations': p.registrationCount,
-                    'Last Registered On': formattedDate,
+                    'Last Registered On': formattedLastRegisteredDate,
                 });
             }
         });

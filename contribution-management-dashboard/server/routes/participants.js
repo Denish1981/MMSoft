@@ -86,6 +86,25 @@ router.get('/', authMiddleware, permissionMiddleware('page:participants:view'), 
                     AND COALESCE(r2.form_data->>'phone_number', '') = COALESCE(r1.form_data->>'phone_number', '')
                     ${countFestivalFilter}
                 ) as "events",
+                (
+                    SELECT COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'eventName', sub.name,
+                                'eventDate', sub.event_date
+                            ) ORDER BY sub.event_date ASC, sub.name ASC
+                        ),
+                        '[]'::json
+                    )
+                    FROM (
+                        SELECT DISTINCT e2.name, e2.event_date
+                        FROM event_registrations r2
+                        JOIN events e2 ON r2.event_id = e2.id
+                        WHERE LOWER(r2.name) = LOWER(r1.name)
+                        AND COALESCE(r2.form_data->>'phone_number', '') = COALESCE(r1.form_data->>'phone_number', '')
+                        ${countFestivalFilter}
+                    ) sub
+                ) as "eventDetails",
                 r1.submitted_at as "lastRegisteredAt"
             FROM event_registrations r1
             JOIN events e1 ON r1.event_id = e1.id

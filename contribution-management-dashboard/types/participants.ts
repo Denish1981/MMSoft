@@ -44,6 +44,11 @@ export interface StallRegistration {
     reviewedBy?: string;
 }
 
+export interface ParticipantEventDetail {
+  eventName: string;
+  eventDate?: string;
+}
+
 export interface UniqueParticipant {
   name: string;
   email?: string;
@@ -52,6 +57,7 @@ export interface UniqueParticipant {
   flatNumber?: string;
   registrationCount: number;
   events?: string[];
+  eventDetails?: ParticipantEventDetail[];
   lastRegisteredAt: string; // ISO String
 }
 
