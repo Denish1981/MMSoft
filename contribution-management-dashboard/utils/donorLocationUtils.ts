@@ -63,3 +63,34 @@ export const generateFlatOptions = (): FlatOptionGroup[] => {
 export const FLAT_OPTION_GROUPS = generateFlatOptions();
 export const ALL_FLAT_OPTIONS = FLAT_OPTION_GROUPS.flatMap(g => g.options);
 
+export const parseTowerAndFlatFromDonorName = (input?: string | null): { towerNumber: string; flatNumber: string } => {
+    if (!input || typeof input !== 'string') {
+        return { towerNumber: '', flatNumber: '' };
+    }
+    const trimmed = input.trim();
+    if (!trimmed) return { towerNumber: '', flatNumber: '' };
+
+    // Matches patterns like "42-101", "42 - 101", "T42-101", "Tower 42 - Flat 101", "T-42-101", "42/101", "42 101"
+    const descriptiveMatch = trimmed.match(/^(?:tower|t)?\s*([a-zA-Z0-9]+)\s*(?:[-/_,\s:]+|flat|f)\s*(?:flat|f)?\s*([a-zA-Z0-9]+)$/i);
+    if (descriptiveMatch) {
+        const rawTower = descriptiveMatch[1].trim();
+        const rawFlat = descriptiveMatch[2].trim();
+        return {
+            towerNumber: normalizeTowerNumber(rawTower),
+            flatNumber: normalizeFlatNumber(rawFlat)
+        };
+    }
+
+    const parts = trimmed.split(/[-/_:,\s]+/).filter(Boolean);
+    if (parts.length >= 2) {
+        const rawTower = parts[0].replace(/^(tower|t)/i, '').trim() || parts[0];
+        const rawFlat = parts[1].replace(/^(flat|f)/i, '').trim() || parts[1];
+        return {
+            towerNumber: normalizeTowerNumber(rawTower),
+            flatNumber: normalizeFlatNumber(rawFlat)
+        };
+    }
+
+    return { towerNumber: '', flatNumber: '' };
+};
+

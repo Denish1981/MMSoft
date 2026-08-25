@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ContributionStatus, type StagedContribution } from '../types/index';
-import { compressImageFile } from '../utils/imageUtils';
 import { PlusIcon } from './icons/PlusIcon';
-import { CameraIcon } from './icons/CameraIcon';
-import { CloseIcon } from './icons/CloseIcon';
-import CameraCapture from './CameraCapture';
 import { useData } from '../contexts/DataContext';
-import { TOWER_OPTIONS, FLAT_OPTION_GROUPS, ALL_FLAT_OPTIONS } from '../utils/donorLocationUtils';
+import { parseTowerAndFlatFromDonorName } from '../utils/donorLocationUtils';
+import { compressImageFile } from '../utils/imageUtils';
+import { ImageUploadSection } from './donation/ImageUploadSection';
+import CameraCapture from './CameraCapture';
 
-const initialFormState: StagedContribution = {
+const getInitialFormState = (campaignId: number | null): StagedContribution => ({
     donorName: '',
     towerNumber: '',
     flatNumber: '',
@@ -16,33 +15,44 @@ const initialFormState: StagedContribution = {
     numberOfCoupons: 0,
     donorEmail: '',
     mobileNumber: '',
-    campaignId: null,
+    campaignId: campaignId,
     date: new Date().toISOString().split('T')[0],
     type: 'Online',
     status: ContributionStatus.Completed,
     image: undefined,
-};
+});
 
 interface BulkAddFormProps {
+    defaultCampaignId: number | null;
     onAddToList: (contribution: StagedContribution) => void;
     setError: (error: string) => void;
 }
 
-export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError }) => {
+export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onAddToList, setError }) => {
     const { campaigns } = useData();
-    const [formData, setFormData] = useState<StagedContribution>(initialFormState);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [formData, setFormData] = useState<StagedContribution>(() => getInitialFormState(defaultCampaignId));
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [isCompressing, setIsCompressing] = useState(false);
 
+    // Keep campaign synced with the top default campaign if set
     useEffect(() => {
-        if (campaigns.length > 0 && !formData.campaignId) {
-            const activeCamp = campaigns.find(c => c.isActive) || campaigns[0];
-            setFormData(prev => ({ ...prev, campaignId: activeCamp?.id || null }));
+        if (defaultCampaignId) {
+            setFormData(prev => ({ ...prev, campaignId: defaultCampaignId }));
         }
-    }, [campaigns, formData.campaignId]);
+    }, [defaultCampaignId]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        if (name === 'donorName') {
+            const { towerNumber, flatNumber } = parseTowerAndFlatFromDonorName(value);
+            setFormData((prev: StagedContribution) => ({
+                ...prev,
+                donorName: value,
+                towerNumber,
+                flatNumber,
+            }));
+            return;
+        }
         if (name === 'amount') {
             const numAmount = value ? parseFloat(value) : 0;
             setFormData((prev: StagedContribution) => ({
@@ -70,121 +80,156 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                 : (name === 'campaignId' ? (value ? Number(value) : null) : value)
         }));
     };
-    
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setIsCompressing(true);
             try {
-                const base64String = await compressImageFile(file);
-                setFormData((prev: StagedContribution) => ({ ...prev, image: base64String }));
-                setImagePreview(base64String);
+                const compressedBase64 = await compressImageFile(file);
+                setFormData((prev: StagedContribution) => ({ ...prev, image: compressedBase64 }));
             } catch (err) {
-                console.error("Error processing image file:", err);
+                console.error("Image compression error:", err);
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setFormData((prev: StagedContribution) => ({ ...prev, image: reader.result as string }));
+                };
+                reader.readAsDataURL(file);
+            } finally {
+                setIsCompressing(false);
             }
         }
-        e.target.value = '';
     };
 
-    const handleCaptureComplete = (imageDataUrl: string) => {
+    const handleCameraCapture = (imageDataUrl: string) => {
         setFormData((prev: StagedContribution) => ({ ...prev, image: imageDataUrl }));
-        setImagePreview(imageDataUrl);
         setIsCameraOpen(false);
     };
+
+    const handleClearImage = () => {
+        setFormData((prev: StagedContribution) => ({ ...prev, image: undefined }));
+    };
+
+    const parsedInfo = parseTowerAndFlatFromDonorName(formData.donorName);
+    const resolvedTower = formData.towerNumber || parsedInfo.towerNumber;
+    const resolvedFlat = formData.flatNumber || parsedInfo.flatNumber;
+
+    const isFormValid = Boolean(
+        formData.donorName.trim() &&
+        resolvedTower &&
+        resolvedFlat &&
+        formData.amount > 0 &&
+        (formData.campaignId || defaultCampaignId) &&
+        !isCompressing
+    );
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!formData.amount || !formData.campaignId || !formData.towerNumber || !formData.flatNumber || !formData.date || !formData.image) {
-            setError('Please fill out all required fields, including Tower, Flat, Amount, Campaign, Date, and uploading a receipt or payment proof image.');
+
+        const donorTrimmed = formData.donorName.trim();
+        const parsed = parseTowerAndFlatFromDonorName(donorTrimmed);
+        const finalTower = formData.towerNumber || parsed.towerNumber;
+        const finalFlat = formData.flatNumber || parsed.flatNumber;
+        const activeCampaignId = formData.campaignId || defaultCampaignId;
+
+        if (!donorTrimmed) {
+            setError('Please enter Donor Name as TowerNumber-FlatNumber (e.g. 42-101).');
             return;
         }
 
-        const submissionItem = {
+        if (!finalTower || !finalFlat) {
+            setError('Could not interpret Tower and Flat from Donor Name. Please enter in TowerNumber-FlatNumber format (e.g. 42-101 or 43-1205).');
+            return;
+        }
+
+        if (!formData.amount || formData.amount <= 0) {
+            setError('Please enter a valid contribution amount.');
+            return;
+        }
+
+        if (!activeCampaignId) {
+            setError('Please select a default campaign at the top of the page.');
+            return;
+        }
+
+        const submissionItem: StagedContribution = {
             ...formData,
-            donorName: formData.donorName.trim() || `Tower ${formData.towerNumber} - Flat ${formData.flatNumber}`,
+            campaignId: activeCampaignId,
+            donorName: donorTrimmed,
+            towerNumber: finalTower,
+            flatNumber: finalFlat,
+            date: formData.date || new Date().toISOString().split('T')[0],
+            status: ContributionStatus.Completed,
             donorEmail: formData.donorEmail?.trim() || undefined,
             mobileNumber: formData.mobileNumber?.trim() || undefined,
+            image: formData.image || undefined,
         };
 
         onAddToList(submissionItem);
         
-        // Reset form, but keep campaign, date, and type for faster entry
-        setFormData(prev => ({
-            ...initialFormState,
-            campaignId: prev.campaignId,
-            date: prev.date,
-            type: prev.type,
-            status: prev.status,
-        }));
-        setImagePreview(null);
+        // Reset form for next entry, maintaining active campaign & payment type
+        setFormData({
+            ...getInitialFormState(defaultCampaignId),
+            type: formData.type || 'Online',
+        });
     };
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-md">
-            {isCameraOpen && <CameraCapture onCapture={handleCaptureComplete} onClose={() => setIsCameraOpen(false)} />}
+        <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-1">
-                        <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">Donor Name (Optional)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Donor Name interpreted as Tower-Flat */}
+                    <div className="lg:col-span-2">
+                        <label htmlFor="donorName" className="block text-sm font-medium text-slate-700">
+                            Donor (Tower-Flat) <span className="text-rose-500">*</span>
+                        </label>
                         <input 
                             type="text" 
                             id="donorName" 
                             name="donorName" 
-                            placeholder="Auto-assigned if empty" 
+                            placeholder="e.g. 42-101 or 43-502" 
                             value={formData.donorName} 
                             onChange={handleInputChange} 
                             className="mt-1 block w-full input-style" 
+                            required
+                            autoFocus
+                        />
+                        {formData.donorName.trim() && resolvedTower && resolvedFlat ? (
+                            <p className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
+                                <span>✓</span> Tower {resolvedTower} &bull; Flat {resolvedFlat}
+                            </p>
+                        ) : formData.donorName.trim() ? (
+                            <p className="mt-1 text-xs text-amber-600 font-medium">
+                                Format: Tower-Flat (e.g. 42-101)
+                            </p>
+                        ) : (
+                            <p className="mt-1 text-xs text-slate-400">
+                                Enter Tower-Flat (e.g. 42-101)
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Amount */}
+                    <div>
+                        <label htmlFor="amount" className="block text-sm font-medium text-slate-700">
+                            Amount (₹) <span className="text-rose-500">*</span>
+                        </label>
+                        <input 
+                            type="number" 
+                            id="amount" 
+                            name="amount" 
+                            value={formData.amount || ''} 
+                            onChange={handleInputChange} 
+                            className="mt-1 block w-full input-style" 
+                            required 
+                            min="1" 
+                            placeholder="₹ Amount"
                         />
                     </div>
-                     <div className="md:col-span-1">
-                        <label htmlFor="towerNumber" className="block text-sm font-medium text-slate-700">Tower Number *</label>
-                        <select
-                            id="towerNumber"
-                            name="towerNumber"
-                            value={formData.towerNumber}
-                            onChange={handleInputChange}
-                            className="mt-1 block w-full input-style bg-white"
-                            required
-                        >
-                            <option value="">Select Tower *</option>
-                            {TOWER_OPTIONS.map(tower => (
-                                <option key={tower} value={tower}>{tower}</option>
-                            ))}
-                            {formData.towerNumber && !TOWER_OPTIONS.includes(formData.towerNumber) && (
-                                <option value={formData.towerNumber}>{formData.towerNumber}</option>
-                            )}
-                        </select>
-                    </div>
-                    <div className="md:col-span-1">
-                        <label htmlFor="flatNumber" className="block text-sm font-medium text-slate-700">Flat Number *</label>
-                        <select
-                            id="flatNumber"
-                            name="flatNumber"
-                            value={formData.flatNumber}
-                            onChange={handleInputChange}
-                            className="mt-1 block w-full input-style bg-white"
-                            required
-                        >
-                            <option value="">Select Flat *</option>
-                            {FLAT_OPTION_GROUPS.map(group => (
-                                <optgroup key={group.floorLabel} label={group.floorLabel}>
-                                    {group.options.map(flat => (
-                                        <option key={flat} value={flat}>{flat}</option>
-                                    ))}
-                                </optgroup>
-                            ))}
-                            {formData.flatNumber && !ALL_FLAT_OPTIONS.includes(formData.flatNumber) && (
-                                <option value={formData.flatNumber}>{formData.flatNumber}</option>
-                            )}
-                        </select>
-                    </div>
-                </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <div>
-                        <label htmlFor="amount" className="block text-sm font-medium text-slate-700">Amount (₹)</label>
-                        <input type="number" id="amount" name="amount" value={formData.amount || ''} onChange={handleInputChange} className="mt-1 block w-full input-style" required min="1" />
-                    </div>
-                     <div>
+
+                    {/* Number of Coupons */}
+                    <div>
                         <div className="flex justify-between items-center">
                             <label htmlFor="numberOfCoupons" className="block text-sm font-medium text-slate-700">No of Coupons</label>
                             <span className="text-[11px] text-slate-500 font-normal">
@@ -208,29 +253,20 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                         />
                         {Number(formData.amount) < 1500 ? (
                             <p className="mt-1 text-xs text-slate-500 font-medium">
-                                Food coupons are available for contributions of ₹1,500 or more.
+                                Available for &ge; ₹1,500
                             </p>
                         ) : Number(formData.numberOfCoupons) >= 4 ? (
                             <p className="mt-1 text-xs text-amber-700 font-medium">
-                                Maximum limit is 4 coupons. Please contact GTMM if you need more than 4 coupons.
+                                Max limit is 4 coupons.
                             </p>
                         ) : null}
                     </div>
+                </div>
+
+                {/* Payment Type Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="date" className="block text-sm font-medium text-slate-700">Date</label>
-                        <input type="date" id="date" name="date" value={formData.date} onChange={handleInputChange} className="mt-1 block w-full input-style" required />
-                    </div>
-                 </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-1">
-                        <label htmlFor="campaignId" className="block text-sm font-medium text-slate-700">Campaign</label>
-                        <select id="campaignId" name="campaignId" value={formData.campaignId ?? ''} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
-                            <option value="" disabled>Select a campaign</option>
-                            {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="type" className="block text-sm font-medium text-slate-700">Type</label>
+                        <label htmlFor="type" className="block text-sm font-medium text-slate-700">Payment Type</label>
                         <select 
                             id="type" 
                             name="type" 
@@ -252,6 +288,7 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                             <option value="Other">Other...</option>
                         </select>
                     </div>
+
                     {!['Online', 'Cash', 'Donation Box'].includes(formData.type || '') && (
                         <div>
                             <label htmlFor="customType" className="block text-sm font-medium text-slate-700">Custom Type</label>
@@ -261,62 +298,52 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ onAddToList, setError 
                                 name="type" 
                                 value={formData.type || ''} 
                                 onChange={handleInputChange} 
-                                placeholder="e.g. Tea Stall, Gift, etc." 
+                                placeholder="e.g. Cheque, Neft, Gift, etc." 
                                 className="mt-1 block w-full input-style bg-white" 
                                 required 
                             />
                         </div>
                     )}
-                    <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-slate-700">Status</label>
-                         <select id="status" name="status" value={formData.status} onChange={handleInputChange} className="mt-1 block w-full input-style bg-white" required>
-                            {Object.values(ContributionStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
                 </div>
-                 <div>
-                    <label className="block text-sm font-medium text-slate-700">Image <span className="text-rose-600 font-bold">*</span></label>
-                    {!imagePreview && (
-                        <p className="text-xs text-rose-600 mt-1 font-medium">* Payment proof or receipt image is mandatory.</p>
-                    )}
-                     <div className="mt-2 grid grid-cols-2 gap-4">
-                        <label htmlFor="bulkImageUpload" className="w-full text-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
-                            Upload File
-                            <input id="bulkImageUpload" type="file" accept="image/*" onChange={handleFileChange} className="sr-only" />
-                        </label>
-                        <button type="button" onClick={() => setIsCameraOpen(true)} className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-600 hover:bg-slate-700">
-                            <CameraIcon className="w-5 h-5 mr-2" />
-                            Capture Image
-                        </button>
-                    </div>
-                    {imagePreview && (
-                        <div className="mt-4">
-                            <p className="text-sm font-medium text-slate-600 mb-2">Image Preview:</p>
-                            <div className="relative w-fit">
-                                <img src={imagePreview} alt="Contribution preview" className="max-h-40 rounded-md border border-slate-200 p-1" />
-                                 <button type="button" onClick={() => { setFormData((prev: StagedContribution) => ({...prev, image: undefined})); setImagePreview(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
-                                    <CloseIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
+
+                {/* Image Upload / Camera Section for Each Entry */}
+                <div className="pt-2 border-t border-slate-200">
+                    <ImageUploadSection
+                        imagePreview={formData.image || null}
+                        onFileChange={handleFileChange}
+                        onOpenCamera={() => setIsCameraOpen(true)}
+                        onClearImage={handleClearImage}
+                        required={false}
+                    />
+                    {isCompressing && (
+                        <p className="text-xs text-blue-600 mt-1 animate-pulse">Compressing and preparing image...</p>
                     )}
                 </div>
-                 <div className="flex justify-end pt-2">
-                     <button
+
+                <div className="flex justify-end pt-2">
+                    <button
                         type="submit"
-                        disabled={!Boolean(formData.donorName && formData.amount && formData.campaignId && formData.towerNumber && formData.flatNumber && formData.date && formData.image)}
-                        className={`flex items-center justify-center px-5 py-2 rounded-lg shadow-md transition-colors duration-200 ${
-                            Boolean(formData.donorName && formData.amount && formData.campaignId && formData.towerNumber && formData.flatNumber && formData.date && formData.image)
-                                ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                                : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75'
+                        disabled={!isFormValid}
+                        className={`flex items-center justify-center px-6 py-2.5 rounded-lg shadow-md transition-colors duration-200 ${
+                            isFormValid
+                                ? 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 font-medium'
+                                : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-75 font-medium'
                         }`}
-                        title={!formData.image ? "Image upload is required" : undefined}
-                     >
-                         <PlusIcon className="w-5 h-5 mr-2" /> Add to List
-                     </button>
+                    >
+                        <PlusIcon className="w-5 h-5 mr-2" /> Add to List
+                    </button>
                 </div>
             </form>
-             <style>{`.input-style { padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); } .input-style:focus { outline: none; box-shadow: 0 0 0 2px #3b82f6; border-color: #2563eb; }`}</style>
+
+            {/* Camera Capture Modal */}
+            {isCameraOpen && (
+                <CameraCapture
+                    onCapture={handleCameraCapture}
+                    onClose={() => setIsCameraOpen(false)}
+                />
+            )}
+
+            <style>{`.input-style { padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); } .input-style:focus { outline: none; box-shadow: 0 0 0 2px #3b82f6; border-color: #2563eb; }`}</style>
         </div>
     );
 };

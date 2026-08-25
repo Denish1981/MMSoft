@@ -165,11 +165,6 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
     try {
         await client.query('BEGIN');
         for (const c of contributions) {
-            if (!c.image || typeof c.image !== 'string' || c.image.trim() === '') {
-                await client.query('ROLLBACK');
-                return res.status(400).json({ error: 'Image upload is mandatory for all contributions.' });
-            }
-
             const contributionStatus = c.status || 'Completed';
             const contributionDate = c.date || new Date().toISOString();
             let dbFestivalId = c.festivalId || null;
@@ -208,7 +203,7 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
                 INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, image, user_id) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
                 RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, image, created_at AS "createdAt", updated_at AS "updatedAt"
-            `, [finalDonorName, c.donorEmail || null, c.mobileNumber || null, c.towerNumber || 'N/A', c.flatNumber || 'N/A', c.amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type, c.image, bulkTargetUserId]);
+            `, [finalDonorName, c.donorEmail || null, c.mobileNumber || null, c.towerNumber || 'N/A', c.flatNumber || 'N/A', c.amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type || 'Online', c.image || null, bulkTargetUserId]);
             const row = result.rows[0];
             if (row.image) {
                 row.image = `/api/contributions/${row.id}/image`;
