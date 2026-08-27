@@ -11,7 +11,7 @@ const getInitialFormState = (campaignId: number | null): StagedContribution => (
     donorName: '',
     towerNumber: '',
     flatNumber: '',
-    amount: 0,
+    amount: 1500,
     numberOfCoupons: 0,
     donorEmail: '',
     mobileNumber: '',
@@ -134,12 +134,12 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onA
         const activeCampaignId = formData.campaignId || defaultCampaignId;
 
         if (!donorTrimmed) {
-            setError('Please enter Donor Name as TowerNumber-FlatNumber (e.g. 42-101).');
+            setError('Please enter Donor Name (e.g. 432106 or 43-2106).');
             return;
         }
 
         if (!finalTower || !finalFlat) {
-            setError('Could not interpret Tower and Flat from Donor Name. Please enter in TowerNumber-FlatNumber format (e.g. 42-101 or 43-1205).');
+            setError('Could not interpret Tower and Flat from Donor Name. Please enter as 432106 or 43-2106 (Tower 43, Flat 2106).');
             return;
         }
 
@@ -188,7 +188,7 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onA
                             type="text" 
                             id="donorName" 
                             name="donorName" 
-                            placeholder="e.g. 42-101 or 43-502" 
+                            placeholder="e.g. 432106 or 43-2106" 
                             value={formData.donorName} 
                             onChange={handleInputChange} 
                             className="mt-1 block w-full input-style" 
@@ -201,11 +201,11 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onA
                             </p>
                         ) : formData.donorName.trim() ? (
                             <p className="mt-1 text-xs text-amber-600 font-medium">
-                                Format: Tower-Flat (e.g. 42-101)
+                                Format: 432106 or 43-2106 (Tower 43, Flat 2106)
                             </p>
                         ) : (
                             <p className="mt-1 text-xs text-slate-400">
-                                Enter Tower-Flat (e.g. 42-101)
+                                Enter e.g. 432106 or 43-2106 (Tower 43, Flat 2106)
                             </p>
                         )}
                     </div>

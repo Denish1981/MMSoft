@@ -70,7 +70,7 @@ export const parseTowerAndFlatFromDonorName = (input?: string | null): { towerNu
     const trimmed = input.trim();
     if (!trimmed) return { towerNumber: '', flatNumber: '' };
 
-    // Matches patterns like "42-101", "42 - 101", "T42-101", "Tower 42 - Flat 101", "T-42-101", "42/101", "42 101"
+    // 1. Matches patterns with delimiters like "43-2106", "43 - 2106", "T43-2106", "Tower 43 - Flat 2106", "T-43-2106", "43/2106", "43 2106"
     const descriptiveMatch = trimmed.match(/^(?:tower|t)?\s*([a-zA-Z0-9]+)\s*(?:[-/_,\s:]+|flat|f)\s*(?:flat|f)?\s*([a-zA-Z0-9]+)$/i);
     if (descriptiveMatch) {
         const rawTower = descriptiveMatch[1].trim();
@@ -88,6 +88,32 @@ export const parseTowerAndFlatFromDonorName = (input?: string | null): { towerNu
         return {
             towerNumber: normalizeTowerNumber(rawTower),
             flatNumber: normalizeFlatNumber(rawFlat)
+        };
+    }
+
+    // 2. Matches continuous patterns without delimiters like "432106", "T432106", "42101", "421205"
+    // Strip leading "Tower", "T-", "T ", "T"
+    const cleanWithoutPrefix = trimmed.replace(/^(tower|t)[\s-_]*/i, '').trim();
+
+    // Check against known 2-digit towers (42, 43, 44, 45, 46) followed by 3 or 4 digit flat (e.g. 432106 -> 43 + 2106, 42101 -> 42 + 101)
+    for (const tower of TOWER_OPTIONS) {
+        if (cleanWithoutPrefix.startsWith(tower) && cleanWithoutPrefix.length > tower.length) {
+            const flatPart = cleanWithoutPrefix.slice(tower.length).trim();
+            if (/^\d{2,4}$/.test(flatPart)) {
+                return {
+                    towerNumber: normalizeTowerNumber(tower),
+                    flatNumber: normalizeFlatNumber(flatPart)
+                };
+            }
+        }
+    }
+
+    // Generic 5 to 6 digit continuous format: 2-digit tower + 3-to-4 digit flat (e.g. 432106 -> 43 and 2106, 42101 -> 42 and 101)
+    const genericContinuousMatch = cleanWithoutPrefix.match(/^(\d{2})(\d{3,4})$/);
+    if (genericContinuousMatch) {
+        return {
+            towerNumber: normalizeTowerNumber(genericContinuousMatch[1]),
+            flatNumber: normalizeFlatNumber(genericContinuousMatch[2])
         };
     }
 
