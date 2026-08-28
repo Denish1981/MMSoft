@@ -191,12 +191,17 @@ export const HouseholdRosterManager: React.FC<HouseholdRosterManagerProps> = ({
                     >
                         <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
                             <div className="flex items-center gap-2">
-                                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                {/* <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
                                     {idx + 1}
-                                </span>
-                                <span className="text-xs font-bold text-slate-800">
+                                </span> */}
+                                {idx >= 1 && (
+                                    <span className="text-xs font-bold text-slate-800">
                                     Member #{idx + 1}
-                                </span>
+                                    </span>
+                                )}
+                                {/* <span className="text-xs font-bold text-slate-800">
+                                    Member #{idx + 1}
+                                </span> */}
                                 {idx === 0 && (
                                     <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md border border-blue-200 ml-1">
                                         Primary Resident
