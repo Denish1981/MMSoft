@@ -68,6 +68,7 @@ const Contributions: React.FC = () => {
                     (d.mobileNumber && d.mobileNumber.includes(term)) ||
                     (d.towerNumber && d.towerNumber.toLowerCase().includes(term)) ||
                     (d.flatNumber && d.flatNumber.toLowerCase().includes(term)) ||
+                    (d.transactionRef && d.transactionRef.toLowerCase().includes(term)) ||
                     towerFlat.includes(term)
                 );
             })

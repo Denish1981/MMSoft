@@ -22,6 +22,7 @@ export interface DataContextType {
     handleApproveContribution: (id: number) => Promise<void>;
     handleRejectContribution: (id: number) => Promise<void>;
     handleUpdateContributionCoupons: (id: number, couponsCollected: number, dateCollected: string | null, couponsUsed: number) => Promise<void>;
+    handleUpdateContributionTransactionRef: (id: number, transactionRef: string | null) => Promise<Contribution>;
     handleSponsorSubmit: (data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => void;
     handleVendorSubmit: (data: Omit<Vendor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Vendor | null) => void;
     handleExpenseSubmit: (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'amountPaid' | 'outstandingAmount'>, itemToEdit: Expense | null) => void;

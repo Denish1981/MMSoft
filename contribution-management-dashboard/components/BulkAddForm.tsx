@@ -18,6 +18,7 @@ const getInitialFormState = (campaignId: number | null): StagedContribution => (
     campaignId: campaignId,
     date: new Date().toISOString().split('T')[0],
     type: 'Online',
+    transactionRef: '',
     status: ContributionStatus.Completed,
     image: undefined,
 });
@@ -161,6 +162,7 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onA
             flatNumber: finalFlat,
             date: formData.date || new Date().toISOString().split('T')[0],
             status: ContributionStatus.Completed,
+            transactionRef: formData.transactionRef?.trim() || undefined,
             donorEmail: formData.donorEmail?.trim() || undefined,
             mobileNumber: formData.mobileNumber?.trim() || undefined,
             image: formData.image || undefined,

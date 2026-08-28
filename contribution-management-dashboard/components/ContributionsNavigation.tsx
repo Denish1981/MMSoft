@@ -1,13 +1,18 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-
-const navItems = [
-    { to: "/contributions", label: "Contributions" },
-    { to: "/sponsors", label: "Sponsors" },
-    { to: "/stall-registrations", label: "Stall Registrations" },
-];
+import { useAuth } from '../contexts/AuthContext';
 
 const ContributionsNavigation: React.FC = () => {
+    const { hasPermission } = useAuth();
+    const isManager = hasPermission('action:edit') || hasPermission('action:users:manage');
+
+    const navItems = [
+        { to: "/contributions", label: "Contributions" },
+        { to: "/sponsors", label: "Sponsors" },
+        { to: "/stall-registrations", label: "Stall Registrations" },
+        ...(isManager ? [{ to: "/bank-reconciliation", label: "Bank Reconciliation (UTR)" }] : []),
+    ];
+
     return (
         <div className="bg-white p-2 rounded-lg shadow-sm">
             <div className="flex items-center space-x-2 flex-wrap">

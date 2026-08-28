@@ -37,6 +37,7 @@ export interface Contribution {
   date: string; // ISO string
   status: ContributionStatus;
   type: ContributionType | null;
+  transactionRef?: string | null;
   image?: string;
   stallRegistrationId?: number | null;
   createdAt: string; // ISO string

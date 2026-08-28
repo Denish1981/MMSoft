@@ -67,7 +67,12 @@ export const PendingContributionsTable: React.FC<PendingContributionsTableProps>
                                     </span>
                                 </td>
                                 <td className="p-3.5 font-medium text-slate-800">
-                                    {displayName}
+                                    <div>{displayName}</div>
+                                    {c.transactionRef && (
+                                        <div className="text-[11px] font-mono text-slate-500 bg-amber-100/60 px-1.5 py-0.5 rounded inline-block mt-0.5" title={`Ref: ${c.transactionRef}`}>
+                                            Ref: {c.transactionRef}
+                                        </div>
+                                    )}
                                 </td>
                                 <td className="p-3.5 font-extrabold text-emerald-700 text-base">
                                     ₹{Number(c.amount).toLocaleString()}

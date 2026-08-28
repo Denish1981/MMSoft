@@ -43,6 +43,7 @@ import StallRegistrationPage from './pages/StallRegistrationPage';
 import DonorPortalPage from './pages/DonorPortalPage';
 import TrustDetailsPage from './pages/TrustDetailsPage';
 import FoodCouponsPage from './pages/FoodCoupons';
+import BankReconciliationPage from './pages/BankReconciliationPage';
 import { Schedules } from './pages/Schedules';
 import MultiEventRegistrationPage from './pages/MultiEventRegistrationPage';
 import EventDetailsPage from './pages/EventDetailsPage';
@@ -85,6 +86,7 @@ const App: React.FC = () => {
                                     <Route path="/documentation" element={<ProtectedRoute permission="page:dashboard:view"><Documentation /></ProtectedRoute>} />
                                     <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
                                     <Route path="/contributions" element={<ProtectedRoute permission="page:contributions:view"><Contributions /></ProtectedRoute>} />
+                                    <Route path="/bank-reconciliation" element={<ProtectedRoute permission="page:contributions:view"><BankReconciliationPage /></ProtectedRoute>} />
                                     <Route path="/stall-registrations" element={<ProtectedRoute permission="page:contributions:view"><StallRegistrationsPage /></ProtectedRoute>} />
                                     <Route path="/food-coupons" element={<ProtectedRoute permission="page:food-coupons:view"><FoodCouponsPage /></ProtectedRoute>} />
                                     <Route path="/bulk-add" element={<ProtectedRoute permission="page:bulk-add:view"><BulkAddPage /></ProtectedRoute>} />

@@ -85,6 +85,7 @@ const applySchema = async (client) => {
             date DATE NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'Completed',
             type VARCHAR(20),
+            transaction_ref VARCHAR(100),
             image TEXT,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -338,6 +339,7 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS flat_number VARCHAR(50);');
     await client.query('ALTER TABLE stall_registrations ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS stall_registration_id INTEGER REFERENCES stall_registrations(id) ON DELETE CASCADE;');
+    await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS transaction_ref VARCHAR(100);');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_collected INTEGER DEFAULT 0;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS date_collected DATE;');
     await client.query('ALTER TABLE contributions ADD COLUMN IF NOT EXISTS coupons_used INTEGER DEFAULT 0;');
@@ -353,6 +355,7 @@ const applySchema = async (client) => {
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_festival ON contributions (festival_id) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_campaign ON contributions (campaign_id) WHERE deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_stall_reg ON contributions (stall_registration_id) WHERE deleted_at IS NULL;');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_transaction_ref ON contributions (transaction_ref) WHERE transaction_ref IS NOT NULL AND deleted_at IS NULL;');
     await client.query('CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions (token, expires_at);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_expenses_deleted_date ON expenses (deleted_at, bill_date DESC);');
     await client.query('CREATE INDEX IF NOT EXISTS idx_expense_payments_expense ON expense_payments (expense_id) WHERE deleted_at IS NULL;');

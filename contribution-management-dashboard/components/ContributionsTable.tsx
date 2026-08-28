@@ -8,7 +8,9 @@ import { DeleteIcon } from './icons/DeleteIcon';
 import { formatCurrency, formatUTCDate } from '../utils/formatting';
 import { formatReceiptNo, ReceiptData } from '../utils/receiptUtils';
 import { ReceiptModal } from './ReceiptModal';
-import { Receipt as ReceiptIcon } from 'lucide-react';
+import { Receipt as ReceiptIcon, Check, X, Edit2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 
 interface ContributionsTableProps {
     activeTab: 'individual' | 'miscellaneous';
@@ -35,7 +37,50 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
     onViewImage,
     totalContributionsCount,
 }) => {
+    const { hasPermission } = useAuth();
+    const { handleUpdateContributionTransactionRef } = useData();
+    const isManager = hasPermission('action:edit') || hasPermission('action:users:manage');
+
     const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+    const [editingUtrId, setEditingUtrId] = useState<number | null>(null);
+    const [utrValue, setUtrValue] = useState<string>('');
+    const [isSavingUtr, setIsSavingUtr] = useState(false);
+    const [savedSuccessId, setSavedSuccessId] = useState<number | null>(null);
+
+    const startEditingUtr = (contribution: Contribution) => {
+        if (!isManager) return;
+        setEditingUtrId(contribution.id);
+        setUtrValue(contribution.transactionRef || '');
+    };
+
+    const cancelEditingUtr = () => {
+        setEditingUtrId(null);
+        setUtrValue('');
+    };
+
+    const handleSaveUtr = async (id: number) => {
+        try {
+            setIsSavingUtr(true);
+            await handleUpdateContributionTransactionRef(id, utrValue.trim() || null);
+            setIsSavingUtr(false);
+            setEditingUtrId(null);
+            setSavedSuccessId(id);
+            setTimeout(() => {
+                setSavedSuccessId(prev => prev === id ? null : prev);
+            }, 2500);
+        } catch (err) {
+            setIsSavingUtr(false);
+        }
+    };
+
+    const handleUtrKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: number) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSaveUtr(id);
+        } else if (e.key === 'Escape') {
+            cancelEditingUtr();
+        }
+    };
 
     const openReceipt = (contribution: Contribution) => {
         const cat = activeTab === 'miscellaneous' || contribution.type === 'Miscellaneous' || contribution.type?.startsWith('Miscellaneous:') ? 'misc' : 'contribution';
@@ -54,6 +99,7 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
             festivalOrCampaign: (contribution.festivalId && festivalMap?.get(contribution.festivalId)) || (contribution.campaignId && campaignMap.get(contribution.campaignId)) || 'General Campaign',
             status: contribution.status || 'Completed',
             details: [
+                ...(contribution.transactionRef ? [{ label: 'Transaction / UTR Ref', value: contribution.transactionRef }] : []),
                 { label: 'Coupons Issued', value: String(contribution.numberOfCoupons || 0) },
                 { label: 'Payment Type', value: contribution.type || 'N/A' },
             ]
@@ -105,7 +151,67 @@ export const ContributionsTable: React.FC<ContributionsTableProps> = ({
                                         </td>
                                     )}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">{formatCurrency(contribution.amount)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.type}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">
+                                        <div>{contribution.type || 'N/A'}</div>
+                                        {editingUtrId === contribution.id ? (
+                                            <div className="flex items-center gap-1 mt-1 justify-center max-w-[200px] mx-auto">
+                                                <input
+                                                    type="text"
+                                                    autoFocus
+                                                    value={utrValue}
+                                                    onChange={e => setUtrValue(e.target.value)}
+                                                    onKeyDown={e => handleUtrKeyDown(e, contribution.id)}
+                                                    placeholder="UTR Ref..."
+                                                    disabled={isSavingUtr}
+                                                    className="w-28 px-1.5 py-0.5 border border-blue-500 rounded text-xs font-mono bg-white focus:outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => handleSaveUtr(contribution.id)}
+                                                    disabled={isSavingUtr}
+                                                    className="p-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+                                                    title="Save UTR (Enter)"
+                                                >
+                                                    <Check className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    onClick={cancelEditingUtr}
+                                                    disabled={isSavingUtr}
+                                                    className="p-0.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded"
+                                                    title="Cancel (Esc)"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => isManager && startEditingUtr(contribution)}
+                                                className={`group inline-flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded mt-0.5 max-w-[150px] truncate transition ${
+                                                    savedSuccessId === contribution.id
+                                                        ? 'bg-emerald-100 text-emerald-800 font-bold'
+                                                        : contribution.transactionRef
+                                                        ? 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900 cursor-pointer'
+                                                        : isManager
+                                                        ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-dashed border-amber-300 cursor-pointer'
+                                                        : 'text-slate-400'
+                                                }`}
+                                                title={isManager ? "Click to quick edit UTR / Bank Reference" : contribution.transactionRef || undefined}
+                                            >
+                                                {savedSuccessId === contribution.id ? (
+                                                    <span>✓ Saved!</span>
+                                                ) : contribution.transactionRef ? (
+                                                    <>
+                                                        <span className="truncate">Ref: {contribution.transactionRef}</span>
+                                                        {isManager && <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 shrink-0 text-blue-600" />}
+                                                    </>
+                                                ) : isManager ? (
+                                                    <>
+                                                        <span>+ UTR</span>
+                                                        <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 shrink-0" />
+                                                    </>
+                                                ) : null}
+                                            </div>
+                                        )}
+                                    </td>
                                     {activeTab === 'individual' && (
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 text-center">{contribution.numberOfCoupons}</td>
                                     )}

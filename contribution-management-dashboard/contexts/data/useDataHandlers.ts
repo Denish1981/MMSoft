@@ -179,6 +179,28 @@ export function useDataHandlers({
         }
     }, [getAuthHeaders, logout, setContributions]);
 
+    const handleUpdateContributionTransactionRef = useCallback(async (id: number, transactionRef: string | null): Promise<Contribution> => {
+        try {
+            const response = await fetch(`${API_URL}/contributions/${id}/transaction-ref`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ transactionRef })
+            });
+            if (response.status === 401) { logout(); throw new Error('Unauthorized'); }
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to update transaction reference');
+            }
+            const updated: Contribution = await response.json();
+            setContributions(prev => prev.map(c => c.id === updated.id ? updated : c));
+            return updated;
+        } catch (error) {
+            console.error('Update transaction reference error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to update transaction reference');
+            throw error;
+        }
+    }, [getAuthHeaders, logout, setContributions]);
+
     const handleSponsorSubmit = useCallback((data: Omit<Sponsor, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>, itemToEdit: Sponsor | null) => {
         if (itemToEdit && itemToEdit.id) handleUpdate(`${API_URL}/sponsors`, { ...itemToEdit, ...data }, setSponsors);
         else handleAdd(`${API_URL}/sponsors`, data, setSponsors);
@@ -340,6 +362,7 @@ export function useDataHandlers({
         handleApproveContribution,
         handleRejectContribution,
         handleUpdateContributionCoupons,
+        handleUpdateContributionTransactionRef,
         handleSponsorSubmit,
         handleVendorSubmit,
         handleExpenseSubmit,

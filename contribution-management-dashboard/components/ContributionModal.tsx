@@ -47,6 +47,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
     const [flatNumber, setFlatNumber] = useState('');
     const [amount, setAmount] = useState('');
     const [numberOfCoupons, setNumberOfCoupons] = useState('');
+    const [transactionRef, setTransactionRef] = useState('');
     
     useEffect(() => {
         if (festivals.length === 0) {
@@ -91,6 +92,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             setFlatNumber(contributionToEdit.flatNumber || '');
             setAmount(contributionToEdit.amount ? String(contributionToEdit.amount) : '');
             setNumberOfCoupons(contributionToEdit.numberOfCoupons ? String(contributionToEdit.numberOfCoupons) : '');
+            setTransactionRef(contributionToEdit.transactionRef || '');
             
             let targetFestId = contributionToEdit.festivalId;
             if (!targetFestId && contributionToEdit.campaignId) {
@@ -157,6 +159,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             }
             setAmount('');
             setNumberOfCoupons('');
+            setTransactionRef('');
             setFestivalId(defaultFestId);
             setDate(new Date().toISOString().split('T')[0]);
             setSelectedDropdownType('Online');
@@ -251,6 +254,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ festivals 
             campaignId: derivedCampaignId,
             date: date,
             type: finalType,
+            transactionRef: transactionRef.trim() || undefined,
             image,
             status,
         };
