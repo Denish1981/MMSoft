@@ -171,6 +171,7 @@ const Dashboard: React.FC = () => {
                 setSelectedCampaignId={setSelectedCampaignId}
                 setSelectedFestivalId={setSelectedFestivalId}
                 campaigns={campaigns}
+                isManager={isManager}
             />
 
             {/* Pending Contributions Widget for Managers */}

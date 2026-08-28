@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { HelpIcon } from '../icons/HelpIcon';
+import { PlusIcon } from '../icons/PlusIcon';
 import type { Campaign } from '../../types/index';
 
 interface DashboardHeaderProps {
@@ -8,6 +9,7 @@ interface DashboardHeaderProps {
     setSelectedCampaignId: (id: string) => void;
     setSelectedFestivalId: (id: string) => void;
     campaigns: Campaign[];
+    isManager?: boolean;
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -15,20 +17,31 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     setSelectedCampaignId,
     setSelectedFestivalId,
     campaigns,
+    isManager = false,
 }) => {
     return (
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
             <div>
                 <h2 className="text-lg font-bold text-slate-800 font-sans tracking-tight">Operational & Financial Overview</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Setup campaigns, record donations, monitor expenses, and manage festivals.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+                {isManager && (
+                    <Link
+                        to="/bulk-add"
+                        className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors"
+                        title="Quickly record multiple offline door-to-door contributions"
+                    >
+                        <PlusIcon className="w-4 h-4" />
+                        <span>Bulk Add</span>
+                    </Link>
+                )}
                 <Link 
                     to="/documentation" 
                     className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs rounded-lg border border-blue-200 transition-colors"
                 >
                     <HelpIcon className="w-4 h-4" />
-                    <span>System Guide & Help</span>
+                    <span>System Guide</span>
                 </Link>
                 <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 text-xs">
                     <span className="font-semibold text-slate-500">Filter Campaign:</span>
