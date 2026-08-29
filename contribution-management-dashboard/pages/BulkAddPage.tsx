@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
 import { Contribution, type StagedContribution } from '../types/index';
 import { useAuth } from '../contexts/AuthContext';
 import { SaveIcon } from '../components/icons/SaveIcon';
@@ -190,6 +191,23 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
 
     return (
         <div className="space-y-6">
+            {/* Quick banner linking to Paper Receipts Multi-Upload */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <span className="text-2xl">📸</span>
+                    <div>
+                        <h4 className="font-bold text-slate-800 text-sm">Have a stack of paper collection receipts?</h4>
+                        <p className="text-xs text-slate-600">Upload multiple photos at once with side-by-side zoomable image previews and instant duplicate checks.</p>
+                    </div>
+                </div>
+                <NavLink
+                    to="/paper-receipts"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors shadow-sm shrink-0 flex items-center justify-center gap-1.5"
+                >
+                    Open Paper Receipts Batch Entry →
+                </NavLink>
+            </div>
+
             {/* Top Bar: Global Campaign Selector & Save All Action */}
             <div className="bg-white p-5 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 border border-slate-100">
                 <div className="flex-1 max-w-xl">

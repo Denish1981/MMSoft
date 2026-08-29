@@ -227,13 +227,20 @@ const Contributions: React.FC = () => {
                                 <option value="all">All Campaigns</option>
                                 {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
-                            {activeTab === 'miscellaneous' && (
+                            {activeTab === 'miscellaneous' ? (
                                 <button
                                     onClick={() => openContributionModal({ type: 'Miscellaneous' } as any)}
                                     className="w-full md:w-auto flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm transition"
                                 >
                                     <span className="mr-2">+</span> Add Miscellaneous Contribution
                                 </button>
+                            ) : isManager && (
+                                <NavLink
+                                    to="/paper-receipts"
+                                    className="w-full md:w-auto flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-md shadow-sm transition whitespace-nowrap"
+                                >
+                                    <span className="mr-1.5">+</span> Paper Receipts Batch
+                                </NavLink>
                             )}
                         </div>
 

@@ -10,7 +10,10 @@ const ContributionsNavigation: React.FC = () => {
         { to: "/contributions", label: "Contributions" },
         { to: "/sponsors", label: "Sponsors" },
         { to: "/stall-registrations", label: "Stall Registrations" },
-        ...(isManager ? [{ to: "/bank-reconciliation", label: "Bank Reconciliation (UTR)" }] : []),
+        ...(isManager ? [
+            { to: "/paper-receipts", label: "Paper Receipts Entry" },
+            { to: "/bank-reconciliation", label: "Bank Reconciliation (UTR)" }
+        ] : []),
     ];
 
     return (
