@@ -297,6 +297,8 @@ router.get('/public/events', async (req, res) => {
         const { rows } = await db.query(`
             SELECT 
                 e.id, 
+                e.festival_id as "festivalId",
+                f.name as "festivalName",
                 e.name, 
                 e.description, 
                 e.rules,
@@ -323,7 +325,8 @@ router.get('/public/events', async (req, res) => {
                     ), '[]'::json
                 ) as "contactPersons"
             FROM events e
-            WHERE e.deleted_at IS NULL AND e.event_date >= CURRENT_DATE 
+            LEFT JOIN festivals f ON e.festival_id = f.id
+            WHERE e.deleted_at IS NULL
             ORDER BY e.event_date ASC, e.start_time ASC
         `);
         res.json(rows);

@@ -9,25 +9,77 @@ const formatEventResponse = (event, contacts) => {
     return {
         id: event.id,
         festivalId: event.festival_id,
+        festivalName: event.festival_name || event.festivalName,
         name: event.name,
-        eventDate: event.event_date,
-        startTime: event.start_time ? event.start_time.substring(0, 5) : null,
-        endTime: event.end_time ? event.end_time.substring(0, 5) : null,
+        eventDate: event.event_date || event.eventDate,
+        startTime: event.start_time ? event.start_time.substring(0, 5) : (event.startTime ? event.startTime.substring(0, 5) : null),
+        endTime: event.end_time ? event.end_time.substring(0, 5) : (event.endTime ? event.endTime.substring(0, 5) : null),
         description: event.description,
         rules: event.rules || null,
-        image: event.image_data,
+        image: event.image_data || event.image,
         venue: event.venue,
-        registrationDeadline: event.registration_deadline,
-        registrationFormSchema: event.registration_form_schema,
-        contactPersons: contacts,
-        isGroupEvent: Boolean(event.is_group_event),
-        minGroupSize: event.min_group_size || 1,
-        maxGroupSize: event.max_group_size || 20,
-        allowDuplicateMembers: Boolean(event.allow_duplicate_members),
-        createdAt: event.created_at,
-        updatedAt: event.updated_at,
+        registrationDeadline: event.registration_deadline || event.registrationDeadline,
+        registrationFormSchema: event.registration_form_schema || event.registrationFormSchema,
+        contactPersons: contacts || event.contactPersons || [],
+        isGroupEvent: Boolean(event.is_group_event || event.isGroupEvent),
+        minGroupSize: event.min_group_size || event.minGroupSize || 1,
+        maxGroupSize: event.max_group_size || event.maxGroupSize || 20,
+        allowDuplicateMembers: Boolean(event.allow_duplicate_members || event.allowDuplicateMembers),
+        createdAt: event.created_at || event.createdAt,
+        updatedAt: event.updated_at || event.updatedAt,
     };
 };
+
+router.get('/', authMiddleware, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                e.id, 
+                e.festival_id as "festivalId", 
+                f.name as "festivalName",
+                e.name, 
+                e.description, 
+                e.rules,
+                e.event_date as "eventDate", 
+                e.start_time as "startTime", 
+                e.end_time as "endTime", 
+                e.venue, 
+                e.image_data as "image", 
+                e.registration_deadline as "registrationDeadline",
+                e.registration_form_schema as "registrationFormSchema",
+                e.is_group_event as "isGroupEvent",
+                e.min_group_size as "minGroupSize",
+                e.max_group_size as "maxGroupSize",
+                e.allow_duplicate_members as "allowDuplicateMembers",
+                (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id) as "registrationCount"
+            FROM events e
+            LEFT JOIN festivals f ON e.festival_id = f.id
+            WHERE e.deleted_at IS NULL
+            ORDER BY e.event_date ASC, e.start_time ASC
+        `;
+        const { rows: events } = await db.query(query);
+        
+        for (const event of events) {
+             const contactsRes = await db.query('SELECT name, contact_number as "contactNumber", email FROM event_contact_persons WHERE event_id = $1', [event.id]);
+             event.contactPersons = contactsRes.rows;
+             event.isGroupEvent = Boolean(event.isGroupEvent);
+             event.minGroupSize = event.minGroupSize || 1;
+             event.maxGroupSize = event.maxGroupSize || 20;
+             event.allowDuplicateMembers = Boolean(event.allowDuplicateMembers);
+             if (typeof event.registrationFormSchema === 'string') {
+                 try {
+                     event.registrationFormSchema = JSON.parse(event.registrationFormSchema);
+                 } catch (e) {
+                     event.registrationFormSchema = [];
+                 }
+             }
+        }
+        res.json(events);
+    } catch (err) {
+        console.error('Error fetching all events:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:events:view'), async (req, res) => {
     const { id } = req.params;

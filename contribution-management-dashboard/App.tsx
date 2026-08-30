@@ -48,6 +48,7 @@ import PaperReceiptsPage from './pages/PaperReceiptsPage';
 import { Schedules } from './pages/Schedules';
 import MultiEventRegistrationPage from './pages/MultiEventRegistrationPage';
 import EventDetailsPage from './pages/EventDetailsPage';
+import DonorEventRulesPage from './pages/DonorEventRulesPage';
 
 
 const GOOGLE_CLIENT_ID = '257342781674-s9r78geuhko5ave900nk04h88e8uau0f.apps.googleusercontent.com';
@@ -77,12 +78,16 @@ const App: React.FC = () => {
                                 <Route path="/festivals/:id/register-stall" element={<StallRegistrationPage />} />
                                 <Route path="/register-events" element={<MultiEventRegistrationPage />} />
                                 <Route path="/multi-event-registration" element={<MultiEventRegistrationPage />} />
+                                <Route path="/event-rules" element={<DonorEventRulesPage />} />
+                                <Route path="/events-rules" element={<DonorEventRulesPage />} />
                                 <Route path="/login" element={<LoginPage />} />
                                 
                                 {/* Protected Routes */}
                                 <Route element={<ProtectedLayout />}>
                                     <Route path="/donor-portal" element={<ProtectedRoute permission="page:donor-portal:view"><DonorPortalPage /></ProtectedRoute>} />
                                     <Route path="/donor-portal/register-events" element={<ProtectedRoute permission="page:donor-portal:view"><MultiEventRegistrationPage /></ProtectedRoute>} />
+                                    <Route path="/donor-portal/event-rules" element={<ProtectedRoute permission="page:donor-portal:view"><DonorEventRulesPage /></ProtectedRoute>} />
+                                    <Route path="/donor-portal/events-rules" element={<ProtectedRoute permission="page:donor-portal:view"><DonorEventRulesPage /></ProtectedRoute>} />
                                     <Route path="/dashboard" element={<ProtectedRoute permission="page:dashboard:view"><Dashboard /></ProtectedRoute>} />
                                     <Route path="/documentation" element={<ProtectedRoute permission="page:dashboard:view"><Documentation /></ProtectedRoute>} />
                                     <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />

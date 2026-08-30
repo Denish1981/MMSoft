@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useModal } from '../contexts/ModalContext';
 import { useData } from '../contexts/DataContext';
@@ -8,7 +8,7 @@ import {
     Heart, Calendar, Store, Bell, CheckCircle2, XCircle, Clock, 
     RefreshCw, PlusCircle, Building2, Phone, User as UserIcon, X, Receipt, Layers,
     Ticket, Eye, FileText, Mail, Users, HelpCircle, Music, Edit3, AlertCircle,
-    Play, Pause, Download, Volume2, Utensils
+    Play, Pause, Download, Volume2, Utensils, BookOpen, ArrowRight
 } from 'lucide-react';
 import StallRegistrationModal from '../components/StallRegistrationModal';
 import { RegistrationModal, PublicEvent } from '../components/RegistrationModal';
@@ -539,13 +539,24 @@ const DonorPortalPage: React.FC = () => {
                     </div>
                 </div> */}
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Event Registrations</p>
-                        <p className="text-2xl font-bold text-slate-800 mt-1">{eventRegistrations.length}</p>
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-amber-300 transition-all group">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Event Registrations</p>
+                            <p className="text-2xl font-bold text-slate-800 mt-1">{eventRegistrations.length}</p>
+                        </div>
+                        <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-100 transition-colors">
+                            <Calendar className="w-6 h-6" />
+                        </div>
                     </div>
-                    <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                        <Calendar className="w-6 h-6" />
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <Link
+                            to="/donor-portal/event-rules"
+                            className="text-xs font-bold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1.5 transition-colors cursor-pointer group-hover:underline"
+                        >
+                            <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>View Event Rules &amp; Guidelines &rarr;</span>
+                        </Link>
                     </div>
                 </div>
 
@@ -884,6 +895,14 @@ const DonorPortalPage: React.FC = () => {
                                             <HelpCircle className="w-3.5 h-3.5 text-blue-600" /> Single & Multiple Event Registration Guide
                                         </a>
                                     </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Link
+                                        to="/donor-portal/event-rules"
+                                        className="px-3.5 py-1.5 font-bold text-xs rounded-lg flex items-center gap-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 transition-colors shadow-xs cursor-pointer"
+                                    >
+                                        <BookOpen className="w-4 h-4 text-amber-600" /> View All Events &amp; Rules
+                                    </Link>
                                 </div>
                                 {/* <div className="flex items-center gap-2">
                                     <button
