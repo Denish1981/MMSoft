@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Campaign } from '../types/index';
+import { ContributionStatus, type Campaign } from '../types/index';
 import { formatCurrency } from '../utils/formatting';
 import { useData } from '../contexts/DataContext';
 import { useModal } from '../contexts/ModalContext';
@@ -13,7 +13,9 @@ const Campaigns: React.FC = () => {
 
     const campaignProgress = useMemo(() => {
         return campaigns.map(campaign => {
-            const relevantContributions = contributions.filter(d => d.campaignId === campaign.id);
+            const relevantContributions = contributions.filter(
+                d => d.campaignId === campaign.id && (d.status === ContributionStatus.Completed || d.status === ContributionStatus.Approved)
+            );
             const raised = relevantContributions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
             const progress = campaign.goal > 0 ? Math.min(100, (raised / campaign.goal) * 100) : 0;
             const donorIds = new Set(relevantContributions.map(c => `${c.donorName.toLowerCase().replace(/\s/g, '-')}-${c.towerNumber}-${c.flatNumber}`));
