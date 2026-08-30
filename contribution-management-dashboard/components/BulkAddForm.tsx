@@ -25,11 +25,12 @@ const getInitialFormState = (campaignId: number | null): StagedContribution => (
 
 interface BulkAddFormProps {
     defaultCampaignId: number | null;
+    isCouponsCollected?: boolean;
     onAddToList: (contribution: StagedContribution) => void;
     setError: (error: string) => void;
 }
 
-export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onAddToList, setError }) => {
+export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, isCouponsCollected, onAddToList, setError }) => {
     const { campaigns } = useData();
     const [formData, setFormData] = useState<StagedContribution>(() => getInitialFormState(defaultCampaignId));
     const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -256,6 +257,10 @@ export const BulkAddForm: React.FC<BulkAddFormProps> = ({ defaultCampaignId, onA
                         {Number(formData.amount) < 1500 ? (
                             <p className="mt-1 text-xs text-slate-500 font-medium">
                                 Available for &ge; ₹1,500
+                            </p>
+                        ) : Number(formData.numberOfCoupons) > 0 && isCouponsCollected ? (
+                            <p className="mt-1 text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                                <span>✓</span> Will be marked as collected on save
                             </p>
                         ) : Number(formData.numberOfCoupons) >= 4 ? (
                             <p className="mt-1 text-xs text-amber-700 font-medium">

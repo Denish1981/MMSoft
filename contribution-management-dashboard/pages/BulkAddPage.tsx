@@ -12,6 +12,7 @@ interface BulkAddPageProps {}
 
 const STORAGE_KEY_STAGED = 'gtmm_bulk_add_staged_contributions';
 const STORAGE_KEY_CAMPAIGN = 'gtmm_bulk_add_selected_campaign_id';
+const STORAGE_KEY_COUPONS_COLLECTED = 'gtmm_bulk_add_coupons_collected';
 
 const BulkAddPage: React.FC<BulkAddPageProps> = () => {
     const { token, logout } = useAuth();
@@ -40,6 +41,16 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
             console.error('Error loading campaign from localStorage:', e);
         }
         return null;
+    });
+
+    const [isCouponsCollected, setIsCouponsCollected] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_COUPONS_COLLECTED);
+            return saved === 'true';
+        } catch (e) {
+            console.error('Error loading coupons collected preference from localStorage:', e);
+            return false;
+        }
     });
 
     const [isLoading, setIsLoading] = useState(false);
@@ -85,14 +96,29 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
         }
     }, [selectedCampaignId]);
 
+    // Persist coupons collected selection to localStorage
+    useEffect(() => {
+        try {
+            localStorage.setItem(STORAGE_KEY_COUPONS_COLLECTED, String(isCouponsCollected));
+        } catch (e) {
+            console.error('Error saving coupons collected preference to localStorage:', e);
+        }
+    }, [isCouponsCollected]);
+
     const handleAddToList = (contribution: StagedContribution) => {
         setError('');
         setWarningMessage('');
 
-        // Ensure the global default campaign is attached
+        const numCoupons = Number(contribution.numberOfCoupons) || 0;
+        const shouldMarkCollected = isCouponsCollected && numCoupons > 0;
+        const entryDate = contribution.date || new Date().toISOString().split('T')[0];
+
+        // Ensure the global default campaign and coupons collected status are attached
         const itemToAdd: StagedContribution = {
             ...contribution,
             campaignId: selectedCampaignId ?? contribution.campaignId,
+            couponsCollected: shouldMarkCollected ? numCoupons : (contribution.couponsCollected || 0),
+            dateCollected: shouldMarkCollected ? (contribution.dateCollected || entryDate) : (contribution.dateCollected || null),
         };
 
         // Duplicate check within currently staged list
@@ -141,6 +167,24 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
         }
     };
 
+    // Handle toggling whether food coupons have been collected by the donor user
+    const handleCouponsCollectedToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        setIsCouponsCollected(checked);
+        // Automatically sync all staged contributions with the new coupon collected state
+        setStagedContributions((prev) =>
+            prev.map((c) => {
+                const numCoupons = Number(c.numberOfCoupons) || 0;
+                const colDate = c.dateCollected || c.date || new Date().toISOString().split('T')[0];
+                return {
+                    ...c,
+                    couponsCollected: checked ? numCoupons : 0,
+                    dateCollected: checked && numCoupons > 0 ? colDate : null,
+                };
+            })
+        );
+    };
+
     const handleSaveAll = async () => {
         if (stagedContributions.length === 0 || isLoading) return;
         
@@ -149,6 +193,22 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
         setSuccessMessage('');
         setWarningMessage('');
 
+        // Prepare contributions with resolved coupon collection data
+        const contributionsToSave = stagedContributions.map((item) => {
+            const numCoupons = Number(item.numberOfCoupons) || 0;
+            const isCollected = (isCouponsCollected || (item.couponsCollected && item.couponsCollected > 0)) && numCoupons > 0;
+            const collectedCount = isCollected ? (item.couponsCollected || numCoupons) : 0;
+            const dateCollectedVal = isCollected 
+                ? (item.dateCollected || item.date || new Date().toISOString().split('T')[0]) 
+                : null;
+
+            return {
+                ...item,
+                couponsCollected: collectedCount,
+                dateCollected: dateCollectedVal,
+            };
+        });
+
         try {
             const response = await fetch(`${API_URL}/contributions/bulk`, {
                 method: 'POST',
@@ -156,7 +216,7 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}` 
                 },
-                body: JSON.stringify({ contributions: stagedContributions }),
+                body: JSON.stringify({ contributions: contributionsToSave }),
             });
 
             if (response.status === 401) {
@@ -173,17 +233,23 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
             setContributions((prev) => [...savedItems, ...prev]);
             
             const count = stagedContributions.length;
+            const totalCouponsCollected = contributionsToSave.reduce((acc, curr) => acc + (curr.couponsCollected || 0), 0);
+
             // Clear staged state and remove from localStorage atomically on success
             setStagedContributions([]);
             localStorage.removeItem(STORAGE_KEY_STAGED);
 
-            setSuccessMessage(`${count} contribution${count > 1 ? 's' : ''} saved successfully to the database!`);
+            let msg = `${count} contribution${count > 1 ? 's' : ''} saved successfully to the database!`;
+            if (totalCouponsCollected > 0) {
+                msg += ` Along with this, ${totalCouponsCollected} food coupon${totalCouponsCollected > 1 ? 's were' : ' was'} marked as collected.`;
+            }
+            setSuccessMessage(msg);
 
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unknown error occurred.");
         } finally {
             setIsLoading(false);
-            setTimeout(() => setSuccessMessage(''), 6000);
+            setTimeout(() => setSuccessMessage(''), 7000);
         }
     };
 
@@ -208,34 +274,76 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
                 </NavLink>
             </div>
 
-            {/* Top Bar: Global Campaign Selector & Save All Action */}
-            <div className="bg-white p-5 rounded-xl shadow-md flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 border border-slate-100">
-                <div className="flex-1 max-w-xl">
-                    <label htmlFor="topCampaignSelect" className="block text-sm font-semibold text-slate-800 mb-1">
-                        Default Campaign for Staged Contributions <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                        id="topCampaignSelect"
-                        value={selectedCampaignId ?? ''}
-                        onChange={handleCampaignChange}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                        required
-                    >
-                        <option value="" disabled>Select Default Campaign</option>
-                        {campaigns.map((camp) => (
-                            <option key={camp.id} value={camp.id}>
-                                {camp.name} {camp.isActive ? '(Active)' : ''}
-                            </option>
-                        ))}
-                    </select>
-                    {selectedCampaignObj && (
-                        <p className="mt-1 text-xs text-slate-500">
-                            All contributions added will default to <strong className="text-blue-600 font-medium">{selectedCampaignObj.name}</strong>.
-                        </p>
-                    )}
+            {/* Top Bar: Global Campaign Selector, Food Coupons Collection Checkbox & Save All Action */}
+            <div className="bg-white p-5 rounded-xl shadow-md border border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl items-start">
+                    {/* Default Campaign Selector */}
+                    <div>
+                        <label htmlFor="topCampaignSelect" className="block text-sm font-semibold text-slate-800 mb-1">
+                            Default Campaign for Staged Contributions <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                            id="topCampaignSelect"
+                            value={selectedCampaignId ?? ''}
+                            onChange={handleCampaignChange}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+                            required
+                        >
+                            <option value="" disabled>Select Default Campaign</option>
+                            {campaigns.map((camp) => (
+                                <option key={camp.id} value={camp.id}>
+                                    {camp.name} {camp.isActive ? '(Active)' : ''}
+                                </option>
+                            ))}
+                        </select>
+                        {selectedCampaignObj && (
+                            <p className="mt-1 text-xs text-slate-500">
+                                Default: <strong className="text-blue-600 font-medium">{selectedCampaignObj.name}</strong>
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Food Coupons Collected Checkbox */}
+                    <div>
+                        <label htmlFor="couponsCollectedCheckbox" className="block text-sm font-semibold text-slate-800 mb-1">
+                            Food Coupons Collection
+                        </label>
+                        <div className={`p-2.5 rounded-lg border transition-all ${
+                            isCouponsCollected 
+                                ? 'bg-emerald-50 border-emerald-300 ring-1 ring-emerald-400/50' 
+                                : 'bg-slate-50 border-slate-300 hover:border-slate-400'
+                        }`}>
+                            <label htmlFor="couponsCollectedCheckbox" className="flex items-start gap-2.5 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    id="couponsCollectedCheckbox"
+                                    checked={isCouponsCollected}
+                                    onChange={handleCouponsCollectedToggle}
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-emerald-600"
+                                />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`text-xs font-bold ${isCouponsCollected ? 'text-emerald-900' : 'text-slate-700'}`}>
+                                            Food Coupons Collected by Donor
+                                        </span>
+                                        {isCouponsCollected && (
+                                            <span className="inline-flex items-center px-1.5 py-0.2 bg-emerald-200 text-emerald-800 rounded text-[10px] font-bold">
+                                                ✓ YES
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className={`text-[11px] mt-0.5 leading-tight ${isCouponsCollected ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
+                                        {isCouponsCollected 
+                                            ? 'Auto-updates collected coupons data for all staged entries on save.' 
+                                            : 'Unchecked: Coupons remain marked as pending pickup/collection.'}
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-end gap-3">
+                <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
                     {stagedContributions.length > 0 && (
                         <button
                             type="button"
@@ -284,12 +392,16 @@ const BulkAddPage: React.FC<BulkAddPageProps> = () => {
             {/* Form Card */}
             <BulkAddForm 
                 defaultCampaignId={selectedCampaignId} 
+                isCouponsCollected={isCouponsCollected}
                 onAddToList={handleAddToList} 
                 setError={setError} 
             />
 
             {/* Staged Contributions Table */}
-            <StagedContributionsTable stagedContributions={stagedContributions} onRemoveFromList={handleRemoveFromList} />
+            <StagedContributionsTable 
+                stagedContributions={stagedContributions} 
+                onRemoveFromList={handleRemoveFromList} 
+            />
         </div>
     );
 };
