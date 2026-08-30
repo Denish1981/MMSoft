@@ -390,19 +390,25 @@ const PaperReceiptsPage: React.FC = () => {
 
         try {
             // Prepare payload for POST /api/contributions/bulk
-            const payload = validItems.map(item => ({
-                donorName: `Tower ${item.parsedTower} - Flat ${item.parsedFlat}`,
-                towerNumber: item.parsedTower,
-                flatNumber: item.parsedFlat,
-                amount: Number(item.amount),
-                numberOfCoupons: Number(item.numberOfCoupons) || 0,
-                campaignId: selectedCampaignId,
-                date: item.date || defaultDate,
-                type: item.paymentType,
-                status: ContributionStatus.Completed,
-                image: item.imageData, // Stores Base64 receipt directly in database
-                notes: item.notes || `Paper receipt batch entry (${item.fileName})`
-            }));
+            const payload = validItems.map(item => {
+                const couponCount = Number(item.numberOfCoupons) || 0;
+                const recordDate = item.date || defaultDate;
+                return {
+                    donorName: `Tower ${item.parsedTower} - Flat ${item.parsedFlat}`,
+                    towerNumber: item.parsedTower,
+                    flatNumber: item.parsedFlat,
+                    amount: Number(item.amount),
+                    numberOfCoupons: couponCount,
+                    couponsCollected: couponCount, // Automatically mark food coupons requested as collected for paper receipts
+                    dateCollected: couponCount > 0 ? recordDate : null,
+                    campaignId: selectedCampaignId,
+                    date: recordDate,
+                    type: item.paymentType,
+                    status: ContributionStatus.Completed,
+                    image: item.imageData, // Stores Base64 receipt directly in database
+                    notes: item.notes || `Paper receipt batch entry (${item.fileName})`
+                };
+            });
 
             const response = await fetch(`${API_URL}/contributions/bulk`, {
                 method: 'POST',

@@ -143,11 +143,19 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
             ? transactionRef.trim() 
             : null;
 
+        const couponsCollectedNum = (req.body.couponsCollected !== undefined && req.body.couponsCollected !== null)
+            ? Math.min(4, Math.max(0, parseInt(req.body.couponsCollected, 10) || 0))
+            : 0;
+        const dateCollectedVal = req.body.dateCollected || (couponsCollectedNum > 0 ? contributionDate : null);
+        const couponsUsedNum = (req.body.couponsUsed !== undefined && req.body.couponsUsed !== null)
+            ? parseInt(req.body.couponsUsed, 10) || 0
+            : 0;
+
         const result = await db.query(
-            `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, transaction_ref, image, user_id) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
-             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, transaction_ref AS "transactionRef", image, created_at AS "createdAt", updated_at AS "updatedAt"`,
-            [finalDonorName, donorEmail || null, mobileNumber || null, dbTowerNumber || 'N/A', dbFlatNumber || 'N/A', amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, cleanTransactionRef, image, targetUserId]
+            `INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, coupons_collected, date_collected, coupons_used, festival_id, campaign_id, date, status, type, transaction_ref, image, user_id) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
+             RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", COALESCE(coupons_collected, 0) AS "couponsCollected", date_collected AS "dateCollected", COALESCE(coupons_used, 0) AS "couponsUsed", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, transaction_ref AS "transactionRef", image, created_at AS "createdAt", updated_at AS "updatedAt"`,
+            [finalDonorName, donorEmail || null, mobileNumber || null, dbTowerNumber || 'N/A', dbFlatNumber || 'N/A', amount, clampedCoupons, couponsCollectedNum, dateCollectedVal, couponsUsedNum, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, type, cleanTransactionRef, image, targetUserId]
         );
         const row = result.rows[0];
         if (row.image) {
@@ -206,11 +214,19 @@ router.post('/bulk', authMiddleware, permissionMiddleware('action:create'), asyn
 
             const cleanTxRef = (c.transactionRef || c.transaction_ref) ? String(c.transactionRef || c.transaction_ref).trim() : null;
 
+            const couponsCollectedNum = (c.couponsCollected !== undefined && c.couponsCollected !== null)
+                ? Math.min(4, Math.max(0, parseInt(c.couponsCollected, 10) || 0))
+                : 0;
+            const dateCollectedVal = c.dateCollected || (couponsCollectedNum > 0 ? contributionDate : null);
+            const couponsUsedNum = (c.couponsUsed !== undefined && c.couponsUsed !== null)
+                ? parseInt(c.couponsUsed, 10) || 0
+                : 0;
+
             const result = await client.query(`
-                INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, festival_id, campaign_id, date, status, type, transaction_ref, image, user_id) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
-                RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, transaction_ref AS "transactionRef", image, created_at AS "createdAt", updated_at AS "updatedAt"
-            `, [finalDonorName, c.donorEmail || null, c.mobileNumber || null, c.towerNumber || 'N/A', c.flatNumber || 'N/A', c.amount, clampedCoupons, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type || 'Online', cleanTxRef, c.image || null, bulkTargetUserId]);
+                INSERT INTO contributions (donor_name, donor_email, mobile_number, tower_number, flat_number, amount, number_of_coupons, coupons_collected, date_collected, coupons_used, festival_id, campaign_id, date, status, type, transaction_ref, image, user_id) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) 
+                RETURNING id, donor_name AS "donorName", donor_email AS "donorEmail", mobile_number AS "mobileNumber", tower_number AS "towerNumber", flat_number AS "flatNumber", amount, number_of_coupons AS "numberOfCoupons", COALESCE(coupons_collected, 0) AS "couponsCollected", date_collected AS "dateCollected", COALESCE(coupons_used, 0) AS "couponsUsed", festival_id AS "festivalId", campaign_id AS "campaignId", date, status, type, transaction_ref AS "transactionRef", image, created_at AS "createdAt", updated_at AS "updatedAt"
+            `, [finalDonorName, c.donorEmail || null, c.mobileNumber || null, c.towerNumber || 'N/A', c.flatNumber || 'N/A', c.amount, clampedCoupons, couponsCollectedNum, dateCollectedVal, couponsUsedNum, dbFestivalId, dbCampaignId, contributionDate, contributionStatus, c.type || 'Online', cleanTxRef, c.image || null, bulkTargetUserId]);
             const row = result.rows[0];
             if (row.image) {
                 row.image = `/api/contributions/${row.id}/image`;
