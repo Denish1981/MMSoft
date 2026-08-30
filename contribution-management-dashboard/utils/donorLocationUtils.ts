@@ -120,3 +120,115 @@ export const parseTowerAndFlatFromDonorName = (input?: string | null): { towerNu
     return { towerNumber: '', flatNumber: '' };
 };
 
+/**
+ * Checks if a contribution or donor's tower & flat numbers match a search query.
+ * Supports various query formats:
+ * - Continuous: 421105, 420704, 42704
+ * - Delimited: 42-1105, 42-704, 42-0704, 42 1105, 42/1105, 42 704
+ * - With prefixes: T42-1105, Tower 42-1105, T420704
+ * - Partial: 42, 1105, 704, 0704
+ */
+export const matchesTowerFlatFilter = (
+    rawTower?: string | number | null,
+    rawFlat?: string | number | null,
+    filterInput?: string
+): boolean => {
+    if (!filterInput || !filterInput.trim()) return true;
+
+    const towerStr = String(rawTower || '').trim();
+    const flatStr = String(rawFlat || '').trim();
+    const normTower = normalizeTowerNumber(towerStr);
+    const normFlat = normalizeFlatNumber(flatStr);
+
+    if (!towerStr && !flatStr && !normTower && !normFlat) return false;
+
+    const filter = filterInput.trim().toLowerCase();
+    const cleanFilterAlphanumeric = filter.replace(/[^a-z0-9]/g, '');
+
+    // Collect variations of flat (e.g. 704, 0704, 0101, 101)
+    const flatVariations = new Set<string>();
+    if (flatStr) {
+        flatVariations.add(flatStr.toLowerCase());
+        flatVariations.add(flatStr.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    }
+    if (normFlat) {
+        flatVariations.add(normFlat.toLowerCase());
+        // If normFlat is 3 digits like '704', 4-digit padded floor format is '0704'
+        if (/^\d{3}$/.test(normFlat)) {
+            flatVariations.add(`0${normFlat}`);
+        }
+        // If normFlat is 1-2 digits like '5', padded formats
+        if (/^\d{1,2}$/.test(normFlat)) {
+            flatVariations.add(normFlat.padStart(3, '0'));
+            flatVariations.add(normFlat.padStart(4, '0'));
+        }
+    }
+
+    // Collect variations of tower (e.g. 42, tower 42, t42)
+    const towerVariations = new Set<string>();
+    if (towerStr) {
+        towerVariations.add(towerStr.toLowerCase());
+        towerVariations.add(towerStr.toLowerCase().replace(/^(tower|t)[\s-_]*/i, ''));
+    }
+    if (normTower) {
+        towerVariations.add(normTower.toLowerCase());
+    }
+
+    // Check parsed query
+    const parsed = parseTowerAndFlatFromDonorName(filter);
+    if (parsed.towerNumber && parsed.flatNumber) {
+        const pTower = parsed.towerNumber.toLowerCase();
+        const pFlat = parsed.flatNumber.toLowerCase();
+        const towerMatches = Array.from(towerVariations).some(t => t === pTower || t.includes(pTower));
+        const flatMatches = Array.from(flatVariations).some(f => f === pFlat || normalizeFlatNumber(f) === normalizeFlatNumber(pFlat));
+        if (towerMatches && flatMatches) {
+            return true;
+        }
+    }
+
+    // Build combination strings
+    const comboVariations = new Set<string>();
+    towerVariations.forEach(t => {
+        if (!t) return;
+        flatVariations.forEach(f => {
+            if (!f) return;
+            comboVariations.add(`${t}-${f}`);
+            comboVariations.add(`${t} - ${f}`);
+            comboVariations.add(`${t} ${f}`);
+            comboVariations.add(`${t}/${f}`);
+            comboVariations.add(`${t}${f}`);
+            comboVariations.add(`t${t}-${f}`);
+            comboVariations.add(`t${t}${f}`);
+            comboVariations.add(`t-${t}-${f}`);
+            comboVariations.add(`tower ${t} flat ${f}`);
+            comboVariations.add(`tower ${t} ${f}`);
+            comboVariations.add(`tower${t}flat${f}`);
+        });
+    });
+
+    // Check substring match in combinations
+    for (const combo of comboVariations) {
+        if (combo.includes(filter)) return true;
+        const comboAlphanumeric = combo.replace(/[^a-z0-9]/g, '');
+        if (cleanFilterAlphanumeric && comboAlphanumeric.includes(cleanFilterAlphanumeric)) {
+            return true;
+        }
+    }
+
+    // If search filter matches just tower alone
+    for (const t of towerVariations) {
+        if (t === filter || t.includes(filter) || (cleanFilterAlphanumeric && t.replace(/[^a-z0-9]/g, '') === cleanFilterAlphanumeric)) {
+            return true;
+        }
+    }
+
+    // If search filter matches just flat alone
+    for (const f of flatVariations) {
+        if (f === filter || f.includes(filter) || (cleanFilterAlphanumeric && f.replace(/[^a-z0-9]/g, '') === cleanFilterAlphanumeric)) {
+            return true;
+        }
+    }
+
+    return false;
+};
+

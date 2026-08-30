@@ -1,20 +1,26 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Contribution } from '../types/index';
 import { TicketIcon } from '../components/icons/TicketIcon';
 import { EditIcon } from '../components/icons/EditIcon';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { SaveIcon } from '../components/icons/SaveIcon';
-import { TOWER_OPTIONS, normalizeTowerNumber, normalizeFlatNumber } from '../utils/donorLocationUtils';
+import ImageViewerModal from '../components/ImageViewerModal';
+import { PaginationControls } from '../components/PaginationControls';
+import { matchesTowerFlatFilter } from '../utils/donorLocationUtils';
 
 export const FoodCouponsPage: React.FC = () => {
     const { contributions, handleUpdateContributionCoupons, festivalMap } = useData();
 
     // Filters state
-    const [towerFilter, setTowerFilter] = useState('');
-    const [flatFilter, setFlatFilter] = useState('');
+    const [towerFlatFilter, setTowerFlatFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'collected' | 'used'>('all');
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [rowsPerPage, setRowsPerPage] = useState<number>(10);
 
     // Modal state for editing
     const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null);
@@ -26,45 +32,17 @@ export const FoodCouponsPage: React.FC = () => {
     const [dateCollectedInput, setDateCollectedInput] = useState<string>('');
     const [couponsUsedInput, setCouponsUsedInput] = useState<number>(0);
 
-    // List of unique tower numbers for quick filter dropdown
-    const uniqueTowers = useMemo(() => {
-        const towers = new Set<string>(TOWER_OPTIONS);
-        contributions.forEach(c => {
-            const t = normalizeTowerNumber(c.towerNumber);
-            if (t) {
-                towers.add(t);
-            }
-        });
-        return Array.from(towers).sort((a, b) => {
-            const numA = parseInt(a, 10);
-            const numB = parseInt(b, 10);
-            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-            return a.localeCompare(b);
-        });
-    }, [contributions]);
-
     // Contributions that have requested food coupons (or all completed/approved contributions)
     const foodCouponContributions = useMemo(() => {
         return contributions.filter(c => (c.numberOfCoupons > 0 || c.couponsCollected || c.couponsUsed) && c.status !== 'Failed');
     }, [contributions]);
 
-    // Filtered list based on search and tower/flat inputs
+    // Filtered list based on search and combined tower/flat input
     const filteredContributions = useMemo(() => {
         return foodCouponContributions.filter(c => {
-            // Tower filter
-            if (towerFilter) {
-                const normC = normalizeTowerNumber(c.towerNumber);
-                const normFilter = normalizeTowerNumber(towerFilter) || towerFilter.toLowerCase().trim();
-                if (!normC.toLowerCase().includes(normFilter.toLowerCase()) && !(c.towerNumber || '').toLowerCase().includes(normFilter.toLowerCase())) {
-                    return false;
-                }
-            }
-
-            // Flat filter
-            if (flatFilter) {
-                const normC = normalizeFlatNumber(c.flatNumber);
-                const normFilter = normalizeFlatNumber(flatFilter) || flatFilter.toLowerCase().trim();
-                if (!normC.toLowerCase().includes(normFilter.toLowerCase()) && !(c.flatNumber || '').toLowerCase().includes(normFilter.toLowerCase())) {
+            // Combined Tower & Flat filter
+            if (towerFlatFilter) {
+                if (!matchesTowerFlatFilter(c.towerNumber, c.flatNumber, towerFlatFilter)) {
                     return false;
                 }
             }
@@ -97,7 +75,26 @@ export const FoodCouponsPage: React.FC = () => {
 
             return true;
         });
-    }, [foodCouponContributions, towerFilter, flatFilter, searchQuery, statusFilter]);
+    }, [foodCouponContributions, towerFlatFilter, searchQuery, statusFilter]);
+
+    // Reset pagination to first page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [towerFlatFilter, searchQuery, statusFilter, rowsPerPage]);
+
+    const totalPages = Math.ceil(filteredContributions.length / rowsPerPage);
+    const paginatedContributions = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        return filteredContributions.slice(startIndex, startIndex + rowsPerPage);
+    }, [filteredContributions, currentPage, rowsPerPage]);
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+    };
+
+    const handlePreviousPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
 
     // Calculated metrics
     const stats = useMemo(() => {
@@ -182,10 +179,10 @@ export const FoodCouponsPage: React.FC = () => {
     };
 
     const resetFilters = () => {
-        setTowerFilter('');
-        setFlatFilter('');
+        setTowerFlatFilter('');
         setSearchQuery('');
         setStatusFilter('all');
+        setCurrentPage(1);
     };
 
     return (
@@ -264,7 +261,7 @@ export const FoodCouponsPage: React.FC = () => {
             <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
                 <div className="text-sm font-semibold text-slate-700 flex items-center justify-between">
                     <span>Search & Filters</span>
-                    {(towerFilter || flatFilter || searchQuery || statusFilter !== 'all') && (
+                    {(towerFlatFilter || searchQuery || statusFilter !== 'all') && (
                         <button
                             onClick={resetFilters}
                             className="text-xs text-blue-600 hover:text-blue-800 font-medium underline cursor-pointer"
@@ -274,36 +271,22 @@ export const FoodCouponsPage: React.FC = () => {
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                    {/* Tower Filter */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Combined Tower + Flat Filter */}
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Tower Number</label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="e.g. Tower A"
-                                value={towerFilter}
-                                onChange={(e) => setTowerFilter(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                            />
-                            {uniqueTowers.length > 0 && (
-                                <datalist id="tower-list">
-                                    {uniqueTowers.map(t => <option key={t} value={t} />)}
-                                </datalist>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Flat Filter */}
-                    <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Flat Number</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Tower & Flat Number
+                        </label>
                         <input
                             type="text"
-                            placeholder="e.g. 402"
-                            value={flatFilter}
-                            onChange={(e) => setFlatFilter(e.target.value)}
+                            placeholder="e.g. 42-1105, 421105, 42704, 42-704..."
+                            value={towerFlatFilter}
+                            onChange={(e) => setTowerFlatFilter(e.target.value)}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         />
+                        <p className="text-[11px] text-slate-400 mt-1">
+                            Supports combinations (421105, 42-1105, 420704, 42704, 42-704, etc.)
+                        </p>
                     </div>
 
                     {/* Donor Search */}
@@ -316,6 +299,9 @@ export const FoodCouponsPage: React.FC = () => {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         />
+                        <p className="text-[11px] text-slate-400 mt-1">
+                            Search by donor name, phone, or #CONT-ID
+                        </p>
                     </div>
 
                     {/* Collection Status Filter */}
@@ -331,6 +317,9 @@ export const FoodCouponsPage: React.FC = () => {
                             <option value="collected">Collected</option>
                             <option value="used">Used</option>
                         </select>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                            Filter by coupon collection or usage status
+                        </p>
                     </div>
                 </div>
             </div>
@@ -347,7 +336,7 @@ export const FoodCouponsPage: React.FC = () => {
                     <div className="p-12 text-center text-slate-500 space-y-3">
                         <TicketIcon className="w-12 h-12 text-slate-300 mx-auto" />
                         <p className="text-base font-medium">No food coupon entries found matching your search criteria.</p>
-                        <p className="text-xs text-slate-400">Try adjusting your Tower, Flat, or Name search filters.</p>
+                        <p className="text-xs text-slate-400">Try adjusting your Tower & Flat, or Name search filters.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -360,11 +349,12 @@ export const FoodCouponsPage: React.FC = () => {
                                     <th className="py-3 px-4 text-center">Coupons Collected</th>
                                     <th className="py-3 px-4">Date Collected</th>
                                     <th className="py-3 px-4 text-center">Coupons Used</th>
+                                    <th className="py-3 px-4 text-center">Image</th>
                                     <th className="py-3 px-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 text-slate-700">
-                                {filteredContributions.map((item) => {
+                                {paginatedContributions.map((item) => {
                                     const requested = item.numberOfCoupons || 0;
                                     const collected = item.couponsCollected || 0;
                                     const used = item.couponsUsed || 0;
@@ -383,7 +373,7 @@ export const FoodCouponsPage: React.FC = () => {
                                                     <span>{new Date(item.date).toLocaleDateString()}</span>
                                                     {item.festivalId && festivalMap.has(item.festivalId) && (
                                                         <>
-                                                            <span>•</span>
+                                                             <span>•</span>
                                                             <span className="text-blue-600">{festivalMap.get(item.festivalId)}</span>
                                                         </>
                                                     )}
@@ -439,6 +429,21 @@ export const FoodCouponsPage: React.FC = () => {
                                                 </span>
                                             </td>
 
+                                            {/* Image */}
+                                            <td className="py-3 px-4 text-center">
+                                                {item.image ? (
+                                                    <img
+                                                        src={item.image}
+                                                        alt={`Proof for #${item.id}`}
+                                                        className="h-10 w-14 object-cover rounded-md cursor-pointer hover:scale-110 transition-transform mx-auto border border-slate-200 shadow-2xs"
+                                                        onClick={() => setViewingImage(item.image!)}
+                                                        title="Click to view full image"
+                                                    />
+                                                ) : (
+                                                    <span className="text-slate-400 text-xs italic">N/A</span>
+                                                )}
+                                            </td>
+
                                             {/* Actions */}
                                             <td className="py-3 px-4 text-right">
                                                 <button
@@ -456,7 +461,29 @@ export const FoodCouponsPage: React.FC = () => {
                         </table>
                     </div>
                 )}
+
+                {filteredContributions.length > 0 && (
+                    <div className="px-4 pb-4">
+                        <PaginationControls
+                            rowsPerPage={rowsPerPage}
+                            setRowsPerPage={setRowsPerPage}
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            totalItems={filteredContributions.length}
+                            onPreviousPage={handlePreviousPage}
+                            onNextPage={handleNextPage}
+                        />
+                    </div>
+                )}
             </div>
+
+            {/* Full Image Viewer Modal */}
+            {viewingImage && (
+                <ImageViewerModal
+                    imageUrl={viewingImage}
+                    onClose={() => setViewingImage(null)}
+                />
+            )}
 
             {/* Modal for Adding / Updating Coupon Fields */}
             {selectedContribution && (
