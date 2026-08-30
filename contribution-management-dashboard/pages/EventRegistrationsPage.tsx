@@ -165,19 +165,38 @@ const EventRegistrationsPage: React.FC = () => {
             );
         }
 
-        // Handle Audio / File data URLs
-        if (typeof value === 'string' && value.startsWith('data:audio')) {
-            const filename = registration.formData[`${key}_filename`] || 'Audio Track';
-            if (forExport) return filename;
+        // Handle Audio / File data URLs and Streaming URLs
+        const filename = registration.formData[`${key}_filename`] || '';
+        const fieldSchema = eventDetails?.registrationFormSchema?.find(f => f.name === key);
+        const isAudio = 
+            (fieldSchema && fieldSchema.type === 'audio') ||
+            (typeof value === 'string' && value.startsWith('data:audio')) ||
+            key.toLowerCase().includes('audio') ||
+            key.toLowerCase().includes('song') ||
+            key.toLowerCase().includes('track') ||
+            key.toLowerCase().includes('music') ||
+            (filename && /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(filename));
+
+        const isFile = 
+            (fieldSchema && fieldSchema.type === 'file') ||
+            (typeof value === 'string' && (value.startsWith('data:') || value.startsWith('/api/event-registrations/') || value.includes('/files/'))) ||
+            key.toLowerCase().includes('file') ||
+            key.toLowerCase().includes('attachment') ||
+            Boolean(filename);
+
+        if (typeof value === 'string' && value && isAudio) {
+            const trackName = filename || `${key}.mp3`;
+            if (forExport) return trackName;
             return (
                 <div className="flex items-center gap-2">
-                    <audio controls className="h-8 max-w-[180px]" src={value}>
+                    <audio controls className="h-8 max-w-[190px]" src={value}>
                         Your browser does not support audio.
                     </audio>
                     <a
                         href={value}
-                        download={filename}
-                        className="text-xs text-blue-600 hover:underline shrink-0"
+                        download={trackName}
+                        className="text-xs text-blue-600 hover:underline shrink-0 font-medium"
+                        title="Download track"
                     >
                         Download
                     </a>
@@ -185,16 +204,16 @@ const EventRegistrationsPage: React.FC = () => {
             );
         }
 
-        if (typeof value === 'string' && value.startsWith('data:')) {
-            const filename = registration.formData[`${key}_filename`] || 'Uploaded File';
-            if (forExport) return filename;
+        if (typeof value === 'string' && value && isFile) {
+            const docName = filename || (value.startsWith('/api/') ? 'Attachment' : 'Uploaded File');
+            if (forExport) return docName;
             return (
                 <a
                     href={value}
-                    download={filename}
+                    download={docName}
                     className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
                 >
-                    📁 Download {filename}
+                    📁 Download {docName}
                 </a>
             );
         }

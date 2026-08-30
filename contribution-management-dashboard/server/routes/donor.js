@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware } = require('../auth/middleware');
+const { sanitizeRegistrationPayload } = require('../db/helpers');
 const publicRoutes = require('./public');
 const checkApprovedContribution = publicRoutes.checkApprovedContribution;
 
@@ -121,11 +122,13 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
              ORDER BY e.event_date ASC`
         );
 
+        const sanitizedEventRegistrations = eventRegRes.rows.map(r => sanitizeRegistrationPayload(r));
+
         res.json({
             user,
             contributions: contribRes.rows,
             stallRegistrations: stallRes.rows,
-            eventRegistrations: eventRegRes.rows,
+            eventRegistrations: sanitizedEventRegistrations,
             upcomingEvents: upcomingEventsRes.rows
         });
     } catch (err) {
@@ -446,11 +449,23 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
             return res.status(403).json({ error: 'You do not have permission to modify this registration.' });
         }
 
-        // Merge existing formData with new answers
-        const updatedFormData = {
-            ...(reg.form_data || {}),
-            ...(formData || {})
-        };
+        // Merge existing formData with new answers, preserving underlying base64 files if client passed existing streaming endpoint URLs
+        const existingFormData = reg.form_data || {};
+        const incomingFormData = formData || {};
+        const updatedFormData = { ...existingFormData };
+
+        for (const [k, v] of Object.entries(incomingFormData)) {
+            if (typeof v === 'string' && (v.startsWith('/api/event-registrations/') || v.includes('/files/') || v.includes('/audio'))) {
+                // If it was already a file in DB, keep the original base64 binary content
+                if (existingFormData[k] !== undefined) {
+                    updatedFormData[k] = existingFormData[k];
+                } else {
+                    updatedFormData[k] = v;
+                }
+            } else {
+                updatedFormData[k] = v;
+            }
+        }
 
         // If updating group members, validate each member's household contribution
         const incomingMembers = updatedFormData.group_members || updatedFormData.groupMembers;
@@ -498,7 +513,7 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
 
         res.json({
             message: 'Performance details and files saved successfully!',
-            registration: updateRes.rows[0]
+            registration: sanitizeRegistrationPayload(updateRes.rows[0])
         });
     } catch (err) {
         console.error('Error updating registration details:', err);

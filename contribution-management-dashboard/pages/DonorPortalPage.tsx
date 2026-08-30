@@ -278,8 +278,14 @@ const DonorPortalPage: React.FC = () => {
             const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
             if (internalKeys.has(cleanKey)) return false;
             if (key.endsWith('_filename') || key.endsWith('_filesize')) return false;
-            // Filter out base64 data URLs / files so they don't render as raw text encoding
-            if (typeof val === 'string' && (val.startsWith('data:') || (val.length > 250 && !val.includes(' ')))) return false;
+            // Filter out base64 data URLs / streaming API endpoints / files so they don't render as raw text encoding
+            if (typeof val === 'string' && (
+                val.startsWith('data:') || 
+                val.startsWith('/api/event-registrations/') || 
+                val.includes('/files/') || 
+                val.includes('/audio') ||
+                (val.length > 250 && !val.includes(' '))
+            )) return false;
             // Exclude arrays/objects that might render as [object Object]
             if (typeof val === 'object' && val !== null) return false;
             return val !== null && val !== undefined && val !== '';
@@ -300,21 +306,35 @@ const DonorPortalPage: React.FC = () => {
         const attachments: FormFieldAttachment[] = [];
         
         Object.entries(formData).forEach(([key, val]) => {
-            if (typeof val === 'string' && (val.startsWith('data:') || (val.length > 300 && !val.includes(' ')))) {
-                const isAudio = val.startsWith('data:audio') || 
-                                key.toLowerCase().includes('audio') || 
-                                key.toLowerCase().includes('song') || 
-                                key.toLowerCase().includes('track') || 
-                                key.toLowerCase().includes('music');
-                
-                attachments.push({
-                    key,
-                    label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                    dataUrl: val,
-                    fileName: formData[`${key}_filename`] || (isAudio ? `${key}.mp3` : `${key}.dat`),
-                    fileSize: formData[`${key}_filesize`] || '',
-                    isAudio
-                });
+            if (typeof val === 'string') {
+                const isDataUrl = val.startsWith('data:');
+                const isApiFileUrl = val.startsWith('/api/event-registrations/') || val.includes('/files/') || val.includes('/audio');
+                const hasFilename = Boolean(formData[`${key}_filename`]);
+                const isFileKey = key.toLowerCase().includes('audio') || 
+                                  key.toLowerCase().includes('song') || 
+                                  key.toLowerCase().includes('track') || 
+                                  key.toLowerCase().includes('music') ||
+                                  key.toLowerCase().includes('file') ||
+                                  key.toLowerCase().includes('attachment') ||
+                                  key.toLowerCase().includes('doc');
+
+                if (isDataUrl || isApiFileUrl || (val.length > 300 && !val.includes(' ')) || (hasFilename && val) || (isFileKey && val.startsWith('/api/'))) {
+                    const isAudio = val.startsWith('data:audio') || 
+                                    key.toLowerCase().includes('audio') || 
+                                    key.toLowerCase().includes('song') || 
+                                    key.toLowerCase().includes('track') || 
+                                    key.toLowerCase().includes('music') ||
+                                    (formData[`${key}_filename`] && /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(formData[`${key}_filename`]));
+                    
+                    attachments.push({
+                        key,
+                        label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                        dataUrl: val,
+                        fileName: formData[`${key}_filename`] || (isAudio ? `${key}.mp3` : `${key}.dat`),
+                        fileSize: formData[`${key}_filesize`] || '',
+                        isAudio
+                    });
+                }
             }
         });
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
-const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint } = require('../db/helpers');
+const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint, sanitizeRegistrationPayload } = require('../db/helpers');
 const router = express.Router();
 
 // Helper to format event for response, used to ensure consistency
@@ -100,6 +100,8 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
             [id]
         );
         
+        const sanitizedRegistrations = registrationsRes.rows.map(r => sanitizeRegistrationPayload(r));
+
         res.json({
             event: { 
                 name: eventRes.rows[0].name, 
@@ -112,7 +114,7 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
                 maxGroupSize: eventRes.rows[0].maxGroupSize || 20,
                 allowDuplicateMembers: Boolean(eventRes.rows[0].allowDuplicateMembers),
             },
-            registrations: registrationsRes.rows
+            registrations: sanitizedRegistrations
         });
 
     } catch (err) {

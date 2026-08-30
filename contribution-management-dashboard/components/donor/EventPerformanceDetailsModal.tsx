@@ -547,11 +547,11 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
                                                     </div>
 
                                                     <div className="flex items-center gap-2 shrink-0">
-                                                        {field.type === 'audio' && typeof val === 'string' && val.startsWith('data:audio') && (
+                                                        {field.type === 'audio' && typeof val === 'string' && Boolean(val) && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => togglePlayAudio(field.name, val)}
-                                                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                                                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                                                             >
                                                                 {playingAudioField === field.name ? (
                                                                     <>
@@ -567,7 +567,7 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
                                                         <button
                                                             type="button"
                                                             onClick={() => handleRemoveFile(field.name)}
-                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                                             title="Remove file"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
