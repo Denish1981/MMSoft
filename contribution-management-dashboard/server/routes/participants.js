@@ -215,19 +215,50 @@ router.get('/export-detailed', authMiddleware, permissionMiddleware('page:partic
 
         const { rows } = await db.query(query, params);
         
-        const formattedRows = rows.map(row => {
-            let schema = row.registrationFormSchema;
-            if (typeof schema === 'string') {
-                try { schema = JSON.parse(schema); } catch (e) { schema = []; }
+        const sanitizeForExport = (obj) => {
+            if (!obj || typeof obj !== 'object') return {};
+            const clean = {};
+            for (const [k, v] of Object.entries(obj)) {
+                if (typeof v === 'string') {
+                    if (v.startsWith('data:') || v.length > 2000) {
+                        clean[k] = v.startsWith('data:audio') ? '[Audio Uploaded]' : (v.startsWith('data:image') ? '[Image Uploaded]' : '[File Uploaded]');
+                    } else {
+                        clean[k] = v;
+                    }
+                } else if (Array.isArray(v)) {
+                    clean[k] = v.map(item => (typeof item === 'object' && item !== null ? sanitizeForExport(item) : item));
+                } else if (typeof v === 'object' && v !== null) {
+                    clean[k] = sanitizeForExport(v);
+                } else {
+                    clean[k] = v;
+                }
             }
+            return clean;
+        };
+
+        const formattedRows = rows.map(row => {
             let formData = row.formData;
             if (typeof formData === 'string') {
                 try { formData = JSON.parse(formData); } catch (e) { formData = {}; }
             }
             return {
-                ...row,
-                registrationFormSchema: schema || [],
-                formData: formData || {}
+                registrationId: row.registrationId,
+                eventId: row.eventId,
+                eventName: row.eventName,
+                eventDate: row.eventDate,
+                startTime: row.startTime,
+                endTime: row.endTime,
+                venue: row.venue,
+                festivalId: row.festivalId,
+                festivalName: row.festivalName,
+                isGroupEvent: row.isGroupEvent,
+                name: row.name,
+                email: row.email,
+                phoneNumber: row.phoneNumber,
+                towerNumber: row.towerNumber,
+                flatNumber: row.flatNumber,
+                formData: sanitizeForExport(formData || {}),
+                submittedAt: row.submittedAt
             };
         });
 
