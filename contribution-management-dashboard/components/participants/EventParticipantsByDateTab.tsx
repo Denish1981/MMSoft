@@ -373,28 +373,26 @@ export const EventParticipantsByDateTab: React.FC<EventParticipantsByDateTabProp
         headers.set('name', 'Full Name');
 
         if (isSingleEventSelected && singleEventDetails) {
-            // SINGLE EVENT: Display all fields from that event's schema
+            // SINGLE EVENT: Display all fields from that event's schema (excluding name & email)
             (singleEventDetails.registrationFormSchema || []).forEach(field => {
-                if (field.name !== 'name') {
+                if (field.name !== 'name' && field.name !== 'email') {
                     headers.set(field.name, field.label);
                 }
             });
         } else {
-            // MULTIPLE EVENTS: Display Event column + Common fields
+            // MULTIPLE EVENTS: Display Event column + Common fields (excluding email)
             headers.set('eventName', 'Event');
             headers.set('phone_number', 'Phone Number');
             headers.set('tower_flat', 'Tower / Flat');
-            headers.set('email', 'Email');
 
             // Add any additional schema fields common to all selected events
             commonSchemaFields.forEach(field => {
-                if (!headers.has(field.name)) {
+                if (field.name !== 'email' && !headers.has(field.name)) {
                     headers.set(field.name, field.label);
                 }
             });
         }
 
-        headers.set('paymentProofImage', 'Payment Proof');
         headers.set('submittedAt', 'Registered On');
 
         return Array.from(headers.entries()).map(([key, label]) => ({ key, label }));
