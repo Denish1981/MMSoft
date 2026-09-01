@@ -121,6 +121,123 @@ router.get('/', authMiddleware, permissionMiddleware('page:participants:view'), 
     }
 });
 
+router.get('/export-detailed', authMiddleware, permissionMiddleware('page:participants:view'), async (req, res) => {
+    const { festivalId } = req.query;
+    try {
+        const params = festivalId ? [festivalId] : [];
+        const festivalFilter = festivalId ? `AND e.festival_id = $1` : '';
+
+        const query = `
+            SELECT 
+                er.id as "registrationId",
+                er.event_id as "eventId",
+                e.name as "eventName",
+                e.event_date as "eventDate",
+                e.start_time as "startTime",
+                e.end_time as "endTime",
+                e.venue,
+                e.festival_id as "festivalId",
+                f.name as "festivalName",
+                e.is_group_event as "isGroupEvent",
+                e.registration_form_schema as "registrationFormSchema",
+                er.name as "name",
+                er.email as "email",
+                er.form_data as "formData",
+                er.submitted_at as "submittedAt",
+                COALESCE(
+                    er.form_data->>'phone_number',
+                    er.form_data->>'phoneNumber',
+                    er.form_data->>'mobile_number',
+                    er.form_data->>'contact_number',
+                    er.form_data->>'phone'
+                ) as "phoneNumber",
+                COALESCE(
+                    er.form_data->>'tower_number',
+                    er.form_data->>'towerNumber',
+                    er.form_data->>'tower',
+                    (
+                        SELECT c.tower_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.tower_number IS NOT NULL 
+                          AND (
+                            (
+                              (er.form_data->>'phone_number' IS NOT NULL OR er.form_data->>'mobile_number' IS NOT NULL)
+                              AND (
+                                c.mobile_number = COALESCE(er.form_data->>'phone_number', er.form_data->>'mobile_number')
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(er.form_data->>'phone_number', er.form_data->>'mobile_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              er.email IS NOT NULL 
+                              AND er.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(er.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "towerNumber",
+                COALESCE(
+                    er.form_data->>'flat_number',
+                    er.form_data->>'flatNumber',
+                    er.form_data->>'flat',
+                    (
+                        SELECT c.flat_number 
+                        FROM contributions c 
+                        WHERE c.deleted_at IS NULL 
+                          AND c.flat_number IS NOT NULL 
+                          AND (
+                            (
+                              (er.form_data->>'phone_number' IS NOT NULL OR er.form_data->>'mobile_number' IS NOT NULL)
+                              AND (
+                                c.mobile_number = COALESCE(er.form_data->>'phone_number', er.form_data->>'mobile_number')
+                                OR REPLACE(COALESCE(c.mobile_number, ''), ' ', '') = REPLACE(COALESCE(er.form_data->>'phone_number', er.form_data->>'mobile_number', ''), ' ', '')
+                              )
+                            )
+                            OR (
+                              er.email IS NOT NULL 
+                              AND er.email != '' 
+                              AND LOWER(TRIM(c.donor_email)) = LOWER(TRIM(er.email))
+                            )
+                          )
+                        ORDER BY c.date DESC, c.id DESC
+                        LIMIT 1
+                    )
+                ) as "flatNumber"
+            FROM event_registrations er
+            JOIN events e ON er.event_id = e.id
+            LEFT JOIN festivals f ON e.festival_id = f.id
+            WHERE e.deleted_at IS NULL
+            ${festivalFilter}
+            ORDER BY e.event_date ASC, er.submitted_at ASC
+        `;
+
+        const { rows } = await db.query(query, params);
+        
+        const formattedRows = rows.map(row => {
+            let schema = row.registrationFormSchema;
+            if (typeof schema === 'string') {
+                try { schema = JSON.parse(schema); } catch (e) { schema = []; }
+            }
+            let formData = row.formData;
+            if (typeof formData === 'string') {
+                try { formData = JSON.parse(formData); } catch (e) { formData = {}; }
+            }
+            return {
+                ...row,
+                registrationFormSchema: schema || [],
+                formData: formData || {}
+            };
+        });
+
+        res.json(formattedRows);
+    } catch (err) {
+        console.error('Error fetching detailed participant export data:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 router.get('/:name/:phone', authMiddleware, permissionMiddleware('page:participants:view'), async (req, res) => {
     const { name, phone } = req.params;
     const phoneNumber = phone === 'none' ? null : phone;

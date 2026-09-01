@@ -77,3 +77,24 @@ export interface ParticipantRegistrationHistory {
     };
     registrations: ParticipantDetails[];
 }
+
+export interface DetailedEventParticipantExportItem {
+    registrationId: number;
+    eventId: number;
+    eventName: string;
+    eventDate: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    venue?: string | null;
+    festivalId?: number | null;
+    festivalName?: string | null;
+    isGroupEvent?: boolean;
+    registrationFormSchema?: any[];
+    name: string;
+    email?: string | null;
+    phoneNumber?: string | null;
+    towerNumber?: string | null;
+    flatNumber?: string | null;
+    formData: Record<string, any>;
+    submittedAt: string;
+}
