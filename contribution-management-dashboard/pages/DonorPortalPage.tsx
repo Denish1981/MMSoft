@@ -8,7 +8,8 @@ import {
     Heart, Calendar, Store, Bell, CheckCircle2, XCircle, Clock, 
     RefreshCw, PlusCircle, Building2, Phone, User as UserIcon, X, Receipt, Layers,
     Ticket, Eye, FileText, Mail, Users, HelpCircle, Music, Edit3, AlertCircle,
-    Play, Pause, Download, Volume2, Utensils, BookOpen, ArrowRight
+    Play, Pause, Download, Volume2, Utensils, BookOpen, ArrowRight,
+    Camera, Lock
 } from 'lucide-react';
 import StallRegistrationModal from '../components/StallRegistrationModal';
 import { RegistrationModal, PublicEvent } from '../components/RegistrationModal';
@@ -517,7 +518,7 @@ const DonorPortalPage: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                        <a
+                        {/* <a
                             href="/donor-guide.html"
                             target="_blank"
                             rel="noopener noreferrer"
@@ -525,7 +526,7 @@ const DonorPortalPage: React.FC = () => {
                             title="Open Donor Process & Help Guide"
                         >
                             <HelpCircle className="w-5 h-5 text-slate-950" /> Help & Guide
-                        </a>
+                        </a> */}
                         <button
                             onClick={() => openContributionModal()}
                             className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2.5 rounded-xl shadow-lg transition-all"
@@ -559,6 +560,44 @@ const DonorPortalPage: React.FC = () => {
                     </div>
                 </div> */}
 
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-emerald-300 transition-all group">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Festival Memories</p>
+                            <p className="text-2xl font-bold text-slate-800 mt-1">Photographs</p>
+                        </div>
+                        <div className={`p-3 rounded-xl transition-colors ${
+                            hasApprovedContribution 
+                                ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100' 
+                                : 'bg-amber-50 text-amber-600 group-hover:bg-amber-100'
+                        }`}>
+                            {hasApprovedContribution ? <Camera className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
+                        </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <Link
+                            to="/photos"
+                            className={`text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer group-hover:underline ${
+                                hasApprovedContribution 
+                                    ? 'text-emerald-700 hover:text-emerald-900' 
+                                    : 'text-amber-700 hover:text-amber-900'
+                            }`}
+                        >
+                            {hasApprovedContribution ? (
+                                <>
+                                    <Camera className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <span>View Photographs &amp; Albums &rarr;</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <span>Unlocked with Approved Contribution &rarr;</span>
+                                </>
+                            )}
+                        </Link>
+                    </div>
+                </div> 
+
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-amber-300 transition-all group">
                     <div className="flex items-center justify-between">
                         <div>
@@ -580,15 +619,6 @@ const DonorPortalPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Upcoming Events</p>
-                        <p className="text-2xl font-bold text-slate-800 mt-1">{upcomingEvents.length}</p>
-                    </div>
-                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                        <Bell className="w-6 h-6" />
-                    </div>
-                </div>
             </div> 
 
             {/* Navigation Tabs */}

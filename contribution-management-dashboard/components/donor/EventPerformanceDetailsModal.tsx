@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Music, Upload, CheckCircle2, AlertCircle, Play, Pause, FileText, Trash2, Loader2, Info } from 'lucide-react';
 import { API_URL } from '../../config';
 import type { RegistrationFormField } from '../../types/index';
@@ -64,8 +64,14 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
         const initial: Record<string, any> = {};
         schema.forEach(field => {
             initial[field.name] = initialFormData[field.name] ?? '';
+            if (initialFormData[`${field.name}_filename`]) {
+                initial[`${field.name}_filename`] = initialFormData[`${field.name}_filename`];
+            }
+            if (initialFormData[`${field.name}_filesize`]) {
+                initial[`${field.name}_filesize`] = initialFormData[`${field.name}_filesize`];
+            }
         });
-        if (registration.isGroupEvent || initialFormData.group_name || initialFormData.group_members) {
+        if (registration.isGroupEvent || initialFormData.group_name || initialFormData.groupName || initialFormData.group_members || initialFormData.groupMembers) {
             initial.group_name = initialFormData.group_name || initialFormData.groupName || '';
             const rawMembers = Array.isArray(initialFormData.group_members) 
                 ? initialFormData.group_members 
@@ -86,6 +92,48 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
         }
         return initial;
     });
+
+    const initialAnswersRef = useRef<Record<string, any>>(JSON.parse(JSON.stringify(answers)));
+    const [deletedFields, setDeletedFields] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!isOpen || !registration) return;
+        const initial: Record<string, any> = {};
+        const regFormData = registration.formData || {};
+        schema.forEach(field => {
+            initial[field.name] = regFormData[field.name] ?? '';
+            if (regFormData[`${field.name}_filename`]) {
+                initial[`${field.name}_filename`] = regFormData[`${field.name}_filename`];
+            }
+            if (regFormData[`${field.name}_filesize`]) {
+                initial[`${field.name}_filesize`] = regFormData[`${field.name}_filesize`];
+            }
+        });
+        if (registration.isGroupEvent || regFormData.group_name || regFormData.groupName || regFormData.group_members || regFormData.groupMembers) {
+            initial.group_name = regFormData.group_name || regFormData.groupName || '';
+            const rawMembers = Array.isArray(regFormData.group_members) 
+                ? regFormData.group_members 
+                : (Array.isArray(regFormData.groupMembers) ? regFormData.groupMembers : []);
+            
+            initial.group_members = rawMembers.map((m: any) => {
+                if (typeof m === 'string') {
+                    return { name: m, towerNumber: '', flatNumber: '', phone: '' };
+                }
+                return {
+                    name: m?.name || '',
+                    towerNumber: m?.towerNumber || m?.tower_number || m?.tower || '',
+                    flatNumber: m?.flatNumber || m?.flat_number || m?.flat || '',
+                    phone: m?.phone || m?.phone_number || m?.mobile_number || '',
+                    role: m?.role || ''
+                };
+            });
+        }
+        setAnswers(initial);
+        initialAnswersRef.current = JSON.parse(JSON.stringify(initial));
+        setDeletedFields([]);
+        setErrorMessage('');
+        setSuccessMessage('');
+    }, [isOpen, registration?.id]);
 
     const isGroup = Boolean(registration.isGroupEvent || initialFormData.group_name || initialFormData.group_members);
     const groupMembers: Array<{ name: string; towerNumber?: string; flatNumber?: string; phone?: string; role?: string }> = Array.isArray(answers.group_members) ? answers.group_members : [];
@@ -140,6 +188,7 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
             const reader = new FileReader();
             reader.onload = () => {
                 const base64Data = reader.result as string;
+                setDeletedFields(prev => prev.filter(k => k !== fieldName && k !== `${fieldName}_filename` && k !== `${fieldName}_filesize`));
                 setAnswers(prev => ({
                     ...prev,
                     [fieldName]: base64Data,
@@ -159,6 +208,7 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
             audioRef.current.pause();
             setPlayingAudioField(null);
         }
+        setDeletedFields(prev => Array.from(new Set([...prev, fieldName, `${fieldName}_filename`, `${fieldName}_filesize`])));
         setAnswers(prev => {
             const next = { ...prev };
             delete next[fieldName];
@@ -191,8 +241,60 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
         setErrorMessage('');
         setSuccessMessage('');
 
-        // Validate group details if it's a group event
-        if (isGroup) {
+        // Compute delta of modified fields
+        const initial = initialAnswersRef.current || {};
+        const changedFields: Record<string, any> = {};
+        let hasChanges = false;
+
+        // Explicitly mark deleted fields with null so server removes them
+        deletedFields.forEach(k => {
+            if (initial[k] !== undefined && initial[k] !== null && initial[k] !== '') {
+                changedFields[k] = null;
+                hasChanges = true;
+            }
+        });
+
+        // Detect modified or newly added keys
+        for (const key of Object.keys(answers)) {
+            const currentVal = answers[key];
+            const initialVal = initial[key];
+
+            if (typeof currentVal === 'object' && currentVal !== null) {
+                if (JSON.stringify(currentVal) !== JSON.stringify(initialVal)) {
+                    changedFields[key] = currentVal;
+                    hasChanges = true;
+                }
+            } else {
+                const normCurrent = currentVal === undefined || currentVal === null ? '' : currentVal;
+                const normInitial = initialVal === undefined || initialVal === null ? '' : initialVal;
+                if (normCurrent !== normInitial) {
+                    changedFields[key] = currentVal;
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // Check if anything was present initially but removed completely from answers
+        for (const key of Object.keys(initial)) {
+            if (!(key in answers) && !deletedFields.includes(key)) {
+                if (initial[key] !== undefined && initial[key] !== null && initial[key] !== '') {
+                    changedFields[key] = null;
+                    hasChanges = true;
+                }
+            }
+        }
+
+        if (!hasChanges) {
+            setSuccessMessage('No changes detected.');
+            setTimeout(() => {
+                onClose();
+            }, 800);
+            setIsSaving(false);
+            return;
+        }
+
+        // Validate group details if it's a group event and group details were modified
+        if (isGroup && (changedFields.group_name !== undefined || changedFields.group_members !== undefined)) {
             const gName = (answers.group_name || '').trim();
             if (!gName) {
                 setErrorMessage('Group / Team Name is required.');
@@ -222,27 +324,35 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
         }
 
         try {
-            // Client-side pre-check for household contributions of additional members
-            if (isGroup && groupMembers.length > 0) {
-                for (let i = 0; i < groupMembers.length; i++) {
-                    const gm = groupMembers[i];
-                    const memberNum = i + 2;
-                    const tNum = (gm.towerNumber || '').trim();
-                    const fNum = (gm.flatNumber || '').trim();
-                    const mName = (gm.name || `Member #${memberNum}`).trim();
+            // Client-side pre-check for household contributions only for NEW members added to group roster
+            if (isGroup && changedFields.group_members !== undefined && groupMembers.length > 0) {
+                const initialMembers = Array.isArray(initial.group_members) ? initial.group_members : [];
+                const initialHouseholds = new Set(
+                    initialMembers.map((m: any) => `${String(m?.towerNumber || m?.tower_number || m?.tower || '').trim().toLowerCase()}-${String(m?.flatNumber || m?.flat_number || m?.flat || '').trim().toLowerCase()}`)
+                );
 
-                    if (tNum && fNum) {
-                        const checkUrl = `${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(tNum)}&flatNumber=${encodeURIComponent(fNum)}`;
-                        const checkResp = await fetch(checkUrl);
-                        if (checkResp.ok) {
-                            const checkData = await checkResp.json();
-                            if (!checkData.hasApprovedContribution && !checkData.contributionExists) {
-                                setErrorMessage(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
-                                setIsSaving(false);
-                                return;
+                const newlyAddedMembers = groupMembers.filter(gm => {
+                    const key = `${String(gm.towerNumber || '').trim().toLowerCase()}-${String(gm.flatNumber || '').trim().toLowerCase()}`;
+                    return !initialHouseholds.has(key);
+                });
+
+                if (newlyAddedMembers.length > 0) {
+                    await Promise.all(newlyAddedMembers.map(async (gm) => {
+                        const tNum = (gm.towerNumber || '').trim();
+                        const fNum = (gm.flatNumber || '').trim();
+                        const mName = (gm.name || `Member`).trim();
+
+                        if (tNum && fNum) {
+                            const checkUrl = `${API_URL}/public/check-contribution?towerNumber=${encodeURIComponent(tNum)}&flatNumber=${encodeURIComponent(fNum)}`;
+                            const checkResp = await fetch(checkUrl);
+                            if (checkResp.ok) {
+                                const checkData = await checkResp.json();
+                                if (!checkData.hasApprovedContribution && !checkData.contributionExists) {
+                                    throw new Error(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
+                                }
                             }
                         }
-                    }
+                    }));
                 }
             }
 
@@ -255,7 +365,7 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
                 method: 'PUT',
                 headers,
                 body: JSON.stringify({
-                    formData: answers
+                    formData: changedFields
                 })
             });
 
@@ -264,6 +374,8 @@ export const EventPerformanceDetailsModal: React.FC<EventPerformanceDetailsModal
                 throw new Error(data.error || 'Failed to save performance details.');
             }
 
+            initialAnswersRef.current = JSON.parse(JSON.stringify(answers));
+            setDeletedFields([]);
             setSuccessMessage('Additional details saved successfully!');
             onSuccess(data.registration);
             setTimeout(() => {

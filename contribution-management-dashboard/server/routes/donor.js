@@ -422,7 +422,8 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
 
         // Verify registration belongs to this user or user's contact details
         const regRes = await db.query(
-            `SELECT er.id, er.form_data, er.user_id, er.event_id, e.name as event_name, e.registration_deadline, e.event_date
+            `SELECT er.id, er.form_data, er.user_id, er.event_id, er.name, er.email, er.payment_proof_image,
+                    e.name as event_name, e.registration_deadline, e.event_date
              FROM event_registrations er
              JOIN events e ON er.event_id = e.id
              WHERE er.id = $1`,
@@ -440,80 +441,164 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
         const u = userRes.rows[0] || {};
         const userEmail = u.username ? String(u.username).trim() : '';
         const userMobile = u.mobile_number ? String(u.mobile_number).trim() : '';
+        const userTower = u.tower_number ? String(u.tower_number).trim().toLowerCase() : '';
+        const userFlat = u.flat_number ? String(u.flat_number).trim().toLowerCase() : '';
+
+        const regTower = String(reg.form_data?.tower_number || reg.form_data?.towerNumber || reg.form_data?.tower || '').trim().toLowerCase();
+        const regFlat = String(reg.form_data?.flat_number || reg.form_data?.flatNumber || reg.form_data?.flat || '').trim().toLowerCase();
 
         const isOwner = reg.user_id === userId ||
             (userEmail && (reg.email === userEmail || reg.form_data?.email === userEmail)) ||
-            (userMobile && (reg.form_data?.phone_number === userMobile || reg.form_data?.mobile_number === userMobile || reg.form_data?.contact_number === userMobile));
+            (userMobile && (reg.form_data?.phone_number === userMobile || reg.form_data?.mobile_number === userMobile || reg.form_data?.contact_number === userMobile)) ||
+            (userTower && userFlat && userTower === regTower && userFlat === regFlat);
 
         if (!isOwner) {
             return res.status(403).json({ error: 'You do not have permission to modify this registration.' });
         }
 
-        // Merge existing formData with new answers, preserving underlying base64 files if client passed existing streaming endpoint URLs
+        // Merge existing formData with incoming delta fields, preserving underlying base64 files if client passed existing streaming endpoint URLs
         const existingFormData = reg.form_data || {};
         const incomingFormData = formData || {};
         const updatedFormData = { ...existingFormData };
+        let formDataChanged = false;
 
         for (const [k, v] of Object.entries(incomingFormData)) {
-            if (typeof v === 'string' && (v.startsWith('/api/event-registrations/') || v.includes('/files/') || v.includes('/audio'))) {
+            if (v === null || v === undefined) {
+                // Explicit deletion of field
+                if (k in updatedFormData) {
+                    delete updatedFormData[k];
+                    formDataChanged = true;
+                }
+            } else if (typeof v === 'string' && (v.startsWith('/api/event-registrations/') || v.includes('/files/') || v.includes('/audio'))) {
                 // If it was already a file in DB, keep the original base64 binary content
-                if (existingFormData[k] !== undefined) {
-                    updatedFormData[k] = existingFormData[k];
-                } else {
+                if (existingFormData[k] === undefined) {
                     updatedFormData[k] = v;
+                    formDataChanged = true;
                 }
             } else {
-                updatedFormData[k] = v;
+                if (JSON.stringify(updatedFormData[k]) !== JSON.stringify(v)) {
+                    updatedFormData[k] = v;
+                    formDataChanged = true;
+                }
             }
         }
 
-        // If updating group members, validate each member's household contribution
-        const incomingMembers = updatedFormData.group_members || updatedFormData.groupMembers;
-        if (Array.isArray(incomingMembers) && incomingMembers.length > 0) {
-            for (let i = 0; i < incomingMembers.length; i++) {
-                const gm = incomingMembers[i];
-                const memberNum = i + 2;
-                const mName = (gm.name || '').trim();
-                const tNum = (gm.towerNumber || gm.tower_number || gm.tower || '').trim();
-                const fNum = (gm.flatNumber || gm.flat_number || gm.flat || '').trim();
+        // Clean up conflicting legacy keys if group_members is updated
+        if (incomingFormData.group_members !== undefined) {
+            if (updatedFormData.groupMembers !== undefined || updatedFormData.members !== undefined || updatedFormData.team_members !== undefined) {
+                delete updatedFormData.groupMembers;
+                delete updatedFormData.members;
+                delete updatedFormData.team_members;
+                formDataChanged = true;
+            }
+        }
 
-                if (mName || tNum || fNum) {
-                    if (!mName) {
-                        return res.status(400).json({ error: `Full Name is required for Member #${memberNum}.` });
-                    }
-                    if (!tNum) {
-                        return res.status(400).json({ error: `Tower Number is mandatory for Member #${memberNum} (${mName}).` });
-                    }
-                    if (!fNum) {
-                        return res.status(400).json({ error: `Flat Number is mandatory for Member #${memberNum} (${mName}).` });
-                    }
+        // Only validate group members if group_members or groupMembers was among the updated delta fields
+        const groupMembersWereUpdated = incomingFormData.group_members !== undefined || incomingFormData.groupMembers !== undefined;
+        if (groupMembersWereUpdated) {
+            const incomingMembers = updatedFormData.group_members || updatedFormData.groupMembers;
+            if (Array.isArray(incomingMembers) && incomingMembers.length > 0) {
+                // Extract existing members to avoid re-checking members already in the registration
+                const existingMembers = Array.isArray(existingFormData.group_members)
+                    ? existingFormData.group_members
+                    : (Array.isArray(existingFormData.groupMembers) ? existingFormData.groupMembers : []);
+                const existingHouseholds = new Set(
+                    existingMembers.map(m => `${String(m?.towerNumber || m?.tower_number || m?.tower || '').trim().toLowerCase()}-${String(m?.flatNumber || m?.flat_number || m?.flat || '').trim().toLowerCase()}`)
+                );
 
-                    const memberHasContribution = await checkApprovedContribution({
-                        towerNumber: tNum,
-                        flatNumber: fNum
-                    });
+                for (let i = 0; i < incomingMembers.length; i++) {
+                    const gm = incomingMembers[i];
+                    const memberNum = i + 2;
+                    const mName = (gm.name || '').trim();
+                    const tNum = (gm.towerNumber || gm.tower_number || gm.tower || '').trim();
+                    const fNum = (gm.flatNumber || gm.flat_number || gm.flat || '').trim();
 
-                    if (!memberHasContribution) {
-                        return res.status(400).json({
-                            error: `Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`
-                        });
+                    if (mName || tNum || fNum) {
+                        if (!mName) {
+                            return res.status(400).json({ error: `Full Name is required for Member #${memberNum}.` });
+                        }
+                        if (!tNum) {
+                            return res.status(400).json({ error: `Tower Number is mandatory for Member #${memberNum} (${mName}).` });
+                        }
+                        if (!fNum) {
+                            return res.status(400).json({ error: `Flat Number is mandatory for Member #${memberNum} (${mName}).` });
+                        }
+
+                        // Only validate household contribution for newly added members
+                        const memberKey = `${tNum.toLowerCase()}-${fNum.toLowerCase()}`;
+                        if (!existingHouseholds.has(memberKey)) {
+                            const memberHasContribution = await checkApprovedContribution({
+                                towerNumber: tNum,
+                                flatNumber: fNum
+                            });
+
+                            if (!memberHasContribution) {
+                                return res.status(400).json({
+                                    error: `Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}): No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`
+                                });
+                            }
+                        }
                     }
                 }
             }
         }
 
-        const updateRes = await db.query(
-            `UPDATE event_registrations 
-             SET form_data = $1,
-                 payment_proof_image = COALESCE($2, payment_proof_image)
-             WHERE id = $3
-             RETURNING id, event_id AS "eventId", name, email, form_data AS "formData", payment_proof_image AS "paymentProofImage"`,
-            [JSON.stringify(updatedFormData), paymentProofImage || null, registrationId]
-        );
+        // Build dynamic SQL SET clause so ONLY columns that actually changed are updated
+        const setClauses = [];
+        const queryParams = [];
+        let paramIndex = 1;
+
+        // Check if name column needs update
+        const newName = incomingFormData.name || incomingFormData.participantName;
+        if (newName && String(newName).trim() !== String(reg.name || '').trim()) {
+            setClauses.push(`name = $${paramIndex++}`);
+            queryParams.push(String(newName).trim());
+        }
+
+        // Check if email column needs update
+        const newEmail = incomingFormData.email;
+        if (newEmail && String(newEmail).trim() !== String(reg.email || '').trim()) {
+            setClauses.push(`email = $${paramIndex++}`);
+            queryParams.push(String(newEmail).trim());
+        }
+
+        // Check if payment_proof_image column needs update (only if explicitly provided)
+        let paymentProofUpdated = false;
+        if (paymentProofImage !== undefined && paymentProofImage !== null && paymentProofImage !== reg.payment_proof_image) {
+            setClauses.push(`payment_proof_image = $${paramIndex++}`);
+            queryParams.push(paymentProofImage);
+            paymentProofUpdated = true;
+        }
+
+        // Check if form_data column needs update
+        if (formDataChanged) {
+            setClauses.push(`form_data = $${paramIndex++}`);
+            queryParams.push(JSON.stringify(updatedFormData));
+        }
+
+        // If no database columns were altered, short-circuit and return immediately
+        if (setClauses.length > 0) {
+            queryParams.push(registrationId);
+            await db.query(
+                `UPDATE event_registrations 
+                 SET ${setClauses.join(', ')}
+                 WHERE id = $${paramIndex}`,
+                queryParams
+            );
+        }
+
+        // Construct lightweight response without querying or returning multi-megabyte binary TOAST fields
+        const returnedReg = {
+            ...reg,
+            ...(newName ? { name: String(newName).trim() } : {}),
+            ...(newEmail ? { email: String(newEmail).trim() } : {}),
+            formData: updatedFormData,
+            paymentProofImage: paymentProofUpdated ? paymentProofImage : reg.payment_proof_image
+        };
 
         res.json({
-            message: 'Performance details and files saved successfully!',
-            registration: sanitizeRegistrationPayload(updateRes.rows[0])
+            message: 'Performance details saved successfully!',
+            registration: sanitizeRegistrationPayload(returnedReg)
         });
     } catch (err) {
         console.error('Error updating registration details:', err);

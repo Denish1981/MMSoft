@@ -66,7 +66,7 @@ const PhotoAlbumPage: React.FC = () => {
         <div className="bg-slate-50 min-h-screen">
             <header className="bg-white shadow-sm">
                  <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <Link to="/" className="text-slate-600 hover:text-blue-600 flex items-center">
+                    <Link to="/photos" className="text-slate-600 hover:text-blue-600 flex items-center">
                         <ChevronLeftIcon className="w-5 h-5 mr-2" /> Back to Albums
                     </Link>
                     {album && <h1 className="text-xl font-bold text-slate-800">{album.name}</h1>}
