@@ -49,6 +49,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
     const isGroup = Boolean(event.isGroupEvent);
     const minSize = event.minGroupSize || 1;
     const maxSize = event.maxGroupSize || 20;
+    const eventRequiresContribution = event.requireContribution !== false && (event as any).requiresApprovedContribution !== false;
 
     useEffect(() => {
         if (!user) return;
@@ -156,9 +157,13 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
             }
         }
 
-        const eventRequiresContribution = event.requireContribution !== false && (event as any).requiresApprovedContribution !== false;
-
         if (eventRequiresContribution) {
+            if (!user) {
+                setError("Registration via public link is not permitted for events that require an approved contribution. Please log in to the Resident / Donor Portal to register.");
+                setIsLoading(false);
+                return;
+            }
+
             const towerNumber = formData['tower_number'] || formData['towerNumber'] || user?.towerNumber;
             const flatNumber = formData['flat_number'] || formData['flatNumber'] || user?.flatNumber;
             const email = formData['email'] || user?.email;
@@ -284,6 +289,17 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({ event, onC
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                        {eventRequiresContribution && !user && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex flex-col gap-1">
+                                <span className="font-bold flex items-center gap-1">
+                                    ⚠️ Contribution Required
+                                </span>
+                                <span>
+                                    Public registration via this link is not permitted for events requiring an approved contribution. Please log in to the Donor Portal to register.
+                                </span>
+                            </div>
+                        )}
+
                         {isGroup && (
                             <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-3">
                                 <div className="flex items-center justify-between">

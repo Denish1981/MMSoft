@@ -444,6 +444,12 @@ router.post('/public/events/:id/register', async (req, res) => {
 
         // Only enforce contribution check if event requires it
         if (requireContribution) {
+            if (!userId) {
+                return res.status(403).json({
+                    error: 'Public registration via this link is not permitted. This event requires an approved contribution. Please log in to the Donor Portal to register.'
+                });
+            }
+
             const hasApproved = await checkApprovedContribution({
                 userId,
                 towerNumber: towerNumber ? String(towerNumber).trim() : null,
@@ -539,6 +545,13 @@ router.post('/public/events/batch-register', async (req, res) => {
         // Check if any selected event requires an approved contribution
         const eventsRequiringContribution = eventsCheck.rows.filter(e => e.require_contribution !== false);
         if (eventsRequiringContribution.length > 0) {
+            if (!userId) {
+                const names = eventsRequiringContribution.map(e => `"${e.name}"`).join(', ');
+                return res.status(403).json({
+                    error: `Public registration via link is not permitted for event(s) requiring an approved contribution: ${names}. Please log in to the Donor Portal to register.`
+                });
+            }
+
             const hasApproved = await checkApprovedContribution({
                 userId,
                 towerNumber: towerNumber ? String(towerNumber).trim() : null,

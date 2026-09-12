@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
     Calendar, Clock, MapPin, AlertCircle, CheckCircle2, 
     Share2, Phone, Mail, ArrowLeft, Sparkles, BookOpen, 
-    ShieldAlert, Check, Copy, UserCheck, ChevronRight
+    ShieldAlert, Check, Copy, UserCheck, ChevronRight,
+    Lock, Globe
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { formatUTCDate } from '../utils/formatting';
@@ -149,6 +150,7 @@ export const EventDetailsPage: React.FC = () => {
     const isClosed = isEventRegistrationClosed(event.registrationDeadline, event.eventDate);
     const parsedRules = parseEventRules(event.rules);
     const totalRuleCount = parsedRules.totalCount;
+    const isPublicEvent = event.requireContribution === false || (event as any).requiresApprovedContribution === false;
 
     return (
         <div className="bg-slate-50 min-h-screen flex flex-col justify-between">
@@ -187,9 +189,13 @@ export const EventDetailsPage: React.FC = () => {
                                     {event.festivalName}
                                 </span>
                             )}
-                            {(event.requireContribution === false || (event as any).requiresApprovedContribution === false) && (
-                                <span className="px-3 py-1 bg-teal-600/90 text-white text-xs font-bold rounded-lg backdrop-blur-md shadow-xs">
-                                    Open to All
+                            {isPublicEvent ? (
+                                <span className="px-3 py-1 bg-teal-600/90 text-white text-xs font-bold rounded-lg backdrop-blur-md shadow-xs flex items-center gap-1.5">
+                                    <Globe className="w-3.5 h-3.5" /> Public Event • Open to All
+                                </span>
+                            ) : (
+                                <span className="px-3 py-1 bg-amber-900/60 border border-amber-300/40 text-amber-100 text-xs font-bold rounded-lg backdrop-blur-md shadow-xs flex items-center gap-1.5">
+                                    <Lock className="w-3.5 h-3.5 text-amber-300" /> Contribution Required
                                 </span>
                             )}
                             {isClosed ? (
@@ -231,19 +237,29 @@ export const EventDetailsPage: React.FC = () => {
                             </button>
 
                             {!isClosed && (
-                                <button
-                                    type="button"
-                                    onClick={() => setIsRegisterModalOpen(true)}
-                                    className="inline-flex items-center gap-2 px-5 py-2 bg-white text-orange-600 hover:bg-orange-50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all ml-auto cursor-pointer"
-                                >
-                                    Register Now <ChevronRight className="w-4 h-4" />
-                                </button>
+                                isPublicEvent ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsRegisterModalOpen(true)}
+                                        className="inline-flex items-center gap-2 px-5 py-2 bg-white text-orange-600 hover:bg-orange-50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all ml-auto cursor-pointer"
+                                    >
+                                        Register Now <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                ) : (
+                                    <Link
+                                        to={isAuthenticated ? (hasApprovedContribution ? "/donor-portal/register-events" : "/donor-portal") : "/login"}
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-white/95 hover:bg-white text-slate-800 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all ml-auto cursor-pointer"
+                                    >
+                                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                                        {isAuthenticated ? "Donor Portal" : "Login to Register"} <ChevronRight className="w-4 h-4" />
+                                    </Link>
+                                )
                             )}
                         </div>
                     </div>
 
                     {/* Quick Metadata Bar */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-slate-50 border-b border-slate-200/80 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 p-6 bg-slate-50 border-b border-slate-200/80 text-sm">
                         <div className="flex items-start gap-3">
                             <div className="p-2.5 bg-orange-100 text-orange-700 rounded-xl shrink-0">
                                 <Calendar className="w-5 h-5" />
@@ -289,6 +305,18 @@ export const EventDetailsPage: React.FC = () => {
                                     {event.registrationDeadline 
                                         ? formatUTCDate(event.registrationDeadline, { day: 'numeric', month: 'short' })
                                         : 'Till Event Date'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                            <div className={`p-2.5 rounded-xl shrink-0 ${isPublicEvent ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {isPublicEvent ? <Globe className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                            </div>
+                            <div>
+                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Access Mode</span>
+                                <span className={`font-bold ${isPublicEvent ? 'text-teal-800' : 'text-amber-900'}`}>
+                                    {isPublicEvent ? 'Public (Open)' : 'Donors Only'}
                                 </span>
                             </div>
                         </div>
@@ -363,30 +391,57 @@ export const EventDetailsPage: React.FC = () => {
 
                         {/* Bottom CTA Box */}
                         {!isClosed && (
-                            <div className="p-6 sm:p-8 bg-gradient-to-r from-orange-500 to-amber-600 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
-                                <div className="space-y-1 text-center sm:text-left">
-                                    <h3 className="text-xl font-extrabold">Ready to Participate?</h3>
-                                    <p className="text-orange-100 text-sm">
-                                        Submit your participant registration online quickly and easily.
-                                    </p>
-                                </div>
+                            isPublicEvent ? (
+                                <div className="p-6 sm:p-8 bg-gradient-to-r from-orange-500 to-amber-600 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+                                    <div className="space-y-1 text-center sm:text-left">
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/20 text-white rounded-lg text-xs font-bold mb-1 backdrop-blur-md">
+                                            <Globe className="w-3.5 h-3.5" /> Public Registration Open
+                                        </div>
+                                        <h3 className="text-xl font-extrabold">Ready to Participate?</h3>
+                                        <p className="text-orange-100 text-sm">
+                                            Submit your participant registration online quickly and easily.
+                                        </p>
+                                    </div>
 
-                                <div className="flex items-center gap-3 shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsRegisterModalOpen(true)}
-                                        className="px-6 py-3 bg-white text-orange-600 hover:bg-orange-50 font-extrabold rounded-2xl shadow-md transition-all text-sm cursor-pointer"
-                                    >
-                                        Register Online
-                                    </button>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsRegisterModalOpen(true)}
+                                            className="px-6 py-3 bg-white text-orange-600 hover:bg-orange-50 font-extrabold rounded-2xl shadow-md transition-all text-sm cursor-pointer"
+                                        >
+                                            Register Online
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="p-6 sm:p-8 bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl border border-slate-700/60">
+                                    <div className="space-y-1 text-center sm:text-left">
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 text-amber-300 rounded-lg text-xs font-bold mb-1 border border-amber-500/30">
+                                            <Lock className="w-3.5 h-3.5" /> Resident / Donor Exclusive
+                                        </div>
+                                        <h3 className="text-xl font-extrabold">Contribution Required to Register</h3>
+                                        <p className="text-slate-300 text-sm max-w-xl">
+                                            Public registration via this link is not permitted because this event requires an approved contribution. Only residents with an approved contribution can register via the Resident Portal.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <Link
+                                            to={isAuthenticated ? (hasApprovedContribution ? "/donor-portal/register-events" : "/donor-portal") : "/login"}
+                                            className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-2xl shadow-md transition-all text-sm flex items-center gap-2 cursor-pointer"
+                                        >
+                                            <Lock className="w-4 h-4" />
+                                            {isAuthenticated ? (hasApprovedContribution ? "Register in Resident Portal" : "Go to Resident Portal") : "Log in as Donor"}
+                                        </Link>
+                                    </div>
+                                </div>
+                            )
                         )}
                     </div>
                 </div>
             </main>
 
-            {isRegisterModalOpen && event && (
+            {isRegisterModalOpen && isPublicEvent && event && (
                 <RegistrationModal
                     event={event}
                     onClose={() => setIsRegisterModalOpen(false)}
