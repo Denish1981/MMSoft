@@ -1,7 +1,11 @@
 
 const applySchema = async (client) => {
     // Enable UUID extension
-    await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    try {
+        await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    } catch (e) {
+        // Ignored if extension is not supported by in-memory engine or already present
+    }
 
     const queries = [
         // Users, Roles, and Permissions
@@ -71,6 +75,22 @@ const applySchema = async (client) => {
         )`,
         `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS financial_year VARCHAR(20)`,
         `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false`,
+        `CREATE TABLE IF NOT EXISTS festivals (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            campaign_id INTEGER REFERENCES campaigns(id),
+            stall_price_per_table_per_day NUMERIC(10, 2),
+            stall_electricity_cost_per_day NUMERIC(10, 2),
+            stall_start_date DATE,
+            stall_end_date DATE,
+            max_stalls INTEGER,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMPTZ
+        )`,
         `CREATE TABLE IF NOT EXISTS contributions (
             id SERIAL PRIMARY KEY,
             donor_name VARCHAR(255) NOT NULL,
@@ -124,22 +144,6 @@ const applySchema = async (client) => {
             vendor_id INTEGER REFERENCES vendors(id) ON DELETE CASCADE,
             name VARCHAR(255) NOT NULL,
             contact_number VARCHAR(20) NOT NULL
-        )`,
-        `CREATE TABLE IF NOT EXISTS festivals (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            description TEXT,
-            start_date DATE NOT NULL,
-            end_date DATE NOT NULL,
-            campaign_id INTEGER REFERENCES campaigns(id),
-            stall_price_per_table_per_day NUMERIC(10, 2),
-            stall_electricity_cost_per_day NUMERIC(10, 2),
-            stall_start_date DATE,
-            stall_end_date DATE,
-            max_stalls INTEGER,
-            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            deleted_at TIMESTAMPTZ
         )`,
         `CREATE TABLE IF NOT EXISTS expenses (
             id SERIAL PRIMARY KEY,
@@ -227,6 +231,7 @@ const applySchema = async (client) => {
             min_group_size INTEGER DEFAULT 1,
             max_group_size INTEGER DEFAULT 20,
             allow_duplicate_members BOOLEAN DEFAULT false,
+            require_contribution BOOLEAN DEFAULT true,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
             deleted_at TIMESTAMPTZ
@@ -349,6 +354,7 @@ const applySchema = async (client) => {
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS min_group_size INTEGER DEFAULT 1;');
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS max_group_size INTEGER DEFAULT 20;');
     await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS allow_duplicate_members BOOLEAN DEFAULT false;');
+    await client.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS require_contribution BOOLEAN DEFAULT true;');
 
     // Performance Indexes
     await client.query('CREATE INDEX IF NOT EXISTS idx_contributions_deleted_status_date ON contributions (deleted_at, status, date DESC);');

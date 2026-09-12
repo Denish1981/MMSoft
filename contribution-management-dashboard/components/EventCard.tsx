@@ -71,8 +71,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onRegisterClick, ha
                         </Link>
                     </div>
 
-                    {/* Register Now CTA: visible only if the user is registered (authenticated) and has an approved contribution */}
-                    {hasApprovedContribution && (
+                    {/* Register Now CTA: visible if user has an approved contribution OR if event does not require one */}
+                    {(hasApprovedContribution || event.requireContribution === false || (event as any).requiresApprovedContribution === false) && (
                         <div className="mt-3">
                             <button 
                                 type="button"
@@ -100,7 +100,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onRegisterClick, ha
                 isOpen={isRulesModalOpen}
                 onClose={() => setIsRulesModalOpen(false)}
                 onRegisterClick={onRegisterClick}
-                hasApprovedContribution={hasApprovedContribution}
+                hasApprovedContribution={hasApprovedContribution || event.requireContribution === false || (event as any).requiresApprovedContribution === false}
             />
         </>
     );

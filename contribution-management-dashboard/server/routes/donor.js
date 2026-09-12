@@ -106,6 +106,8 @@ router.get('/my-portal', authMiddleware, async (req, res) => {
                 e.min_group_size AS "minGroupSize",
                 e.max_group_size AS "maxGroupSize",
                 e.allow_duplicate_members AS "allowDuplicateMembers",
+                COALESCE(e.require_contribution, true) AS "requireContribution",
+                COALESCE(e.require_contribution, true) AS "requiresApprovedContribution",
                 COALESCE(
                     (
                         SELECT json_agg(json_build_object(
@@ -182,13 +184,6 @@ router.post('/member-events', authMiddleware, async (req, res) => {
     const cleanMemberName = memberName.trim();
 
     try {
-        const hasApproved = await checkUserApprovedContribution(userId);
-        if (!hasApproved) {
-            return res.status(403).json({
-                error: 'Registration failed: You must have at least one approved contribution to register household members for events.'
-            });
-        }
-
         const userRes = await db.query(
             'SELECT username, mobile_number, tower_number, flat_number FROM users WHERE id = $1',
             [userId]
@@ -216,6 +211,24 @@ router.post('/member-events', authMiddleware, async (req, res) => {
 
         const currentRegisteredEventIds = memberRegs.map(r => Number(r.eventId));
         const targetEventIds = (selectedEventIds || []).map(id => Number(id));
+        const eventsToAdd = targetEventIds.filter(evtId => !currentRegisteredEventIds.includes(evtId));
+
+        // If any newly selected events require contribution, check user's approved contribution
+        if (eventsToAdd.length > 0) {
+            const reqEventsCheck = await db.query(
+                'SELECT id, name, require_contribution FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL AND COALESCE(require_contribution, true) = true',
+                [eventsToAdd]
+            );
+            if (reqEventsCheck.rows.length > 0) {
+                const hasApproved = await checkUserApprovedContribution(userId);
+                if (!hasApproved) {
+                    const reqNames = reqEventsCheck.rows.map(e => `"${e.name}"`).join(', ');
+                    return res.status(403).json({
+                        error: `Registration failed: An approved contribution is required to register for: ${reqNames}.`
+                    });
+                }
+            }
+        }
 
         const client = await db.getPool().connect();
         try {
@@ -234,12 +247,10 @@ router.post('/member-events', authMiddleware, async (req, res) => {
             }
 
             // 2. Add registrations for newly checked events
-            const eventsToAdd = targetEventIds.filter(evtId => !currentRegisteredEventIds.includes(evtId));
-
             if (eventsToAdd.length > 0) {
                 const now = new Date();
                 const eventsCheck = await client.query(
-                    'SELECT id, name, event_date, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL',
+                    'SELECT id, name, event_date, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members, require_contribution FROM events WHERE id = ANY($1::int[]) AND deleted_at IS NULL',
                     [eventsToAdd]
                 );
                 for (const evt of eventsCheck.rows) {
@@ -277,6 +288,7 @@ router.post('/member-events', authMiddleware, async (req, res) => {
                     if (evt.is_group_event) {
                         const rawMembers = Array.isArray(groupDataForEvt.groupMembers) ? groupDataForEvt.groupMembers : [];
                         const validRosterMembers = [];
+                        const isEvtRequireContribution = evt.require_contribution !== false;
 
                         for (let i = 0; i < rawMembers.length; i++) {
                             const gm = rawMembers[i];
@@ -294,26 +306,28 @@ router.post('/member-events', authMiddleware, async (req, res) => {
                                 throw new Error(`Flat Number is mandatory for Member #${memberNum} (${mName}) in "${evt.name}".`);
                             }
 
-                            // Verify that this member's household has an approved contribution
-                            const memberHasContribution = await checkApprovedContribution({
-                                towerNumber: tNum,
-                                flatNumber: fNum,
-                                client
-                            });
+                            // Verify that this member's household has an approved contribution if required
+                            if (isEvtRequireContribution) {
+                                const memberHasContribution = await checkApprovedContribution({
+                                    towerNumber: tNum,
+                                    flatNumber: fNum,
+                                    client
+                                });
 
-                            if (!memberHasContribution) {
-                                throw new Error(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}) in "${evt.name}": No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
+                                if (!memberHasContribution) {
+                                    throw new Error(`Registration rejected for member "${mName}" (Flat ${tNum}-${fNum}) in "${evt.name}": No approved contribution found for household Tower ${tNum}, Flat ${fNum}. Only members with an approved contribution from their household can be registered.`);
+                                }
                             }
 
                             validRosterMembers.push(gm);
                         }
 
-                        const totalMembers = 1 + validRosterMembers.length; // cleanMemberName + approved members
+                        const totalMembers = 1 + validRosterMembers.length; // cleanMemberName + members
                         const minSize = evt.min_group_size || 1;
                         const maxSize = evt.max_group_size || 20;
 
                         if (totalMembers < minSize) {
-                            throw new Error(`"${evt.name}" requires at least ${minSize} participants with approved contributions. Currently eligible: ${totalMembers}.`);
+                            throw new Error(`"${evt.name}" requires at least ${minSize} participants${isEvtRequireContribution ? ' with approved contributions' : ''}. Currently: ${totalMembers}.`);
                         }
                         if (totalMembers > maxSize) {
                             throw new Error(`"${evt.name}" allows a maximum of ${maxSize} participants. Current team has ${totalMembers}.`);
@@ -423,7 +437,7 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
         // Verify registration belongs to this user or user's contact details
         const regRes = await db.query(
             `SELECT er.id, er.form_data, er.user_id, er.event_id, er.name, er.email, er.payment_proof_image,
-                    e.name as event_name, e.registration_deadline, e.event_date
+                    e.name as event_name, e.registration_deadline, e.event_date, e.require_contribution
              FROM event_registrations er
              JOIN events e ON er.event_id = e.id
              WHERE er.id = $1`,
@@ -524,9 +538,9 @@ router.put('/registrations/:id/details', authMiddleware, async (req, res) => {
                             return res.status(400).json({ error: `Flat Number is mandatory for Member #${memberNum} (${mName}).` });
                         }
 
-                        // Only validate household contribution for newly added members
+                        // Only validate household contribution for newly added members if event requires it
                         const memberKey = `${tNum.toLowerCase()}-${fNum.toLowerCase()}`;
-                        if (!existingHouseholds.has(memberKey)) {
+                        if (!existingHouseholds.has(memberKey) && reg.require_contribution !== false) {
                             const memberHasContribution = await checkApprovedContribution({
                                 towerNumber: tNum,
                                 flatNumber: fNum

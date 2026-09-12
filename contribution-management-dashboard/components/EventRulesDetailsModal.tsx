@@ -265,7 +265,7 @@ export const EventRulesDetailsModal: React.FC<EventRulesDetailsModalProps> = ({
                             Close
                         </button>
 
-                        {onRegisterClick && hasApprovedContribution && (
+                        {onRegisterClick && (hasApprovedContribution || event.requireContribution === false || (event as any).requiresApprovedContribution === false) && (
                             <button
                                 type="button"
                                 onClick={() => {

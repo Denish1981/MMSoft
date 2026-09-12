@@ -31,6 +31,8 @@ interface EventBasicDetailsSectionProps {
     setMaxGroupSize?: (val: number) => void;
     allowDuplicateMembers?: boolean;
     setAllowDuplicateMembers?: (val: boolean) => void;
+    requireContribution?: boolean;
+    setRequireContribution?: (val: boolean) => void;
 }
 
 export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> = ({
@@ -62,6 +64,8 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
     setMaxGroupSize,
     allowDuplicateMembers = false,
     setAllowDuplicateMembers,
+    requireContribution = true,
+    setRequireContribution,
 }) => {
     return (
         <div className="space-y-4">
@@ -74,6 +78,26 @@ export const EventBasicDetailsSection: React.FC<EventBasicDetailsSectionProps> =
                     <label htmlFor="eventDate" className="block text-sm font-medium text-slate-700">Event Date</label>
                     <input type="date" id="eventDate" value={eventDate} onChange={e => setEventDate(e.target.value)} className="mt-1 block w-full input-style" required />
                 </div>
+            </div>
+
+            {/* Approved Contribution Requirement Toggle */}
+            <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2">
+                <label className="flex items-center gap-2 text-sm font-bold text-amber-950 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={requireContribution}
+                        onChange={e => setRequireContribution && setRequireContribution(e.target.checked)}
+                        className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span>Require Approved Contribution for Registration</span>
+                </label>
+                <p className="text-xs text-amber-800/90 ml-6">
+                    {requireContribution ? (
+                        <span>🔒 <strong>Restricted:</strong> Only donors or residents with at least one approved contribution can register for this event.</span>
+                    ) : (
+                        <span>🔓 <strong>Open to Everyone:</strong> Anyone can register for this event regardless of whether they have made a contribution or are a registered user (via donor portal or public link).</span>
+                    )}
+                </p>
             </div>
 
             {/* Group Event Configuration & Member Deduplication */}

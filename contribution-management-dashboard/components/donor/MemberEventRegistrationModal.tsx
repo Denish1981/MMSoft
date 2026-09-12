@@ -30,6 +30,8 @@ export interface EventOption {
     minGroupSize?: number;
     maxGroupSize?: number;
     allowDuplicateMembers?: boolean;
+    requireContribution?: boolean;
+    requiresApprovedContribution?: boolean;
 }
 
 export interface ExistingRegistration {
@@ -239,8 +241,12 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
         setSubmitError('');
         setSuccessMessage('');
 
-        if (!hasApprovedContribution) {
-            setSubmitError('You must have at least one approved contribution to register for events.');
+        const eventsRequiringContribution = selectedEventIds
+            .map(id => events.find(e => e.id === id))
+            .filter(evt => evt && evt.requireContribution !== false && (evt as any).requiresApprovedContribution !== false);
+
+        if (eventsRequiringContribution.length > 0 && !hasApprovedContribution) {
+            setSubmitError(`The following selected event(s) require an approved contribution: ${eventsRequiringContribution.map(e => `"${e?.name}"`).join(', ')}. Please contribute first or select events open to all.`);
             return;
         }
 
@@ -299,7 +305,8 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
             // Client-side pre-check for household contributions of additional members
             for (const evtId of selectedEventIds) {
                 const evt = events.find(e => e.id === evtId);
-                if (evt?.isGroupEvent) {
+                const requiresContrib = evt && evt.requireContribution !== false && (evt as any).requiresApprovedContribution !== false;
+                if (evt?.isGroupEvent && requiresContrib) {
                     const groupInfo = eventGroupData[evtId] || { groupName: '', groupMembers: [] };
                     for (let i = 0; i < groupInfo.groupMembers.length; i++) {
                         const gm = groupInfo.groupMembers[i];
@@ -408,7 +415,7 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2.5">
                             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                             <div>
-                                <strong>Contribution Required:</strong> You need to have an approved contribution to register household members for events.
+                                <strong>Contribution Notice:</strong> An approved contribution is required to register for contribution-gated events. Events marked as "Open to All" do not require an approved contribution.
                             </div>
                         </div>
                     )}
@@ -507,6 +514,11 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                                                         </Link>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 shrink-0">
+                                                        {(evt.requireContribution === false || (evt as any).requiresApprovedContribution === false) && (
+                                                            <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full border border-teal-200">
+                                                                Open to All
+                                                            </span>
+                                                        )}
                                                         {isClosed && (
                                                             <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full border border-rose-200">
                                                                 Closed
@@ -774,26 +786,34 @@ export const MemberEventRegistrationModal: React.FC<MemberEventRegistrationModal
                         >
                             Cancel
                         </button>
-                        <button
-                            type="button"
-                            onClick={handleSubmit}
-                            disabled={isSubmitting || !hasApprovedContribution}
-                            className={`px-5 py-2 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer ${
-                                hasApprovedContribution
-                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
-                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                            }`}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
-                                </>
-                            ) : (
-                                <>
-                                    <Ticket className="w-3.5 h-3.5" /> Register
-                                </>
-                            )}
-                        </button>
+                        {(() => {
+                            const isContributionBlocking = !hasApprovedContribution && selectedEventIds.some(id => {
+                                const evt = events.find(e => e.id === id);
+                                return evt && evt.requireContribution !== false && (evt as any).requiresApprovedContribution !== false;
+                            });
+                            return (
+                                <button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting || isContributionBlocking}
+                                    className={`px-5 py-2 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer ${
+                                        !isContributionBlocking
+                                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                    }`}
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Ticket className="w-3.5 h-3.5" /> Register
+                                        </>
+                                    )}
+                                </button>
+                            );
+                        })()}
                     </div>
                 </div>
 

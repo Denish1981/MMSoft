@@ -32,6 +32,9 @@ export const HouseholdRosterManager: React.FC<HouseholdRosterManagerProps> = ({
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [isDirty, setIsDirty] = useState(false);
 
+    const hasAnyOpenEvents = eventsList.some(e => e.requireContribution === false || (e as any).requiresApprovedContribution === false);
+    const canRegisterForAny = hasApprovedContribution || hasAnyOpenEvents;
+
     useEffect(() => {
         // Fetch public events to guarantee complete event metadata including contactPersons
         fetch(`${API_URL}/public/events`)
@@ -194,7 +197,7 @@ export const HouseholdRosterManager: React.FC<HouseholdRosterManagerProps> = ({
                                 {/* <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
                                     {idx + 1}
                                 </span> */}
-                                {idx >= 1 && (
+                                {idx === 1 && (
                                     <span className="text-xs font-bold text-slate-800">
                                     Member #{idx + 1}
                                     </span>
@@ -220,14 +223,14 @@ export const HouseholdRosterManager: React.FC<HouseholdRosterManagerProps> = ({
                                         }
                                         setSelectedMemberForModal(member);
                                     }}
-                                    disabled={!hasApprovedContribution}
+                                    disabled={!canRegisterForAny}
                                     title={
-                                        !hasApprovedContribution
-                                            ? 'Requires an approved contribution to register for events'
+                                        !canRegisterForAny
+                                            ? 'Requires an approved contribution or an event open to all'
                                             : `Register ${member.name || 'member'} for events`
                                     }
                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-xs ${
-                                        hasApprovedContribution
+                                        canRegisterForAny
                                             ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-blue-500/20'
                                             : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-75'
                                     }`}

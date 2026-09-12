@@ -84,6 +84,8 @@ export interface Event {
   minGroupSize?: number;
   maxGroupSize?: number;
   allowDuplicateMembers?: boolean;
+  requireContribution?: boolean;
+  requiresApprovedContribution?: boolean;
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   deletedAt?: string | null;

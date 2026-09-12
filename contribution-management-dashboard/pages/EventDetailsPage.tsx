@@ -11,7 +11,7 @@ import { isEventRegistrationClosed } from '../types/events';
 import { parseEventRules } from '../utils/ruleUtils';
 import { EventRulesRenderer } from '../components/event-rules/EventRulesRenderer';
 import { useAuth } from '../contexts/AuthContext';
-import type { PublicEvent } from '../components/RegistrationModal';
+import { RegistrationModal, PublicEvent } from '../components/RegistrationModal';
 
 export const EventDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -23,6 +23,7 @@ export const EventDetailsPage: React.FC = () => {
     const [error, setError] = useState('');
     const [isCopied, setIsCopied] = useState(false);
     const [hasApprovedContribution, setHasApprovedContribution] = useState<boolean>(false);
+    const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
     const dashboardTarget = isAuthenticated
         ? (hasPermission('page:dashboard:view') ? "/dashboard" : "/donor-portal")
@@ -186,6 +187,11 @@ export const EventDetailsPage: React.FC = () => {
                                     {event.festivalName}
                                 </span>
                             )}
+                            {(event.requireContribution === false || (event as any).requiresApprovedContribution === false) && (
+                                <span className="px-3 py-1 bg-teal-600/90 text-white text-xs font-bold rounded-lg backdrop-blur-md shadow-xs">
+                                    Open to All
+                                </span>
+                            )}
                             {isClosed ? (
                                 <span className="px-3 py-1 bg-red-600/90 backdrop-blur-md text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1.5">
                                     <AlertCircle className="w-3.5 h-3.5" /> Registration Closed
@@ -224,14 +230,15 @@ export const EventDetailsPage: React.FC = () => {
                                 <Share2 className="w-3.5 h-3.5" /> Share on WhatsApp
                             </button>
 
-                            {/* {!isClosed && isAuthenticated && hasApprovedContribution && (
-                                <Link
-                                    to="/register-events"
-                                    className="inline-flex items-center gap-2 px-5 py-2 bg-white text-orange-600 hover:bg-orange-50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all ml-auto"
+                            {!isClosed && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsRegisterModalOpen(true)}
+                                    className="inline-flex items-center gap-2 px-5 py-2 bg-white text-orange-600 hover:bg-orange-50 font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all ml-auto cursor-pointer"
                                 >
                                     Register Now <ChevronRight className="w-4 h-4" />
-                                </Link>
-                            )} */}
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -355,36 +362,36 @@ export const EventDetailsPage: React.FC = () => {
                         )}
 
                         {/* Bottom CTA Box */}
-                        {/* {isAuthenticated && hasApprovedContribution && (
+                        {!isClosed && (
                             <div className="p-6 sm:p-8 bg-gradient-to-r from-orange-500 to-amber-600 rounded-3xl text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
                                 <div className="space-y-1 text-center sm:text-left">
                                     <h3 className="text-xl font-extrabold">Ready to Participate?</h3>
                                     <p className="text-orange-100 text-sm">
-                                        {isClosed 
-                                            ? "Registration has officially closed for this event." 
-                                            : "Submit participant entries for your family easily online."}
+                                        Submit your participant registration online quickly and easily.
                                     </p>
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
-                                    {!isClosed ? (
-                                        <Link
-                                            to="/register-events"
-                                            className="px-6 py-3 bg-white text-orange-600 hover:bg-orange-50 font-extrabold rounded-2xl shadow-md transition-all text-sm"
-                                        >
-                                            Register Online
-                                        </Link>
-                                    ) : (
-                                        <span className="px-5 py-2.5 bg-white/20 text-white font-bold rounded-2xl text-xs backdrop-blur-md">
-                                            Registration Closed
-                                        </span>
-                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsRegisterModalOpen(true)}
+                                        className="px-6 py-3 bg-white text-orange-600 hover:bg-orange-50 font-extrabold rounded-2xl shadow-md transition-all text-sm cursor-pointer"
+                                    >
+                                        Register Online
+                                    </button>
                                 </div>
                             </div>
-                        )} */}
+                        )}
                     </div>
                 </div>
             </main>
+
+            {isRegisterModalOpen && event && (
+                <RegistrationModal
+                    event={event}
+                    onClose={() => setIsRegisterModalOpen(false)}
+                />
+            )}
 
             {/* Footer */}
             <footer className="py-6 text-sm text-slate-500 border-t border-slate-200 bg-white">

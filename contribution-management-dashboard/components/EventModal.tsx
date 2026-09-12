@@ -48,6 +48,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
     const [minGroupSize, setMinGroupSize] = useState(1);
     const [maxGroupSize, setMaxGroupSize] = useState(20);
     const [allowDuplicateMembers, setAllowDuplicateMembers] = useState(false);
+    const [requireContribution, setRequireContribution] = useState(true);
     
     useEffect(() => {
         if (eventToEdit) {
@@ -74,6 +75,8 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setMinGroupSize(raw.minGroupSize ?? raw.min_group_size ?? 1);
             setMaxGroupSize(raw.maxGroupSize ?? raw.max_group_size ?? 20);
             setAllowDuplicateMembers(Boolean(raw.allowDuplicateMembers ?? raw.allow_duplicate_members ?? false));
+            const rawRequire = raw.requireContribution ?? raw.require_contribution ?? raw.requiresApprovedContribution;
+            setRequireContribution(rawRequire !== false);
             
             const rawImg = raw.image ?? raw.image_data ?? undefined;
             setImage(rawImg);
@@ -105,6 +108,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             setMinGroupSize(1);
             setMaxGroupSize(20);
             setAllowDuplicateMembers(false);
+            setRequireContribution(true);
             setImage(undefined);
             setImagePreview(null);
             setContactPersons([{ name: '', contactNumber: '', email: '' }]);
@@ -191,6 +195,7 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
             minGroupSize,
             maxGroupSize,
             allowDuplicateMembers,
+            requireContribution,
         };
         onSubmit(submissionData as any);
     };
@@ -235,6 +240,8 @@ export const EventModal: React.FC<EventModalProps> = ({ eventToEdit, onClose, on
                         setMaxGroupSize={setMaxGroupSize}
                         allowDuplicateMembers={allowDuplicateMembers}
                         setAllowDuplicateMembers={setAllowDuplicateMembers}
+                        requireContribution={requireContribution}
+                        setRequireContribution={setRequireContribution}
                     />
 
                     <EventRegistrationSchemaSection

@@ -25,6 +25,7 @@ const formatEventResponse = (event, contacts) => {
         minGroupSize: event.min_group_size || event.minGroupSize || 1,
         maxGroupSize: event.max_group_size || event.maxGroupSize || 20,
         allowDuplicateMembers: Boolean(event.allow_duplicate_members || event.allowDuplicateMembers),
+        requireContribution: event.require_contribution !== undefined ? Boolean(event.require_contribution) : (event.requireContribution !== undefined ? Boolean(event.requireContribution) : true),
         createdAt: event.created_at || event.createdAt,
         updatedAt: event.updated_at || event.updatedAt,
     };
@@ -51,6 +52,7 @@ router.get('/', authMiddleware, async (req, res) => {
                 e.min_group_size as "minGroupSize",
                 e.max_group_size as "maxGroupSize",
                 e.allow_duplicate_members as "allowDuplicateMembers",
+                e.require_contribution as "requireContribution",
                 (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id) as "registrationCount"
             FROM events e
             LEFT JOIN festivals f ON e.festival_id = f.id
@@ -66,6 +68,7 @@ router.get('/', authMiddleware, async (req, res) => {
              event.minGroupSize = event.minGroupSize || 1;
              event.maxGroupSize = event.maxGroupSize || 20;
              event.allowDuplicateMembers = Boolean(event.allowDuplicateMembers);
+             event.requireContribution = event.requireContribution !== false;
              if (typeof event.registrationFormSchema === 'string') {
                  try {
                      event.registrationFormSchema = JSON.parse(event.registrationFormSchema);
@@ -85,7 +88,7 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
     const { id } = req.params;
     try {
         const eventRes = await db.query(
-            'SELECT name, festival_id, rules, registration_form_schema, registration_deadline as "registrationDeadline", is_group_event as "isGroupEvent", min_group_size as "minGroupSize", max_group_size as "maxGroupSize", allow_duplicate_members as "allowDuplicateMembers" FROM events WHERE id = $1 AND deleted_at IS NULL',
+            'SELECT name, festival_id, rules, registration_form_schema, registration_deadline as "registrationDeadline", is_group_event as "isGroupEvent", min_group_size as "minGroupSize", max_group_size as "maxGroupSize", allow_duplicate_members as "allowDuplicateMembers", require_contribution as "requireContribution" FROM events WHERE id = $1 AND deleted_at IS NULL',
             [id]
         );
         if (eventRes.rows.length === 0) {
@@ -113,6 +116,7 @@ router.get('/:id/registrations', authMiddleware, permissionMiddleware('page:even
                 minGroupSize: eventRes.rows[0].minGroupSize || 1,
                 maxGroupSize: eventRes.rows[0].maxGroupSize || 20,
                 allowDuplicateMembers: Boolean(eventRes.rows[0].allowDuplicateMembers),
+                requireContribution: eventRes.rows[0].requireContribution !== false,
             },
             registrations: sanitizedRegistrations
         });
@@ -130,13 +134,16 @@ router.post('/', authMiddleware, permissionMiddleware('action:create'), async (r
     const minGroupSize = parseInt(req.body.minGroupSize ?? req.body.min_group_size, 10) || 1;
     const maxGroupSize = parseInt(req.body.maxGroupSize ?? req.body.max_group_size, 10) || 20;
     const allowDuplicateMembers = Boolean(req.body.allowDuplicateMembers ?? req.body.allow_duplicate_members ?? false);
+    const requireContribution = req.body.requireContribution !== undefined 
+        ? Boolean(req.body.requireContribution) 
+        : (req.body.require_contribution !== undefined ? Boolean(req.body.require_contribution) : true);
 
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
         const eventRes = await client.query(
-            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, rules, image_data, registration_form_schema, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *',
-            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers]
+            'INSERT INTO events (festival_id, name, event_date, start_time, end_time, venue, description, rules, image_data, registration_form_schema, registration_deadline, is_group_event, min_group_size, max_group_size, allow_duplicate_members, require_contribution) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
+            [festivalId, name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers, requireContribution]
         );
         const newEvent = eventRes.rows[0];
 
@@ -166,6 +173,9 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
     const minGroupSize = parseInt(req.body.minGroupSize ?? req.body.min_group_size, 10) || 1;
     const maxGroupSize = parseInt(req.body.maxGroupSize ?? req.body.max_group_size, 10) || 20;
     const allowDuplicateMembers = Boolean(req.body.allowDuplicateMembers ?? req.body.allow_duplicate_members ?? false);
+    const requireContribution = req.body.requireContribution !== undefined 
+        ? Boolean(req.body.requireContribution) 
+        : (req.body.require_contribution !== undefined ? Boolean(req.body.require_contribution) : true);
 
     const client = await db.getPool().connect();
 
@@ -176,14 +186,14 @@ router.put('/:id', authMiddleware, permissionMiddleware('action:edit'), async (r
         const oldEventData = oldDataRes.rows[0];
         
         const eventRes = await client.query(
-            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, rules=$7, image_data=$8, registration_form_schema=$9, registration_deadline=$10, is_group_event=$11, min_group_size=$12, max_group_size=$13, allow_duplicate_members=$14, updated_at=NOW() WHERE id=$15 RETURNING *',
-            [name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers, id]
+            'UPDATE events SET name=$1, event_date=$2, start_time=$3, end_time=$4, venue=$5, description=$6, rules=$7, image_data=$8, registration_form_schema=$9, registration_deadline=$10, is_group_event=$11, min_group_size=$12, max_group_size=$13, allow_duplicate_members=$14, require_contribution=$15, updated_at=NOW() WHERE id=$16 RETURNING *',
+            [name, eventDate, startTime || null, endTime || null, venue, description, rules || null, image, JSON.stringify(registrationFormSchema), registrationDeadline || null, isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers, requireContribution, id]
         );
 
         await logChanges(client, {
             historyTable: 'events_history', recordId: id, changedByUserId: req.user.id,
-            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, registrationFormSchema: JSON.stringify(registrationFormSchema), isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers },
-            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', rules: 'rules', image: 'image_data', registrationDeadline: 'registration_deadline', registrationFormSchema: 'registration_form_schema', isGroupEvent: 'is_group_event', minGroupSize: 'min_group_size', maxGroupSize: 'max_group_size', allowDuplicateMembers: 'allow_duplicate_members' }
+            oldData: oldEventData, newData: { name, eventDate, startTime, endTime, venue, description, rules, image, registrationDeadline, registrationFormSchema: JSON.stringify(registrationFormSchema), isGroupEvent, minGroupSize, maxGroupSize, allowDuplicateMembers, requireContribution },
+            fieldMapping: { name: 'name', eventDate: 'event_date', startTime: 'start_time', endTime: 'end_time', venue: 'venue', description: 'description', rules: 'rules', image: 'image_data', registrationDeadline: 'registration_deadline', registrationFormSchema: 'registration_form_schema', isGroupEvent: 'is_group_event', minGroupSize: 'min_group_size', maxGroupSize: 'max_group_size', allowDuplicateMembers: 'allow_duplicate_members', requireContribution: 'require_contribution' }
         });
         
         // Log changes to contacts as a single text entry for simplicity

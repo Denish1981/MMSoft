@@ -85,7 +85,12 @@ export const EventSelectionGrid: React.FC<EventSelectionGridProps> = ({
                                         <h4 className="font-bold text-slate-900 text-sm line-clamp-2">
                                             {evt.name}
                                         </h4>
-                                        <div className="shrink-0">
+                                        <div className="shrink-0 flex items-center gap-1">
+                                            {(evt.requireContribution === false || (evt as any).requiresApprovedContribution === false) && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800">
+                                                    Open to All
+                                                </span>
+                                            )}
                                             {isClosed ? (
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
                                                     <AlertCircle className="w-3 h-3" /> Closed
