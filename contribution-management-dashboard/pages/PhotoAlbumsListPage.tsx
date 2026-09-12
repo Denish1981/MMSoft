@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { getThumbnailImageUrl } from '../utils/imageUtils';
 
 interface Album {
     id: number;
@@ -66,7 +67,12 @@ const PhotoAlbumsListPage: React.FC = () => {
                             <Link to={`/album/${album.id}`} key={album.id} className="group block bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
                                 <div className="relative h-56">
                                     {album.coverImage ? (
-                                        <img src={album.coverImage} alt={album.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                        <img
+                                            src={getThumbnailImageUrl(album.coverImage, 600, 400)}
+                                            alt={album.name}
+                                            loading="lazy"
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        />
                                     ) : (
                                         <div className="w-full h-full bg-slate-200 flex items-center justify-center">
                                             <span className="text-slate-500">No Image</span>

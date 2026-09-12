@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { CloseIcon } from '../components/icons/CloseIcon';
 import { DeleteIcon } from '../components/icons/DeleteIcon';
 import FestivalNavigation from '../components/FestivalNavigation';
+import { getThumbnailImageUrl } from '../utils/imageUtils';
 
 interface Festival {
     id: number;
@@ -15,7 +16,16 @@ interface Festival {
 interface FestivalPhoto {
     id: number;
     imageData: string;
+    publicId?: string;
     uploadedBy?: string;
+}
+
+interface SignUploadResponse {
+    signature: string;
+    timestamp: number;
+    folder: string;
+    apiKey: string;
+    cloudName: string;
 }
 
 const FestivalPhotosPage: React.FC = () => {
@@ -28,6 +38,7 @@ const FestivalPhotosPage: React.FC = () => {
 
     const [stagedFiles, setStagedFiles] = useState<{ file: File, preview: string }[]>([]);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState('');
     
     const [photoToDelete, setPhotoToDelete] = useState<FestivalPhoto | null>(null);
 
@@ -100,23 +111,68 @@ const FestivalPhotosPage: React.FC = () => {
     const handleUpload = async () => {
         if (stagedFiles.length === 0) return;
         setIsUploading(true);
+        setError('');
         
         try {
-            const base64Images = stagedFiles.map(f => f.preview);
+            setUploadProgress('Requesting secure upload authorization...');
+            const signRes = await fetch(`${API_URL}/festivals/photos/sign-upload?festivalId=${id}`, {
+                headers: getAuthHeaders()
+            });
+
+            if (signRes.status === 401) { logout(); return; }
+            if (!signRes.ok) {
+                const errJson = await signRes.json().catch(() => ({}));
+                throw new Error(errJson.error || 'Failed to obtain Cloudinary upload signature from server.');
+            }
+
+            const { signature, timestamp, folder, apiKey, cloudName }: SignUploadResponse = await signRes.json();
+
+            const uploadedPhotos: { url: string; publicId: string }[] = [];
+
+            for (let i = 0; i < stagedFiles.length; i++) {
+                const { file } = stagedFiles[i];
+                setUploadProgress(`Uploading ${i + 1} of ${stagedFiles.length} directly to Cloudinary...`);
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('api_key', apiKey);
+                formData.append('timestamp', String(timestamp));
+                formData.append('signature', signature);
+                formData.append('folder', folder);
+
+                const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!cloudRes.ok) {
+                    const cloudErr = await cloudRes.json().catch(() => ({}));
+                    throw new Error(cloudErr.error?.message || `Failed to upload image "${file.name}" to Cloudinary.`);
+                }
+
+                const cloudData = await cloudRes.json();
+                uploadedPhotos.push({
+                    url: cloudData.secure_url,
+                    publicId: cloudData.public_id
+                });
+            }
+
+            setUploadProgress('Saving photo URLs to festival records...');
             const response = await fetch(`${API_URL}/festivals/${id}/photos`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ images: base64Images }),
+                body: JSON.stringify({ photos: uploadedPhotos }),
             });
-             if (response.status === 401) { logout(); return; }
-             if (!response.ok) throw new Error('Upload failed');
+            if (response.status === 401) { logout(); return; }
+            if (!response.ok) throw new Error('Upload record persistence failed');
 
-             setStagedFiles([]);
-             await fetchPhotos();
+            setStagedFiles([]);
+            await fetchPhotos();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Upload failed');
         } finally {
             setIsUploading(false);
+            setUploadProgress('');
         }
     };
     
@@ -166,7 +222,10 @@ const FestivalPhotosPage: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
-                            <div className="text-right mt-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-2">
+                                {uploadProgress ? (
+                                    <p className="text-sm font-medium text-blue-600 animate-pulse">{uploadProgress}</p>
+                                ) : <div />}
                                 <button onClick={handleUpload} disabled={isUploading} className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400">
                                     {isUploading ? 'Uploading...' : `Upload ${stagedFiles.length} Photos`}
                                 </button>
@@ -182,7 +241,12 @@ const FestivalPhotosPage: React.FC = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         {photos.map(photo => (
                             <div key={photo.id} className="relative aspect-square group">
-                                <img src={photo.imageData} alt={`Festival photo ${photo.id}`} className="w-full h-full object-cover rounded-lg" />
+                                <img
+                                    src={getThumbnailImageUrl(photo.imageData, 400, 400)}
+                                    alt={`Festival photo ${photo.id}`}
+                                    loading="lazy"
+                                    className="w-full h-full object-cover rounded-lg"
+                                />
                                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center">
                                     {canDelete && (
                                         <button onClick={() => setPhotoToDelete(photo)} className="text-white p-2 bg-red-600 rounded-full hover:bg-red-700"><DeleteIcon className="w-5 h-5" /></button>

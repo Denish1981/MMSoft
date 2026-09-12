@@ -1,9 +1,78 @@
 
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
 const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint } = require('../db/helpers');
 const router = express.Router();
+
+async function deleteFromCloudinary(publicId) {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    if (!cloudName || !apiKey || !apiSecret || !publicId) return;
+
+    try {
+        const timestamp = Math.round(new Date().getTime() / 1000);
+        const toSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+        const signature = crypto.createHash('sha1').update(toSign).digest('hex');
+
+        const formData = new URLSearchParams();
+        formData.append('public_id', publicId);
+        formData.append('api_key', apiKey);
+        formData.append('timestamp', String(timestamp));
+        formData.append('signature', signature);
+
+        await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+    } catch (e) {
+        console.warn('Failed to delete asset from Cloudinary:', e.message);
+    }
+}
+
+// Generate an HMAC-SHA1 signature for secure direct client-side upload to Cloudinary.
+// Accessible strictly to authenticated users with 'action:edit' permission.
+router.get('/photos/sign-upload', authMiddleware, permissionMiddleware('action:edit'), (req, res) => {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+        return res.status(500).json({
+            error: 'Cloudinary credentials (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not configured on the server.'
+        });
+    }
+
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const festivalId = req.query.festivalId ? String(req.query.festivalId) : 'general';
+    const folder = `gtmm-festivals/${festivalId}`;
+
+    const paramsToSign = {
+        folder,
+        timestamp
+    };
+
+    const sortedParams = Object.keys(paramsToSign)
+        .sort()
+        .map(key => `${key}=${paramsToSign[key]}`)
+        .join('&');
+
+    const signature = crypto
+        .createHash('sha1')
+        .update(sortedParams + apiSecret)
+        .digest('hex');
+
+    res.json({
+        signature,
+        timestamp,
+        folder,
+        apiKey,
+        cloudName
+    });
+});
 
 router.get('/', authMiddleware, async (req, res) => {
     try {
@@ -117,7 +186,7 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
 router.get('/:id/photos', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
     try {
         const { rows } = await db.query(`
-            SELECT fp.id, fp.image_data AS "imageData", u.username AS "uploadedBy" 
+            SELECT fp.id, fp.image_data AS "imageData", fp.public_id AS "publicId", u.username AS "uploadedBy" 
             FROM festival_photos fp
             LEFT JOIN users u ON fp.uploaded_by_user_id = u.id
             WHERE fp.festival_id = $1
@@ -128,29 +197,68 @@ router.get('/:id/photos', authMiddleware, permissionMiddleware('page:festivals:v
 });
 
 router.post('/:id/photos', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
-    const { images } = req.body;
-    if (!Array.isArray(images) || images.length === 0) return res.status(400).json({ error: 'Images array is required.' });
+    const { images, photos } = req.body;
+    const photoList = [];
+
+    if (Array.isArray(photos) && photos.length > 0) {
+        for (const p of photos) {
+            if (typeof p === 'string') {
+                photoList.push({ url: p, publicId: null });
+            } else if (p && p.url) {
+                photoList.push({ url: p.url, publicId: p.publicId || null });
+            }
+        }
+    } else if (Array.isArray(images) && images.length > 0) {
+        for (const img of images) {
+            photoList.push({ url: img, publicId: null });
+        }
+    }
+
+    if (photoList.length === 0) {
+        return res.status(400).json({ error: 'Photos or images array is required.' });
+    }
     
     const client = await db.getPool().connect();
     try {
         await client.query('BEGIN');
-        for (const imageData of images) {
-            await client.query('INSERT INTO festival_photos (festival_id, image_data, uploaded_by_user_id) VALUES ($1, $2, $3)', [req.params.id, imageData, req.user.id]);
+        for (const item of photoList) {
+            await client.query(
+                'INSERT INTO festival_photos (festival_id, image_data, public_id, uploaded_by_user_id) VALUES ($1, $2, $3, $4)', 
+                [req.params.id, item.url, item.publicId, req.user.id]
+            );
         }
         await client.query('COMMIT');
-        res.status(201).json({ message: 'Photos uploaded successfully' });
+        res.status(201).json({ message: 'Photos uploaded successfully', count: photoList.length });
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error('Failed to upload photos:', err);
         res.status(500).json({ error: 'Failed to upload photos' });
     } finally { client.release(); }
 });
 
 router.delete('/photos/:photoId', authMiddleware, permissionMiddleware('action:delete'), async (req, res) => {
     try {
-        const result = await db.query('DELETE FROM festival_photos WHERE id = $1', [req.params.photoId]);
-        if (result.rowCount === 0) return res.status(404).json({ error: 'Photo not found' });
+        const checkRes = await db.query('SELECT id, image_data AS "imageData", public_id AS "publicId" FROM festival_photos WHERE id = $1', [req.params.photoId]);
+        if (checkRes.rows.length === 0) return res.status(404).json({ error: 'Photo not found' });
+
+        const photo = checkRes.rows[0];
+        await db.query('DELETE FROM festival_photos WHERE id = $1', [req.params.photoId]);
+
+        // Attempt background deletion of Cloudinary asset if publicId exists or can be determined
+        let publicId = photo.publicId;
+        if (!publicId && photo.imageData && photo.imageData.includes('cloudinary.com')) {
+            const match = photo.imageData.match(/\/upload\/(?:v\d+\/)?([^\.]+)/);
+            if (match) publicId = match[1];
+        }
+        if (publicId) {
+            deleteFromCloudinary(publicId).catch(() => {});
+        }
+
         res.status(204).send();
-    } catch(err) { res.status(500).json({ error: 'Failed to delete photo' }); }
+    } catch(err) { 
+        console.error('Failed to delete photo:', err);
+        res.status(500).json({ error: 'Failed to delete photo' }); 
+    }
 });
 
 router.get('/:id/stall-registrations', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {

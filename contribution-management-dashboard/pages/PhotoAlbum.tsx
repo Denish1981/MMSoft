@@ -7,6 +7,7 @@ import { CloseIcon } from '../components/icons/CloseIcon';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 import { formatUTCDate } from '../utils/formatting';
+import { getThumbnailImageUrl, getOptimizedImageUrl } from '../utils/imageUtils';
 
 interface AlbumDetails {
     name: string;
@@ -64,7 +65,7 @@ const PhotoAlbumPage: React.FC = () => {
     
     return (
         <div className="bg-slate-50 min-h-screen">
-            <header className="bg-white shadow-sm">
+             <header className="bg-white shadow-sm">
                  <div className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <Link to="/photos" className="text-slate-600 hover:text-blue-600 flex items-center">
                         <ChevronLeftIcon className="w-5 h-5 mr-2" /> Back to Albums
@@ -88,7 +89,12 @@ const PhotoAlbumPage: React.FC = () => {
                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 {album.images.map((image, index) => (
                                     <div key={index} className="aspect-square bg-slate-200 rounded-lg overflow-hidden cursor-pointer group" onClick={() => openViewer(index)}>
-                                        <img src={image} alt={`Album image ${index + 1}`} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                        <img
+                                            src={getThumbnailImageUrl(image, 500, 500)}
+                                            alt={`Album image ${index + 1}`}
+                                            loading="lazy"
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -109,7 +115,11 @@ const PhotoAlbumPage: React.FC = () => {
                     <button onClick={(e) => { e.stopPropagation(); nextImage(); }} className="absolute right-4 text-white p-3 rounded-full bg-black/50 hover:bg-black/80 transition-colors"><ChevronRightIcon className="w-8 h-8" /></button>
 
                     <div className="p-4" onClick={(e) => e.stopPropagation()}>
-                        <img src={album.images[currentImageIndex]} alt={`Image ${currentImageIndex + 1}`} className="max-h-[90vh] max-w-[90vw] object-contain" />
+                        <img
+                            src={getOptimizedImageUrl(album.images[currentImageIndex], 'f_auto,q_auto')}
+                            alt={`Image ${currentImageIndex + 1}`}
+                            className="max-h-[90vh] max-w-[90vw] object-contain"
+                        />
                     </div>
                 </div>
             )}

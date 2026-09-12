@@ -78,3 +78,34 @@ export const compressImageFile = (
         reader.readAsDataURL(file);
     });
 };
+
+/**
+ * Returns an optimized Cloudinary image URL with transformations if it's a Cloudinary URL,
+ * or returns the original URL / Base64 string if it's not.
+ */
+export const getOptimizedImageUrl = (
+    url: string | null | undefined,
+    transformation = 'f_auto,q_auto'
+): string => {
+    if (!url) return '';
+    // If not a Cloudinary upload URL, return as is (e.g. data:image/... or other URL)
+    if (!url.includes('cloudinary.com') || !url.includes('/upload/')) {
+        return url;
+    }
+    // Prevent double transformations
+    if (url.includes(`/upload/${transformation}/`) || url.includes('/upload/c_') || url.includes('/upload/w_') || url.includes('/upload/f_')) {
+        return url;
+    }
+    return url.replace('/upload/', `/upload/${transformation}/`);
+};
+
+/**
+ * Generates an optimized thumbnail URL for grid views.
+ */
+export const getThumbnailImageUrl = (
+    url: string | null | undefined,
+    width = 500,
+    height = 500
+): string => {
+    return getOptimizedImageUrl(url, `w_${width},h_${height},c_fill,f_auto,q_auto`);
+};
