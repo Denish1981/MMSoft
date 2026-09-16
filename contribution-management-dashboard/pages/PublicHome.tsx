@@ -355,27 +355,28 @@ const PublicTodayScheduleWidget: React.FC<PublicTodayScheduleWidgetProps> = ({
                             {dailyEvents.map((de, idx) => (
                                 <div 
                                     key={idx}
-                                    className="flex items-center justify-between p-3 bg-white/95 rounded-xl border border-amber-200/80 shadow-2xs hover:shadow-sm transition-shadow"
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 bg-white/95 rounded-xl border border-amber-200/80 shadow-2xs hover:shadow-sm transition-shadow"
                                 >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${
                                             idx === 0 
                                                 ? 'bg-amber-100 text-amber-700' 
                                                 : 'bg-orange-100 text-orange-700'
                                         }`}>
                                             {idx === 0 ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                                         </div>
-                                        <div className="min-w-0">
-                                            <div className="text-xs font-black text-slate-900 truncate">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
                                                 {de.event}
                                             </div>
-                                            <div className="text-[11px] font-medium text-slate-500">
+                                            <div className="text-[11px] font-medium text-slate-500 mt-0.5">
                                                 {idx === 0 ? 'Morning Program' : 'Evening Program'} • Repeats Daily
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="text-xs font-extrabold text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 shrink-0 ml-3">
-                                        {de.timings}
+                                    <div className="text-xs font-extrabold text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 self-start sm:self-center shrink-0 sm:ml-3 flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                                        <span>{de.timings}</span>
                                     </div>
                                 </div>
                             ))}
@@ -699,24 +700,27 @@ export default function PublicHomePage() {
                                                                     {dailyEvents.map((de, idx) => (
                                                                         <div 
                                                                             key={idx}
-                                                                            className="flex items-center justify-between p-3 bg-white/95 rounded-xl border border-amber-200/80 shadow-2xs"
+                                                                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 bg-white/95 rounded-xl border border-amber-200/80 shadow-2xs hover:shadow-sm transition-shadow"
                                                                         >
-                                                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                                                            <div className="flex items-start sm:items-center gap-3 min-w-0">
+                                                                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${
                                                                                     idx === 0 ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-700'
                                                                                 }`}>
-                                                                                    {idx === 0 ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                                                                                    {idx === 0 ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                                                                                 </div>
-                                                                                <div className="min-w-0">
-                                                                                    <div className="text-xs font-bold text-slate-900 truncate">{de.event}</div>
-                                                                                    <div className="text-[11px] text-slate-500">
+                                                                                <div className="min-w-0 flex-1">
+                                                                                    <div className="text-xs sm:text-sm font-bold text-slate-900 leading-snug break-words">
+                                                                                        {de.event}
+                                                                                    </div>
+                                                                                    <div className="text-[11px] font-medium text-slate-500 mt-0.5">
                                                                                         {idx === 0 ? 'Morning Program' : 'Evening Program'} • Repeats Daily
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            <span className="text-xs font-extrabold text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 shrink-0 ml-2">
-                                                                                {de.timings}
-                                                                            </span>
+                                                                            <div className="text-xs font-extrabold text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 self-start sm:self-center shrink-0 sm:ml-3 flex items-center gap-1.5">
+                                                                                <Clock className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                                                                                <span>{de.timings}</span>
+                                                                            </div>
                                                                         </div>
                                                                     ))}
                                                                 </div>
