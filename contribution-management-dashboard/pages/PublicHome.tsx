@@ -2,11 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
     Calendar, Clock, Sparkles, Sun, Moon, 
-    ChevronLeft, ChevronRight, Copy, Check, ArrowRight, CheckCircle2 
+    ChevronLeft, ChevronRight, Copy, Check, ArrowRight, CheckCircle2,
+    Ticket, X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../config';
 import type { ScheduleMaster, ScheduleEntry } from '../types';
+import type { Event } from '../types/events';
+import { isEventRegistrationClosed } from '../types/events';
 import { 
     sortSchedules, 
     sortScheduleEntries, 
@@ -546,9 +549,132 @@ const PublicTodayScheduleWidget: React.FC<PublicTodayScheduleWidgetProps> = ({
     );
 };
 
+interface FloatingPublicEventPillProps {
+    events: Event[];
+    formatDateStr: (dateStr?: string) => string;
+}
+
+const FloatingPublicEventPill: React.FC<FloatingPublicEventPillProps> = ({ events, formatDateStr }) => {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [isDismissed, setIsDismissed] = useState<boolean>(() => {
+        try {
+            return sessionStorage.getItem('dismiss_public_event_pill') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    if (isDismissed || events.length === 0) {
+        return null;
+    }
+
+    const currentEvent = events[activeIndex % events.length];
+    if (!currentEvent) return null;
+
+    const handleDismiss = () => {
+        setIsDismissed(true);
+        try {
+            sessionStorage.setItem('dismiss_public_event_pill', 'true');
+        } catch {
+            // ignore
+        }
+    };
+
+    const handlePrev = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setActiveIndex(prev => (prev === 0 ? events.length - 1 : prev - 1));
+    };
+
+    const handleNext = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setActiveIndex(prev => (prev + 1) % events.length);
+    };
+
+    return (
+        <aside 
+            id="floating-public-event-pill" 
+            aria-label="Public Event Registration"
+            className="fixed bottom-3 sm:bottom-6 inset-x-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none"
+        >
+            <div className="pointer-events-auto max-w-xl w-full bg-slate-900/95 backdrop-blur-md text-white rounded-2xl sm:rounded-full p-2 sm:p-2 pl-3 sm:pl-4 shadow-2xl border border-slate-700/70 flex items-center justify-between gap-2.5 sm:gap-3.5 transition-all animate-in fade-in slide-in-from-bottom-4 duration-300">
+                {/* Event Info */}
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shrink-0 shadow-sm">
+                        <Ticket className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-400">
+                                Open to All
+                            </span>
+                            {currentEvent.eventDate && (
+                                <span className="text-[10px] text-slate-400 hidden xs:inline-block">
+                                    • {formatDateStr(currentEvent.eventDate)}
+                                </span>
+                            )}
+                            {events.length > 1 && (
+                                <div className="inline-flex items-center gap-1 bg-slate-800 text-slate-300 text-[10px] font-semibold px-1.5 py-0.5 rounded ml-1">
+                                    <span>{activeIndex + 1}/{events.length}</span>
+                                    <button 
+                                        id="public-event-prev-btn"
+                                        type="button" 
+                                        onClick={handlePrev} 
+                                        className="hover:text-white cursor-pointer p-0.5"
+                                        title="Previous event"
+                                        aria-label="Previous open event"
+                                    >
+                                        <ChevronLeft className="w-2.5 h-2.5" />
+                                    </button>
+                                    <button 
+                                        id="public-event-next-btn"
+                                        type="button" 
+                                        onClick={handleNext} 
+                                        className="hover:text-white cursor-pointer p-0.5"
+                                        title="Next event"
+                                        aria-label="Next open event"
+                                    >
+                                        <ChevronRight className="w-2.5 h-2.5" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <div className="text-xs sm:text-sm font-bold text-white truncate max-w-[135px] sm:max-w-xs leading-tight mt-0.5">
+                            {currentEvent.name}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Action CTA and Close Button */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <Link
+                        id="public-event-register-btn"
+                        to={`/events/${currentEvent.id}`}
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-full shadow-md hover:shadow-lg transition-all flex items-center gap-1 sm:gap-1.5 active:scale-95 cursor-pointer whitespace-nowrap"
+                    >
+                        <span>Register Now</span>
+                        <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </Link>
+
+                    <button
+                        id="public-event-dismiss-btn"
+                        type="button"
+                        onClick={handleDismiss}
+                        className="p-1 sm:p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-slate-800/80 transition-colors cursor-pointer"
+                        title="Dismiss"
+                        aria-label="Dismiss notification"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        </aside>
+    );
+};
+
 export default function PublicHomePage() {
     const { isAuthenticated, hasPermission } = useAuth();
     const [activeSchedules, setActiveSchedules] = useState<ScheduleMaster[]>([]);
+    const [publicEvents, setPublicEvents] = useState<Event[]>([]);
     const [isLoadingSchedules, setIsLoadingSchedules] = useState(true);
     const [viewMode, setViewMode] = useState<'today' | 'full'>('today');
 
@@ -574,7 +700,27 @@ export default function PublicHomePage() {
             }
         };
 
+        const fetchPublicEvents = async () => {
+            try {
+                const response = await fetch(`${API_URL}/public/events`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (isMounted && Array.isArray(data)) {
+                        const openEvents = data.filter((e: Event) => {
+                            const isOpen = e.requireContribution === false || e.requiresApprovedContribution === false;
+                            const isClosed = isEventRegistrationClosed(e.registrationDeadline, e.eventDate);
+                            return isOpen && !isClosed;
+                        });
+                        setPublicEvents(openEvents);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch public events:', err);
+            }
+        };
+
         fetchActiveSchedules();
+        fetchPublicEvents();
         return () => {
             isMounted = false;
         };
@@ -620,7 +766,7 @@ export default function PublicHomePage() {
                 </nav>
             </header>
 
-            <main className="container mx-auto px-6 py-12 flex-grow space-y-12">
+            <main className="container mx-auto px-6 py-12 pb-20 sm:pb-24 flex-grow space-y-12">
                 {/* Active Festival Schedule Section */}
                 {!isLoadingSchedules && activeSchedules.length > 0 && (
                     <div className="max-w-5xl mx-auto space-y-6 pt-6">
@@ -797,6 +943,9 @@ export default function PublicHomePage() {
                     </div>
                 </div>
             </footer>
+
+            {/* Floating Bottom Action Pill for Open Public Events (Option 2) */}
+            <FloatingPublicEventPill events={publicEvents} formatDateStr={formatDateStr} />
         </div>
     );
 }
