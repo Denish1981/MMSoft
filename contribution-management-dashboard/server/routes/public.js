@@ -806,6 +806,7 @@ router.get('/public/albums', async (req, res) => {
                 f.id, 
                 f.name, 
                 f.description, 
+                f.campaign_id AS "campaignId",
                 (SELECT image_data FROM festival_photos WHERE festival_id = f.id ORDER BY created_at DESC LIMIT 1) as "coverImage"
             FROM festivals f
             WHERE f.deleted_at IS NULL AND EXISTS (SELECT 1 FROM festival_photos WHERE festival_id = f.id)
@@ -815,9 +816,154 @@ router.get('/public/albums', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Failed to fetch albums' }); }
 });
 
+// Campaign-wise photo albums list endpoint
+router.get('/public/campaign-albums', async (req, res) => {
+    try {
+        const { rows: campaigns } = await db.query(`
+            SELECT 
+                c.id,
+                c.name,
+                c.financial_year AS "financialYear",
+                c.description,
+                c.is_active AS "isActive",
+                COUNT(DISTINCT CASE WHEN fp.id IS NOT NULL THEN f.id END)::int AS "festivalCount",
+                COUNT(fp.id)::int AS "photoCount",
+                (
+                    SELECT fp2.image_data 
+                    FROM festival_photos fp2 
+                    JOIN festivals f2 ON fp2.festival_id = f2.id 
+                    WHERE f2.campaign_id = c.id AND f2.deleted_at IS NULL
+                    ORDER BY fp2.created_at DESC 
+                    LIMIT 1
+                ) AS "coverImage"
+            FROM campaigns c
+            LEFT JOIN festivals f ON f.campaign_id = c.id AND f.deleted_at IS NULL
+            LEFT JOIN festival_photos fp ON fp.festival_id = f.id
+            WHERE c.deleted_at IS NULL
+            GROUP BY c.id, c.name, c.financial_year, c.description, c.is_active
+            ORDER BY 
+                CASE WHEN COUNT(fp.id) > 0 THEN 0 ELSE 1 END,
+                c.financial_year DESC, 
+                c.name ASC
+        `);
+
+        // Check for festivals not assigned to any campaign that have photos
+        const { rows: orphanRows } = await db.query(`
+            SELECT 
+                0 AS id,
+                'Community & General Events' AS name,
+                'General' AS "financialYear",
+                'Community celebrations and festival events' AS description,
+                false AS "isActive",
+                COUNT(DISTINCT f.id)::int AS "festivalCount",
+                COUNT(fp.id)::int AS "photoCount",
+                (
+                    SELECT fp2.image_data 
+                    FROM festival_photos fp2 
+                    JOIN festivals f2 ON fp2.festival_id = f2.id 
+                    WHERE f2.campaign_id IS NULL AND f2.deleted_at IS NULL
+                    ORDER BY fp2.created_at DESC 
+                    LIMIT 1
+                ) AS "coverImage"
+            FROM festivals f
+            JOIN festival_photos fp ON fp.festival_id = f.id
+            WHERE f.campaign_id IS NULL AND f.deleted_at IS NULL
+        `);
+
+        const result = [...campaigns];
+        if (orphanRows.length > 0 && orphanRows[0].photoCount > 0) {
+            result.push(orphanRows[0]);
+        }
+
+        res.json(result);
+    } catch (err) {
+        console.error('Failed to fetch campaign albums:', err);
+        res.status(500).json({ error: 'Failed to fetch campaign albums' });
+    }
+});
+
+// Single campaign photos endpoint grouped by festivals
+router.get('/public/campaign-albums/:campaignId', async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        let campaignInfo = null;
+
+        if (campaignId === '0' || campaignId === 'general') {
+            campaignInfo = {
+                id: 0,
+                name: 'Community & General Events',
+                financialYear: 'General',
+                description: 'Community celebrations and festival events',
+                isActive: false
+            };
+        } else {
+            const cRes = await db.query(
+                `SELECT id, name, financial_year AS "financialYear", description, is_active AS "isActive" 
+                 FROM campaigns WHERE id = $1 AND deleted_at IS NULL`,
+                [campaignId]
+            );
+            if (cRes.rows.length === 0) {
+                return res.status(404).json({ error: 'Campaign not found' });
+            }
+            campaignInfo = cRes.rows[0];
+        }
+
+        const festivalCondition = (campaignId === '0' || campaignId === 'general')
+            ? 'f.campaign_id IS NULL'
+            : 'f.campaign_id = $1';
+        const queryParams = (campaignId === '0' || campaignId === 'general') ? [] : [campaignId];
+
+        const { rows: festivals } = await db.query(`
+            SELECT 
+                f.id,
+                f.name,
+                f.description,
+                f.start_date AS "startDate",
+                f.end_date AS "endDate",
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', fp.id,
+                            'url', fp.image_data,
+                            'publicId', fp.public_id,
+                            'uploadedBy', u.username,
+                            'createdAt', fp.created_at
+                        ) ORDER BY fp.created_at ASC
+                    ) FILTER (WHERE fp.id IS NOT NULL),
+                    '[]'
+                ) AS photos
+            FROM festivals f
+            LEFT JOIN festival_photos fp ON fp.festival_id = f.id
+            LEFT JOIN users u ON fp.uploaded_by_user_id = u.id
+            WHERE ${festivalCondition} AND f.deleted_at IS NULL
+            GROUP BY f.id, f.name, f.description, f.start_date, f.end_date
+            ORDER BY f.start_date DESC
+        `, queryParams);
+
+        res.json({
+            campaign: campaignInfo,
+            festivals
+        });
+    } catch (err) {
+        console.error('Failed to fetch campaign album details:', err);
+        res.status(500).json({ error: 'Failed to fetch campaign album details' });
+    }
+});
+
 router.get('/public/albums/:id', async (req, res) => {
     try {
-        const festivalRes = await db.query('SELECT name, description, start_date as "startDate", end_date as "endDate" FROM festivals WHERE id=$1 AND deleted_at IS NULL', [req.params.id]);
+        const festivalRes = await db.query(`
+            SELECT 
+                f.name, 
+                f.description, 
+                f.start_date as "startDate", 
+                f.end_date as "endDate",
+                f.campaign_id as "campaignId",
+                c.name as "campaignName"
+            FROM festivals f
+            LEFT JOIN campaigns c ON f.campaign_id = c.id
+            WHERE f.id=$1 AND f.deleted_at IS NULL
+        `, [req.params.id]);
         if (festivalRes.rows.length === 0) return res.status(404).json({ error: 'Album not found' });
         
         const photosRes = await db.query('SELECT image_data FROM festival_photos WHERE festival_id=$1 ORDER BY created_at ASC', [req.params.id]);
@@ -960,7 +1106,7 @@ router.get('/public/trust-details', async (req, res) => {
                 { id: 14, name: "Prasad Wani", designation: "Trustee", contactNumber: "" },
             ]
         };
-        res.json(trustDetails);
+    res.json(trustDetails);
     } catch (err) {
         console.error('Error fetching public trust details:', err);
         res.status(500).json({ error: 'Failed to fetch trust details' });

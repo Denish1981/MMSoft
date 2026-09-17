@@ -756,6 +756,11 @@ export default function PublicHomePage() {
                         <Link to="/trust-details" className="text-2xl font-bold text-slate-800 tracking-wider">
                             Gold Towers Mitra Mandal Trust
                         </Link>
+                        <div className="hidden md:flex items-center space-x-4">
+                            <Link to="/photos" className="text-sm font-semibold text-slate-600 hover:text-orange-600 transition-colors">
+                                Photo Albums
+                            </Link>
+                        </div>
                     </div>
                     <Link
                         to={dashboardTarget}
@@ -937,6 +942,9 @@ export default function PublicHomePage() {
                         © {new Date().getFullYear()} GTMM Trust. All rights reserved.
                     </div>
                     <div className="flex items-center space-x-6">
+                        <Link to="/photos" className="text-slate-600 hover:text-orange-600 font-medium transition-colors">
+                            Photo Albums
+                        </Link>
                         <Link to="/trust-details" className="text-slate-600 hover:text-orange-600 font-medium transition-colors">
                             Trust Details
                         </Link>

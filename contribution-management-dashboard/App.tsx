@@ -36,6 +36,7 @@ import PublicHomePage from './pages/PublicHome';
 import PhotoAlbumPage from './pages/PhotoAlbum';
 import FestivalPhotosPage from './pages/FestivalPhotosPage';
 import PhotoAlbumsListPage from './pages/PhotoAlbumsListPage';
+import CampaignPhotosPage from './pages/CampaignPhotosPage';
 import UniqueParticipantsPage from './pages/UniqueParticipantsPage';
 import ParticipantDetailsPage from './pages/ParticipantDetailsPage';
 import StallRegistrationsPage from './pages/StallRegistrationsPage/index';
@@ -74,6 +75,8 @@ const App: React.FC = () => {
                                 <Route path="/events/:id" element={<EventDetailsPage />} />
                                 <Route path="/event/:id" element={<EventDetailsPage />} />
                                 <Route path="/photos" element={<PhotoAlbumsListPage />} />
+                                <Route path="/photos/campaign/:campaignId" element={<CampaignPhotosPage />} />
+                                <Route path="/campaign/:campaignId/photos" element={<CampaignPhotosPage />} />
                                 <Route path="/album/:id" element={<PhotoAlbumPage />} />
                                 <Route path="/festivals/:id/register-stall" element={<StallRegistrationPage />} />
                                 <Route path="/register-events" element={<MultiEventRegistrationPage />} />
