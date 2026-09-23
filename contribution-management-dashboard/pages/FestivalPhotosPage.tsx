@@ -52,7 +52,7 @@ const FestivalPhotosPage: React.FC = () => {
     
     // View filter state
     const [activeFolderFilter, setActiveFolderFilter] = useState<string>('all');
-    const [viewMode, setViewMode] = useState<'grid' | 'grouped'>('grid');
+    const [viewMode, setViewMode] = useState<'grid' | 'grouped'>('grouped');
     
     // Lightbox & delete modals
     const [activeViewerItem, setActiveViewerItem] = useState<FestivalPhoto | null>(null);
@@ -606,8 +606,8 @@ const FestivalPhotosPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Folder filter tabs (for grid view) */}
-                {viewMode === 'grid' && photos.length > 0 && (
+                {/* Folder filter tabs */}
+                {photos.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
                         <span className="text-xs font-semibold text-slate-500 flex items-center gap-1 mr-1">
                             <Filter className="w-3.5 h-3.5" />
@@ -616,7 +616,7 @@ const FestivalPhotosPage: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => setActiveFolderFilter('all')}
-                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
                                 activeFolderFilter === 'all'
                                     ? 'bg-slate-800 text-white'
                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -629,7 +629,7 @@ const FestivalPhotosPage: React.FC = () => {
                                 key={folderName}
                                 type="button"
                                 onClick={() => setActiveFolderFilter(folderName)}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition flex items-center gap-1.5 cursor-pointer ${
                                     activeFolderFilter === folderName
                                         ? 'bg-blue-600 text-white shadow-sm'
                                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -659,7 +659,9 @@ const FestivalPhotosPage: React.FC = () => {
                 ) : viewMode === 'grouped' ? (
                     /* Grouped by folder view */
                     <div className="space-y-8">
-                        {Object.entries(groupedPhotos).map(([folderName, folderMedia]) => (
+                        {Object.entries(groupedPhotos)
+                            .filter(([folderName]) => activeFolderFilter === 'all' || folderName === activeFolderFilter)
+                            .map(([folderName, folderMedia]) => (
                             <div key={folderName} className="border border-slate-200 rounded-xl p-5 bg-slate-50/40">
                                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
                                     <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">

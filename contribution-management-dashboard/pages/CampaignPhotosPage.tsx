@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
     Calendar, ArrowLeft, Image as ImageIcon, Video as VideoIcon, Play, Folder, ChevronLeft, ChevronRight, 
-    X, Sparkles, AlertCircle 
+    X, Sparkles, AlertCircle, Layers, Filter, Check
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,9 +41,16 @@ interface CampaignAlbumResponse {
     festivals: FestivalWithPhotos[];
 }
 
+interface PhotoWithContext extends PhotoItem {
+    festivalId: number;
+    festivalName: string;
+    festivalStartDate: string;
+    festivalEndDate: string;
+}
+
 interface ActiveLightboxState {
-    festivalIndex: number;
-    photoIndex: number;
+    photoList: PhotoWithContext[];
+    currentIndex: number;
 }
 
 export const CampaignPhotosPage: React.FC = () => {
@@ -53,6 +60,10 @@ export const CampaignPhotosPage: React.FC = () => {
     const [data, setData] = useState<CampaignAlbumResponse | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
+    
+    // View organization state: Default to 'folder' view so photographs are displayed by folder!
+    const [viewMode, setViewMode] = useState<'folder' | 'festival'>('folder');
+    const [selectedFolderFilter, setSelectedFolderFilter] = useState<string>('all');
     const [selectedFestivalFilter, setSelectedFestivalFilter] = useState<number | 'all'>('all');
     const [lightbox, setLightbox] = useState<ActiveLightboxState | null>(null);
 
@@ -94,67 +105,97 @@ export const CampaignPhotosPage: React.FC = () => {
         };
     }, [campaignId]);
 
-    // Flatten all photos for easy global index traversal if needed, or per festival
-    const currentFestival = useMemo(() => {
-        if (!data || !lightbox) return null;
-        return data.festivals[lightbox.festivalIndex] || null;
-    }, [data, lightbox]);
+    // Flatten all photos with festival context
+    const allPhotosWithContext = useMemo<PhotoWithContext[]>(() => {
+        if (!data?.festivals) return [];
+        const list: PhotoWithContext[] = [];
+        data.festivals.forEach(fest => {
+            (fest.photos || []).forEach(p => {
+                list.push({
+                    ...p,
+                    folder: (p.folder && p.folder.trim()) ? p.folder.trim() : 'General',
+                    festivalId: fest.id,
+                    festivalName: fest.name,
+                    festivalStartDate: fest.startDate,
+                    festivalEndDate: fest.endDate
+                });
+            });
+        });
+        return list;
+    }, [data]);
 
-    const currentPhoto = useMemo(() => {
-        if (!currentFestival || !lightbox) return null;
-        return currentFestival.photos[lightbox.photoIndex] || null;
-    }, [currentFestival, lightbox]);
+    // Compute distinct folders and photos grouped by folder
+    const { allFolders, folderCounts, photosGroupedByFolder, filteredFolderList } = useMemo(() => {
+        const counts: Record<string, number> = {};
+        const grouped: Record<string, PhotoWithContext[]> = {};
+        
+        allPhotosWithContext.forEach(p => {
+            const f = p.folder || 'General';
+            counts[f] = (counts[f] || 0) + 1;
+            if (!grouped[f]) grouped[f] = [];
+            grouped[f].push(p);
+        });
+
+        const sortedFolders = Object.keys(counts).sort((a, b) => {
+            if (a === 'General') return 1;
+            if (b === 'General') return -1;
+            return a.localeCompare(b);
+        });
+
+        // Filtered by selectedFolderFilter
+        let folderKeys = sortedFolders;
+        if (selectedFolderFilter !== 'all') {
+            folderKeys = sortedFolders.filter(f => f === selectedFolderFilter);
+        }
+
+        return {
+            allFolders: sortedFolders,
+            folderCounts: counts,
+            photosGroupedByFolder: grouped,
+            filteredFolderList: folderKeys
+        };
+    }, [allPhotosWithContext, selectedFolderFilter]);
+
+    // Total photo count
+    const totalPhotosCount = allPhotosWithContext.length;
+
+    // Filtered festivals list based on festival tab
+    const visibleFestivals = useMemo(() => {
+        if (!data?.festivals) return [];
+        let list = data.festivals;
+        if (selectedFestivalFilter !== 'all') {
+            list = list.filter(f => f.id === selectedFestivalFilter);
+        }
+        return list;
+    }, [data, selectedFestivalFilter]);
 
     // Lightbox navigation
-    const handleNext = useCallback(() => {
-        if (!data || !lightbox) return;
-        const fest = data.festivals[lightbox.festivalIndex];
-        if (!fest) return;
+    const currentLightboxPhoto = useMemo(() => {
+        if (!lightbox || !lightbox.photoList || lightbox.photoList.length === 0) return null;
+        return lightbox.photoList[lightbox.currentIndex] || null;
+    }, [lightbox]);
 
-        if (lightbox.photoIndex < fest.photos.length - 1) {
-            setLightbox({
-                festivalIndex: lightbox.festivalIndex,
-                photoIndex: lightbox.photoIndex + 1,
-            });
-        } else if (lightbox.festivalIndex < data.festivals.length - 1) {
-            // Jump to next festival's first photo
-            setLightbox({
-                festivalIndex: lightbox.festivalIndex + 1,
-                photoIndex: 0,
-            });
-        } else {
-            // Loop to very beginning
-            setLightbox({
-                festivalIndex: 0,
-                photoIndex: 0,
-            });
-        }
-    }, [data, lightbox]);
+    const handleNext = useCallback(() => {
+        if (!lightbox || lightbox.photoList.length <= 1) return;
+        setLightbox(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                currentIndex: (prev.currentIndex + 1) % prev.photoList.length
+            };
+        });
+    }, [lightbox]);
 
     const handlePrev = useCallback(() => {
-        if (!data || !lightbox) return;
-        if (lightbox.photoIndex > 0) {
-            setLightbox({
-                festivalIndex: lightbox.festivalIndex,
-                photoIndex: lightbox.photoIndex - 1,
-            });
-        } else if (lightbox.festivalIndex > 0) {
-            // Jump to previous festival's last photo
-            const prevFest = data.festivals[lightbox.festivalIndex - 1];
-            setLightbox({
-                festivalIndex: lightbox.festivalIndex - 1,
-                photoIndex: Math.max(0, prevFest.photos.length - 1),
-            });
-        } else {
-            // Loop to very last photo of last festival
-            const lastFestIndex = data.festivals.length - 1;
-            const lastFest = data.festivals[lastFestIndex];
-            setLightbox({
-                festivalIndex: lastFestIndex,
-                photoIndex: Math.max(0, (lastFest?.photos.length || 1) - 1),
-            });
-        }
-    }, [data, lightbox]);
+        if (!lightbox || lightbox.photoList.length <= 1) return;
+        setLightbox(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                currentIndex: (prev.currentIndex - 1 + prev.photoList.length) % prev.photoList.length
+            };
+        });
+    }, [lightbox]);
 
     // Keyboard controls for lightbox
     useEffect(() => {
@@ -174,18 +215,12 @@ export const CampaignPhotosPage: React.FC = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [lightbox, handleNext, handlePrev]);
 
-    // Total photo count
-    const totalPhotosCount = useMemo(() => {
-        if (!data?.festivals) return 0;
-        return data.festivals.reduce((sum, f) => sum + (f.photos?.length || 0), 0);
-    }, [data]);
-
-    // Filtered festivals list based on festival tab
-    const visibleFestivals = useMemo(() => {
-        if (!data?.festivals) return [];
-        if (selectedFestivalFilter === 'all') return data.festivals;
-        return data.festivals.filter(f => f.id === selectedFestivalFilter);
-    }, [data, selectedFestivalFilter]);
+    const openLightbox = (photoList: PhotoWithContext[], index: number) => {
+        setLightbox({
+            photoList,
+            currentIndex: index
+        });
+    };
 
     return (
         <div className="bg-slate-50 min-h-screen flex flex-col justify-between">
@@ -220,7 +255,7 @@ export const CampaignPhotosPage: React.FC = () => {
                 {isLoading && (
                     <div className="py-24 text-center space-y-4">
                         <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
-                        <p className="text-slate-500 text-sm font-medium">Loading campaign festival photographs...</p>
+                        <p className="text-slate-500 text-sm font-medium">Loading campaign photographs by folder...</p>
                     </div>
                 )}
 
@@ -266,63 +301,322 @@ export const CampaignPhotosPage: React.FC = () => {
                                 )}
 
                                 {/* Summary Statistics */}
-                                <div className="pt-2 flex flex-wrap items-center gap-4 text-xs sm:text-sm font-semibold text-slate-600">
-                                    <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200">
-                                        <Calendar className="w-4 h-4 text-blue-600" />
-                                        <span>{data.festivals.length} {data.festivals.length === 1 ? 'Festival' : 'Festivals'}</span>
+                                <div className="pt-2 flex flex-wrap items-center gap-3 text-xs sm:text-sm font-semibold text-slate-600">
+                                    <div className="flex items-center gap-2 bg-amber-50 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-200">
+                                        <Folder className="w-4 h-4 text-amber-600" />
+                                        <span>{allFolders.length} {allFolders.length === 1 ? 'Folder' : 'Folders'}</span>
                                     </div>
-                                    <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200">
+                                    <div className="flex items-center gap-2 bg-indigo-50 text-indigo-900 px-3.5 py-1.5 rounded-xl border border-indigo-200">
                                         <ImageIcon className="w-4 h-4 text-indigo-600" />
                                         <span>{totalPhotosCount} {totalPhotosCount === 1 ? 'Photograph' : 'Photographs'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-blue-50 text-blue-900 px-3.5 py-1.5 rounded-xl border border-blue-200">
+                                        <Calendar className="w-4 h-4 text-blue-600" />
+                                        <span>{data.festivals.length} {data.festivals.length === 1 ? 'Festival' : 'Festivals'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Festival Tabs / Filters (If more than 1 festival) */}
-                        {data.festivals.length > 1 && (
-                            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedFestivalFilter('all')}
-                                    className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
-                                        selectedFestivalFilter === 'all'
-                                            ? 'bg-blue-600 text-white shadow-xs'
-                                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                >
-                                    All Festivals ({totalPhotosCount})
-                                </button>
-                                {data.festivals.map((fest) => (
+                        {/* Top Bar: View Mode Switcher and Folder / Festival Controls */}
+                        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+                                <div>
+                                    <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                                        <Folder className="w-5 h-5 text-amber-500" />
+                                        <span>Browse Photographs</span>
+                                    </h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        {viewMode === 'folder' 
+                                            ? 'Viewing photographs organized based on folder categories.' 
+                                            : 'Viewing photographs organized by festival with folder filters.'}
+                                    </p>
+                                </div>
+
+                                {/* View Mode Toggle */}
+                                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs font-semibold self-start sm:self-auto">
                                     <button
-                                        key={fest.id}
                                         type="button"
-                                        onClick={() => setSelectedFestivalFilter(fest.id)}
-                                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
-                                            selectedFestivalFilter === fest.id
-                                                ? 'bg-blue-600 text-white shadow-xs'
-                                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                        onClick={() => setViewMode('folder')}
+                                        className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                                            viewMode === 'folder' 
+                                                ? 'bg-blue-600 text-white shadow-xs' 
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                         }`}
                                     >
-                                        {fest.name} ({fest.photos.length})
+                                        <Folder className="w-3.5 h-3.5" />
+                                        <span>By Folder</span>
                                     </button>
-                                ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewMode('festival')}
+                                        className={`px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                                            viewMode === 'festival' 
+                                                ? 'bg-blue-600 text-white shadow-xs' 
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        <span>By Festival</span>
+                                    </button>
+                                </div>
                             </div>
-                        )}
 
-                        {/* Festivals & Photographs */}
-                        {visibleFestivals.length === 0 || totalPhotosCount === 0 ? (
+                            {/* Folder Tabs Filter Bar (When in Folder Mode or always available) */}
+                            {allFolders.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                                        <span className="flex items-center gap-1.5">
+                                            <Filter className="w-3.5 h-3.5 text-slate-400" />
+                                            Filter by Folder:
+                                        </span>
+                                        {selectedFolderFilter !== 'all' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedFolderFilter('all')}
+                                                className="text-blue-600 hover:underline cursor-pointer"
+                                            >
+                                                Show all folders ({allFolders.length})
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedFolderFilter('all')}
+                                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                                                selectedFolderFilter === 'all'
+                                                    ? 'bg-slate-900 text-white shadow-xs'
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            <Layers className="w-3.5 h-3.5" />
+                                            All Folders ({totalPhotosCount})
+                                        </button>
+                                        {allFolders.map(folderName => {
+                                            const count = folderCounts[folderName] || 0;
+                                            const isSelected = selectedFolderFilter === folderName;
+                                            return (
+                                                <button
+                                                    key={folderName}
+                                                    type="button"
+                                                    onClick={() => setSelectedFolderFilter(folderName)}
+                                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                                                        isSelected
+                                                            ? 'bg-amber-600 text-white shadow-xs'
+                                                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-amber-300'
+                                                    }`}
+                                                >
+                                                    <Folder className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-amber-500'}`} />
+                                                    <span>{folderName}</span>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                                        isSelected ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {count}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Festival Tabs (When in Festival Mode) */}
+                            {viewMode === 'festival' && data.festivals.length > 1 && (
+                                <div className="space-y-2 pt-2 border-t border-slate-100">
+                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                        Select Festival:
+                                    </div>
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedFestivalFilter('all')}
+                                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                                selectedFestivalFilter === 'all'
+                                                    ? 'bg-blue-600 text-white shadow-xs'
+                                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            All Festivals ({data.festivals.length})
+                                        </button>
+                                        {data.festivals.map(fest => (
+                                            <button
+                                                key={fest.id}
+                                                type="button"
+                                                onClick={() => setSelectedFestivalFilter(fest.id)}
+                                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                                    selectedFestivalFilter === fest.id
+                                                        ? 'bg-blue-600 text-white shadow-xs'
+                                                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                {fest.name} ({fest.photos?.length || 0})
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* PHOTOGRAPHS DISPLAY */}
+                        {totalPhotosCount === 0 ? (
                             <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
                                 <ImageIcon className="w-12 h-12 text-slate-300 mx-auto" />
-                                <h3 className="text-lg font-bold text-slate-800">No Festival Photographs Yet</h3>
+                                <h3 className="text-lg font-bold text-slate-800">No Photographs Available</h3>
                                 <p className="text-sm text-slate-500 max-w-md mx-auto">
-                                    No photos have been uploaded for the festivals in this campaign yet. Check back soon for event highlights and celebrations.
+                                    No photographs have been uploaded for this campaign yet. Check back soon for event highlights and celebrations.
                                 </p>
                             </div>
+                        ) : viewMode === 'folder' ? (
+                            /* ================= FOLDER VIEW (Photographs displayed based on folder) ================= */
+                            <div className="space-y-8">
+                                {filteredFolderList.length === 0 ? (
+                                    <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
+                                        <Folder className="w-10 h-10 text-slate-300 mx-auto" />
+                                        <h4 className="text-base font-bold text-slate-700">No photos in selected folder</h4>
+                                        <button 
+                                            onClick={() => setSelectedFolderFilter('all')}
+                                            className="text-xs font-semibold text-blue-600 hover:underline"
+                                        >
+                                            View all folders
+                                        </button>
+                                    </div>
+                                ) : (
+                                    filteredFolderList.map(folderName => {
+                                        const folderPhotos = photosGroupedByFolder[folderName] || [];
+                                        if (folderPhotos.length === 0) return null;
+
+                                        // Distinct festivals for this folder
+                                        const festNames = Array.from(new Set(folderPhotos.map(p => p.festivalName)));
+
+                                        return (
+                                            <section 
+                                                key={folderName}
+                                                id={`folder-${folderName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                                                className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6"
+                                            >
+                                                {/* Folder Section Header */}
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                                                    <div>
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+                                                                <Folder className="w-5 h-5 fill-amber-500 text-amber-600" />
+                                                            </div>
+                                                            <div>
+                                                                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+                                                                    <span>{folderName}</span>
+                                                                </h2>
+                                                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                                    <span className="text-xs text-slate-500 font-medium">
+                                                                        From {festNames.length} {festNames.length === 1 ? 'festival' : 'festivals'}:
+                                                                    </span>
+                                                                    {festNames.map(fName => (
+                                                                        <span key={fName} className="text-[11px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                                                                            {fName}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 self-start sm:self-center">
+                                                        {selectedFolderFilter === 'all' && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedFolderFilter(folderName)}
+                                                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-200 transition cursor-pointer"
+                                                            >
+                                                                View Only
+                                                            </button>
+                                                        )}
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 text-xs font-bold rounded-xl border border-amber-200">
+                                                            <ImageIcon className="w-3.5 h-3.5 text-amber-600" />
+                                                            {folderPhotos.length} {folderPhotos.length === 1 ? 'Item' : 'Items'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Photographs Grid for this folder */}
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                                                    {folderPhotos.map((photo, pIndex) => {
+                                                        const isVid = photo.mediaType === 'video' || isVideoUrl(photo.url);
+                                                        return (
+                                                            <div
+                                                                key={photo.id || pIndex}
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                onClick={() => openLightbox(folderPhotos, pIndex)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                                        openLightbox(folderPhotos, pIndex);
+                                                                    }
+                                                                }}
+                                                                className="aspect-square bg-slate-100 rounded-2xl overflow-hidden cursor-pointer group relative border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-300"
+                                                            >
+                                                                {isVid ? (
+                                                                    <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
+                                                                        <video 
+                                                                            src={photo.url} 
+                                                                            preload="metadata" 
+                                                                            className="w-full h-full object-cover opacity-75"
+                                                                        />
+                                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                                            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+                                                                                <Play className="w-5 h-5 fill-white ml-0.5" />
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                                                                            <VideoIcon className="w-2.5 h-2.5" />
+                                                                            Video
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <img
+                                                                        src={getThumbnailImageUrl(photo.url, 450, 450)}
+                                                                        alt={`${folderName} photo ${pIndex + 1}`}
+                                                                        loading="lazy"
+                                                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                                    />
+                                                                )}
+
+                                                                {/* Festival Badge on thumbnail */}
+                                                                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[9px] px-2 py-0.5 rounded font-medium flex items-center gap-1 z-5 max-w-[85%] truncate">
+                                                                    <Calendar className="w-2.5 h-2.5 text-blue-300 shrink-0" />
+                                                                    <span className="truncate">{photo.festivalName}</span>
+                                                                </div>
+
+                                                                {/* Hover Overlay */}
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-2.5">
+                                                                    <span className="text-[11px] font-semibold text-white truncate">
+                                                                        {photo.festivalName} • #{pIndex + 1}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </section>
+                                        );
+                                    })
+                                )}
+                            </div>
                         ) : (
+                            /* ================= FESTIVAL VIEW (With Folder filter support) ================= */
                             <div className="space-y-12">
-                                {visibleFestivals.map((festival, fIndex) => {
-                                    const actualFestIndex = data.festivals.findIndex(f => f.id === festival.id);
+                                {visibleFestivals.map(festival => {
+                                    // Filter festival photos by selected folder if any
+                                    const festivalPhotos = (festival.photos || [])
+                                        .map(p => ({
+                                            ...p,
+                                            folder: (p.folder && p.folder.trim()) ? p.folder.trim() : 'General',
+                                            festivalId: festival.id,
+                                            festivalName: festival.name,
+                                            festivalStartDate: festival.startDate,
+                                            festivalEndDate: festival.endDate
+                                        }))
+                                        .filter(p => selectedFolderFilter === 'all' || p.folder === selectedFolderFilter);
 
                                     return (
                                         <section 
@@ -354,30 +648,35 @@ export const CampaignPhotosPage: React.FC = () => {
                                                     )}
                                                 </div>
 
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl self-start sm:self-center border border-blue-100">
-                                                    <ImageIcon className="w-3.5 h-3.5" />
-                                                    {festival.photos.length} {festival.photos.length === 1 ? 'Photo' : 'Photos'}
-                                                </span>
+                                                <div className="flex items-center gap-2 self-start sm:self-center">
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-100">
+                                                        <ImageIcon className="w-3.5 h-3.5" />
+                                                        {festivalPhotos.length} {festivalPhotos.length === 1 ? 'Photo' : 'Photos'}
+                                                        {selectedFolderFilter !== 'all' && ` (in ${selectedFolderFilter})`}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             {/* Photos Grid for this festival */}
-                                            {festival.photos.length === 0 ? (
+                                            {festivalPhotos.length === 0 ? (
                                                 <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-500 text-sm">
-                                                    No photos uploaded for this festival yet.
+                                                    {selectedFolderFilter !== 'all' 
+                                                        ? `No photos found in folder "${selectedFolderFilter}" for this festival.`
+                                                        : 'No photos uploaded for this festival yet.'}
                                                 </div>
                                             ) : (
                                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                                                    {festival.photos.map((photo, pIndex) => {
+                                                    {festivalPhotos.map((photo, pIndex) => {
                                                         const isVid = photo.mediaType === 'video' || isVideoUrl(photo.url);
                                                         return (
                                                             <div
                                                                 key={photo.id || pIndex}
                                                                 role="button"
                                                                 tabIndex={0}
-                                                                onClick={() => setLightbox({ festivalIndex: actualFestIndex, photoIndex: pIndex })}
+                                                                onClick={() => openLightbox(festivalPhotos, pIndex)}
                                                                 onKeyDown={(e) => {
                                                                     if (e.key === 'Enter' || e.key === ' ') {
-                                                                        setLightbox({ festivalIndex: actualFestIndex, photoIndex: pIndex });
+                                                                        openLightbox(festivalPhotos, pIndex);
                                                                     }
                                                                 }}
                                                                 className="aspect-square bg-slate-100 rounded-2xl overflow-hidden cursor-pointer group relative border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-300"
@@ -402,14 +701,14 @@ export const CampaignPhotosPage: React.FC = () => {
                                                                 ) : (
                                                                     <img
                                                                         src={getThumbnailImageUrl(photo.url, 450, 450)}
-                                                                        alt={`${festival.name} celebration photo ${pIndex + 1}`}
+                                                                        alt={`${festival.name} photo ${pIndex + 1}`}
                                                                         loading="lazy"
                                                                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                                                     />
                                                                 )}
 
                                                                 {/* Folder Badge */}
-                                                                {photo.folder && photo.folder !== 'General' && (
+                                                                {photo.folder && (
                                                                     <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[9px] px-2 py-0.5 rounded font-medium flex items-center gap-1 z-5">
                                                                         <Folder className="w-2.5 h-2.5 text-amber-300" />
                                                                         {photo.folder}
@@ -436,7 +735,7 @@ export const CampaignPhotosPage: React.FC = () => {
             </main>
 
             {/* Lightbox / Fullscreen Image Viewer Modal */}
-            {lightbox && currentFestival && currentPhoto && (
+            {lightbox && currentLightboxPhoto && (
                 <div 
                     role="dialog" 
                     aria-modal="true"
@@ -444,20 +743,29 @@ export const CampaignPhotosPage: React.FC = () => {
                     className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xs flex items-center justify-center select-none"
                     onClick={() => setLightbox(null)}
                 >
-                    {/* Top Bar with Festival Info & Close Button */}
+                    {/* Top Bar with Folder & Festival Info, Counter, and Close Button */}
                     <div 
-                        className="absolute top-0 inset-x-0 p-4 sm:p-6 flex items-center justify-between text-white z-10 bg-gradient-to-b from-black/70 to-transparent"
+                        className="absolute top-0 inset-x-0 p-4 sm:p-6 flex items-center justify-between text-white z-10 bg-gradient-to-b from-black/80 to-transparent"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div>
-                            <h4 className="text-sm sm:text-base font-bold text-white tracking-wide">
-                                {currentFestival.name}
-                            </h4>
-                            <p className="text-xs text-slate-300">
-                                Photo {lightbox.photoIndex + 1} of {currentFestival.photos.length}
-                            </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                            {/* Folder Chip in Viewer */}
+                            {currentLightboxPhoto.folder && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold">
+                                    <Folder className="w-3.5 h-3.5 text-amber-400" />
+                                    {currentLightboxPhoto.folder}
+                                </span>
+                            )}
+                            <div>
+                                <h4 className="text-sm sm:text-base font-bold text-white tracking-wide">
+                                    {currentLightboxPhoto.festivalName}
+                                </h4>
+                                <p className="text-xs text-slate-300">
+                                    Item {lightbox.currentIndex + 1} of {lightbox.photoList.length}
+                                </p>
+                            </div>
                         </div>
-                        <button
+                        <button 
                             type="button"
                             onClick={() => setLightbox(null)}
                             className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
@@ -468,41 +776,45 @@ export const CampaignPhotosPage: React.FC = () => {
                     </div>
 
                     {/* Previous Button */}
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                        className="absolute left-3 sm:left-6 text-white p-3 rounded-full bg-black/50 hover:bg-black/80 transition-colors z-10 cursor-pointer shadow-lg"
-                        title="Previous Photo (Left Arrow)"
-                    >
-                        <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
-                    </button>
+                    {lightbox.photoList.length > 1 && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                            className="absolute left-3 sm:left-6 text-white p-3 rounded-full bg-black/50 hover:bg-black/80 transition-colors z-10 cursor-pointer shadow-lg"
+                            title="Previous Photo (Left Arrow)"
+                        >
+                            <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
+                        </button>
+                    )}
 
                     {/* Next Button */}
-                    <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                        className="absolute right-3 sm:right-6 text-white p-3 rounded-full bg-black/50 hover:bg-black/80 transition-colors z-10 cursor-pointer shadow-lg"
-                        title="Next Photo (Right Arrow)"
-                    >
-                        <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
-                    </button>
+                    {lightbox.photoList.length > 1 && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                            className="absolute right-3 sm:right-6 text-white p-3 rounded-full bg-black/50 hover:bg-black/80 transition-colors z-10 cursor-pointer shadow-lg"
+                            title="Next Photo (Right Arrow)"
+                        >
+                            <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
+                        </button>
+                    )}
 
-                    {/* Active Media */}
+                    {/* Active Media Display */}
                     <div 
                         className="p-4 max-h-[88vh] max-w-[92vw] flex items-center justify-center"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {currentPhoto.mediaType === 'video' || isVideoUrl(currentPhoto.url) ? (
+                        {currentLightboxPhoto.mediaType === 'video' || isVideoUrl(currentLightboxPhoto.url) ? (
                             <video 
-                                src={currentPhoto.url} 
+                                src={currentLightboxPhoto.url} 
                                 controls 
                                 autoPlay 
                                 className="max-h-[85vh] max-w-[88vw] rounded-xl shadow-2xl animate-in fade-in duration-200" 
                             />
                         ) : (
                             <img
-                                src={getOptimizedImageUrl(currentPhoto.url, 'f_auto,q_auto')}
-                                alt={`${currentFestival.name} photo ${lightbox.photoIndex + 1}`}
+                                src={getOptimizedImageUrl(currentLightboxPhoto.url, 'f_auto,q_auto')}
+                                alt={`${currentLightboxPhoto.folder || 'Festival'} photo ${lightbox.currentIndex + 1}`}
                                 className="max-h-[85vh] max-w-[88vw] object-contain rounded-xl shadow-2xl animate-in fade-in duration-200"
                             />
                         )}
