@@ -926,6 +926,8 @@ router.get('/public/campaign-albums/:campaignId', async (req, res) => {
                             'id', fp.id,
                             'url', fp.image_data,
                             'publicId', fp.public_id,
+                            'folder', COALESCE(fp.folder, 'General'),
+                            'mediaType', COALESCE(fp.media_type, 'image'),
                             'uploadedBy', u.username,
                             'createdAt', fp.created_at
                         ) ORDER BY fp.created_at ASC
@@ -966,11 +968,28 @@ router.get('/public/albums/:id', async (req, res) => {
         `, [req.params.id]);
         if (festivalRes.rows.length === 0) return res.status(404).json({ error: 'Album not found' });
         
-        const photosRes = await db.query('SELECT image_data FROM festival_photos WHERE festival_id=$1 ORDER BY created_at ASC', [req.params.id]);
+        const photosRes = await db.query(
+            `SELECT id, image_data as "imageData", public_id as "publicId", 
+                    COALESCE(folder, 'General') as "folder", 
+                    COALESCE(media_type, 'image') as "mediaType", 
+                    created_at as "createdAt" 
+             FROM festival_photos 
+             WHERE festival_id=$1 
+             ORDER BY created_at ASC`, 
+            [req.params.id]
+        );
         
         res.json({
             ...festivalRes.rows[0],
-            images: photosRes.rows.map(r => r.image_data)
+            images: photosRes.rows.map(r => r.imageData),
+            photos: photosRes.rows.map(r => ({
+                id: r.id,
+                url: r.imageData,
+                publicId: r.publicId,
+                folder: r.folder,
+                mediaType: r.mediaType,
+                createdAt: r.createdAt
+            }))
         });
     } catch (err) { res.status(500).json({ error: 'Failed to fetch album details' }); }
 });
@@ -1106,7 +1125,7 @@ router.get('/public/trust-details', async (req, res) => {
                 { id: 14, name: "Prasad Wani", designation: "Trustee", contactNumber: "" },
             ]
         };
-    res.json(trustDetails);
+        res.json(trustDetails);
     } catch (err) {
         console.error('Error fetching public trust details:', err);
         res.status(500).json({ error: 'Failed to fetch trust details' });

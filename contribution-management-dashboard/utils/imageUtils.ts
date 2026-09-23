@@ -80,23 +80,34 @@ export const compressImageFile = (
 };
 
 /**
- * Returns an optimized Cloudinary image URL with transformations if it's a Cloudinary URL,
- * or returns the original URL / Base64 string if it's not.
+ * Checks if a URL points to a video file based on file extension.
+ */
+export const isVideoUrl = (url: string | null | undefined): boolean => {
+    if (!url) return false;
+    const cleanUrl = url.split('?')[0].toLowerCase();
+    return /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(cleanUrl);
+};
+
+/**
+ * Returns an optimized image URL.
+ * Supports Cloudflare R2 URLs, legacy Cloudinary URLs with transformations,
+ * and direct/base64 URLs.
  */
 export const getOptimizedImageUrl = (
     url: string | null | undefined,
     transformation = 'f_auto,q_auto'
 ): string => {
     if (!url) return '';
-    // If not a Cloudinary upload URL, return as is (e.g. data:image/... or other URL)
-    if (!url.includes('cloudinary.com') || !url.includes('/upload/')) {
-        return url;
+    // If legacy Cloudinary upload URL
+    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+        // Prevent double transformations
+        if (url.includes(`/upload/${transformation}/`) || url.includes('/upload/c_') || url.includes('/upload/w_') || url.includes('/upload/f_')) {
+            return url;
+        }
+        return url.replace('/upload/', `/upload/${transformation}/`);
     }
-    // Prevent double transformations
-    if (url.includes(`/upload/${transformation}/`) || url.includes('/upload/c_') || url.includes('/upload/w_') || url.includes('/upload/f_')) {
-        return url;
-    }
-    return url.replace('/upload/', `/upload/${transformation}/`);
+    // For Cloudflare R2 or direct URLs, return as is
+    return url;
 };
 
 /**
@@ -107,5 +118,9 @@ export const getThumbnailImageUrl = (
     width = 500,
     height = 500
 ): string => {
-    return getOptimizedImageUrl(url, `w_${width},h_${height},c_fill,f_auto,q_auto`);
+    if (!url) return '';
+    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+        return getOptimizedImageUrl(url, `w_${width},h_${height},c_fill,f_auto,q_auto`);
+    }
+    return url;
 };

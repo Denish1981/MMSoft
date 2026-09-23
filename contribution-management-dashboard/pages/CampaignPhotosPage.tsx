@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
-    Calendar, ArrowLeft, Image as ImageIcon, ChevronLeft, ChevronRight, 
+    Calendar, ArrowLeft, Image as ImageIcon, Video as VideoIcon, Play, Folder, ChevronLeft, ChevronRight, 
     X, Sparkles, AlertCircle 
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { getThumbnailImageUrl, getOptimizedImageUrl } from '../utils/imageUtils';
+import { getThumbnailImageUrl, getOptimizedImageUrl, isVideoUrl } from '../utils/imageUtils';
 import { formatUTCDate } from '../utils/formatting';
 
 interface PhotoItem {
     id: number;
     url: string;
     publicId?: string | null;
+    folder?: string | null;
+    mediaType?: string | null;
     uploadedBy?: string | null;
     createdAt?: string;
 }
@@ -365,32 +367,63 @@ export const CampaignPhotosPage: React.FC = () => {
                                                 </div>
                                             ) : (
                                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                                                    {festival.photos.map((photo, pIndex) => (
-                                                        <div
-                                                            key={photo.id || pIndex}
-                                                            role="button"
-                                                            tabIndex={0}
-                                                            onClick={() => setLightbox({ festivalIndex: actualFestIndex, photoIndex: pIndex })}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                                    setLightbox({ festivalIndex: actualFestIndex, photoIndex: pIndex });
-                                                                }
-                                                            }}
-                                                            className="aspect-square bg-slate-100 rounded-2xl overflow-hidden cursor-pointer group relative border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-300"
-                                                        >
-                                                            <img
-                                                                src={getThumbnailImageUrl(photo.url, 450, 450)}
-                                                                alt={`${festival.name} celebration photo ${pIndex + 1}`}
-                                                                loading="lazy"
-                                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                            />
-                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-2.5">
-                                                                <span className="text-[11px] font-semibold text-white truncate">
-                                                                    Photo #{pIndex + 1}
-                                                                </span>
+                                                    {festival.photos.map((photo, pIndex) => {
+                                                        const isVid = photo.mediaType === 'video' || isVideoUrl(photo.url);
+                                                        return (
+                                                            <div
+                                                                key={photo.id || pIndex}
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                onClick={() => setLightbox({ festivalIndex: actualFestIndex, photoIndex: pIndex })}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                                        setLightbox({ festivalIndex: actualFestIndex, photoIndex: pIndex });
+                                                                    }
+                                                                }}
+                                                                className="aspect-square bg-slate-100 rounded-2xl overflow-hidden cursor-pointer group relative border border-slate-200/80 shadow-2xs hover:shadow-md transition-all duration-300"
+                                                            >
+                                                                {isVid ? (
+                                                                    <div className="w-full h-full bg-slate-900 flex items-center justify-center relative">
+                                                                        <video 
+                                                                            src={photo.url} 
+                                                                            preload="metadata" 
+                                                                            className="w-full h-full object-cover opacity-75"
+                                                                        />
+                                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                                            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+                                                                                <Play className="w-5 h-5 fill-white ml-0.5" />
+                                                                            </div>
+                                                                        </div>
+                                                                        <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                                                                            <VideoIcon className="w-2.5 h-2.5" />
+                                                                            Video
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <img
+                                                                        src={getThumbnailImageUrl(photo.url, 450, 450)}
+                                                                        alt={`${festival.name} celebration photo ${pIndex + 1}`}
+                                                                        loading="lazy"
+                                                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                                    />
+                                                                )}
+
+                                                                {/* Folder Badge */}
+                                                                {photo.folder && photo.folder !== 'General' && (
+                                                                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[9px] px-2 py-0.5 rounded font-medium flex items-center gap-1 z-5">
+                                                                        <Folder className="w-2.5 h-2.5 text-amber-300" />
+                                                                        {photo.folder}
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-2.5">
+                                                                    <span className="text-[11px] font-semibold text-white truncate">
+                                                                        {photo.folder ? `${photo.folder} • ` : ''}{isVid ? 'Video' : 'Photo'} #{pIndex + 1}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </section>
@@ -454,16 +487,25 @@ export const CampaignPhotosPage: React.FC = () => {
                         <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
                     </button>
 
-                    {/* Active Image */}
+                    {/* Active Media */}
                     <div 
                         className="p-4 max-h-[88vh] max-w-[92vw] flex items-center justify-center"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <img
-                            src={getOptimizedImageUrl(currentPhoto.url, 'f_auto,q_auto')}
-                            alt={`${currentFestival.name} photo ${lightbox.photoIndex + 1}`}
-                            className="max-h-[85vh] max-w-[88vw] object-contain rounded-xl shadow-2xl animate-in fade-in duration-200"
-                        />
+                        {currentPhoto.mediaType === 'video' || isVideoUrl(currentPhoto.url) ? (
+                            <video 
+                                src={currentPhoto.url} 
+                                controls 
+                                autoPlay 
+                                className="max-h-[85vh] max-w-[88vw] rounded-xl shadow-2xl animate-in fade-in duration-200" 
+                            />
+                        ) : (
+                            <img
+                                src={getOptimizedImageUrl(currentPhoto.url, 'f_auto,q_auto')}
+                                alt={`${currentFestival.name} photo ${lightbox.photoIndex + 1}`}
+                                className="max-h-[85vh] max-w-[88vw] object-contain rounded-xl shadow-2xl animate-in fade-in duration-200"
+                            />
+                        )}
                     </div>
                 </div>
             )}

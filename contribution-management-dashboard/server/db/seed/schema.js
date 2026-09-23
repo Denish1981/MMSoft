@@ -257,10 +257,14 @@ const applySchema = async (client) => {
             festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,
             image_data TEXT NOT NULL,
             public_id VARCHAR(255),
+            folder VARCHAR(255) DEFAULT 'General',
+            media_type VARCHAR(50) DEFAULT 'image',
             uploaded_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
         )`,
         `ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS public_id VARCHAR(255)`,
+        `ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS folder VARCHAR(255) DEFAULT 'General'`,
+        `ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS media_type VARCHAR(50) DEFAULT 'image'`,
         `CREATE TABLE IF NOT EXISTS stall_registrations (
             id SERIAL PRIMARY KEY,
             festival_id INTEGER REFERENCES festivals(id) ON DELETE CASCADE,

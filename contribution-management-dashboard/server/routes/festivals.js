@@ -1,77 +1,193 @@
 
 const express = require('express');
 const crypto = require('crypto');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const db = require('../db');
 const { authMiddleware, permissionMiddleware } = require('../auth/middleware');
 const { logChanges, createHistoryEndpoint, createSoftDeleteEndpoint } = require('../db/helpers');
 const router = express.Router();
 
-async function deleteFromCloudinary(publicId) {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    if (!cloudName || !apiKey || !apiSecret || !publicId) return;
+// Auto-migrate festival_photos table columns if they do not already exist
+db.query(`
+    ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS folder VARCHAR(255) DEFAULT 'General';
+    ALTER TABLE festival_photos ADD COLUMN IF NOT EXISTS media_type VARCHAR(50) DEFAULT 'image';
+`).catch(err => {
+    console.warn('Notice: festival_photos table check/migration:', err.message);
+});
+
+// Helper to initialize Cloudflare R2 S3-compatible Client
+function getR2Client() {
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    if (!accountId || !accessKeyId || !secretAccessKey) return null;
+
+    return new S3Client({
+        region: 'auto',
+        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+        credentials: {
+            accessKeyId,
+            secretAccessKey,
+        },
+    });
+}
+
+function getR2PublicUrl(key) {
+    const bucketName = process.env.R2_BUCKET_NAME;
+    const accountId = process.env.R2_ACCOUNT_ID;
+    let base = process.env.R2_PUBLIC_URL ? process.env.R2_PUBLIC_URL.trim().replace(/\/$/, '') : '';
+    if (!base && bucketName && accountId) {
+        base = `https://${bucketName}.${accountId}.r2.cloudflarestorage.com`;
+    }
+    const encodedKey = key.split('/').map(part => encodeURIComponent(part)).join('/');
+    return base ? `${base}/${encodedKey}` : `/${encodedKey}`;
+}
+
+async function deleteFromR2(key) {
+    const r2Client = getR2Client();
+    const bucketName = process.env.R2_BUCKET_NAME;
+    if (!r2Client || !bucketName || !key) return;
 
     try {
-        const timestamp = Math.round(new Date().getTime() / 1000);
-        const toSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-        const signature = crypto.createHash('sha1').update(toSign).digest('hex');
-
-        const formData = new URLSearchParams();
-        formData.append('public_id', publicId);
-        formData.append('api_key', apiKey);
-        formData.append('timestamp', String(timestamp));
-        formData.append('signature', signature);
-
-        await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
-            method: 'POST',
-            body: formData,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        const command = new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: key,
         });
+        await r2Client.send(command);
     } catch (e) {
-        console.warn('Failed to delete asset from Cloudinary:', e.message);
+        console.warn('Failed to delete asset from Cloudflare R2:', e.message);
     }
 }
 
-// Generate an HMAC-SHA1 signature for secure direct client-side upload to Cloudinary.
-// Accessible strictly to authenticated users with 'action:edit' permission.
-router.get('/photos/sign-upload', authMiddleware, permissionMiddleware('action:edit'), (req, res) => {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+function isVideoContentTypeOrName(contentType, fileName) {
+    if (contentType && contentType.startsWith('video/')) return true;
+    if (fileName && /\.(mp4|webm|ogg|mov|m4v|mkv)$/i.test(fileName)) return true;
+    return false;
+}
 
-    if (!cloudName || !apiKey || !apiSecret) {
+// Generate presigned PUT URL(s) for direct browser upload to Cloudflare R2.
+// Supports both GET (single file query) and POST (batch or single payload).
+router.all('/photos/sign-upload', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const bucketName = process.env.R2_BUCKET_NAME;
+
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
         return res.status(500).json({
-            error: 'Cloudinary credentials (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not configured on the server.'
+            error: 'Cloudflare R2 credentials (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) are not configured on the server.'
         });
     }
 
-    const timestamp = Math.round(new Date().getTime() / 1000);
-    const festivalId = req.query.festivalId ? String(req.query.festivalId) : 'general';
-    const folder = `gtmm-festivals/${festivalId}`;
+    const r2Client = getR2Client();
+    if (!r2Client) {
+        return res.status(500).json({ error: 'Failed to initialize Cloudflare R2 client.' });
+    }
 
-    const paramsToSign = {
-        folder,
-        timestamp
-    };
+    const festivalId = (req.method === 'POST' ? req.body.festivalId : req.query.festivalId) || 'general';
+    const rawFolder = (req.method === 'POST' ? req.body.folder : req.query.folder) || 'General';
+    // Clean folder string to alphanumeric, dashes, underscores, and spaces
+    const cleanFolder = String(rawFolder).trim().replace(/[\\/:*?"<>|]+/g, '_').trim() || 'General';
 
-    const sortedParams = Object.keys(paramsToSign)
-        .sort()
-        .map(key => `${key}=${paramsToSign[key]}`)
-        .join('&');
+    try {
+        let requestedFiles = [];
+        if (req.method === 'POST' && Array.isArray(req.body.files) && req.body.files.length > 0) {
+            requestedFiles = req.body.files;
+        } else {
+            const fileName = (req.method === 'POST' ? req.body.fileName : req.query.fileName) || 'file.bin';
+            const contentType = (req.method === 'POST' ? req.body.contentType : req.query.contentType) || 'application/octet-stream';
+            requestedFiles = [{ fileName, contentType }];
+        }
 
-    const signature = crypto
-        .createHash('sha1')
-        .update(sortedParams + apiSecret)
-        .digest('hex');
+        const signedUploads = [];
+        for (const item of requestedFiles) {
+            const rawFileName = item.fileName || 'media';
+            const cleanFileName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const uniquePrefix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+            const objectKey = `festivals/${festivalId}/${cleanFolder}/${uniquePrefix}-${cleanFileName}`;
+            const contentType = item.contentType || (isVideoContentTypeOrName(item.contentType, cleanFileName) ? 'video/mp4' : 'image/jpeg');
 
-    res.json({
-        signature,
-        timestamp,
-        folder,
-        apiKey,
-        cloudName
-    });
+            const command = new PutObjectCommand({
+                Bucket: bucketName,
+                Key: objectKey,
+                ContentType: contentType,
+            });
+
+            // Presign PUT URL for 1 hour (3600 seconds)
+            const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+            const publicUrl = getR2PublicUrl(objectKey);
+            const mediaType = isVideoContentTypeOrName(contentType, cleanFileName) ? 'video' : 'image';
+
+            signedUploads.push({
+                uploadUrl,
+                publicUrl,
+                key: objectKey,
+                folder: cleanFolder,
+                fileName: rawFileName,
+                contentType,
+                mediaType
+            });
+        }
+
+        if (signedUploads.length === 1 && req.method === 'GET') {
+            return res.json(signedUploads[0]);
+        }
+
+        res.json({
+            uploads: signedUploads,
+            folder: cleanFolder,
+            festivalId
+        });
+    } catch (err) {
+        console.error('Error generating Cloudflare R2 upload URL:', err);
+        res.status(500).json({ error: 'Failed to generate Cloudflare R2 upload authorization: ' + err.message });
+    }
+});
+
+// Fallback server upload route for R2 (e.g., if direct browser PUT experiences strict bucket CORS)
+router.post('/photos/direct-upload', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
+    const { festivalId = 'general', folder = 'General', fileName = 'file.bin', fileData, contentType = 'image/jpeg' } = req.body;
+    const bucketName = process.env.R2_BUCKET_NAME;
+    const r2Client = getR2Client();
+
+    if (!r2Client || !bucketName) {
+        return res.status(500).json({ error: 'Cloudflare R2 is not configured.' });
+    }
+    if (!fileData) {
+        return res.status(400).json({ error: 'No file data provided.' });
+    }
+
+    try {
+        const cleanFolder = String(folder).trim().replace(/[\\/:*?"<>|]+/g, '_').trim() || 'General';
+        const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const objectKey = `festivals/${festivalId}/${cleanFolder}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${cleanFileName}`;
+        
+        // Convert base64 data to buffer
+        const base64Data = fileData.replace(/^data:[^;]+;base64,/, '');
+        const fileBuffer = Buffer.from(base64Data, 'base64');
+
+        const command = new PutObjectCommand({
+            Bucket: bucketName,
+            Key: objectKey,
+            Body: fileBuffer,
+            ContentType: contentType,
+        });
+
+        await r2Client.send(command);
+        const publicUrl = getR2PublicUrl(objectKey);
+        const mediaType = isVideoContentTypeOrName(contentType, cleanFileName) ? 'video' : 'image';
+
+        res.json({
+            publicUrl,
+            key: objectKey,
+            folder: cleanFolder,
+            mediaType
+        });
+    } catch (err) {
+        console.error('Direct upload to R2 error:', err);
+        res.status(500).json({ error: 'Failed to upload file to Cloudflare R2: ' + err.message });
+    }
 });
 
 router.get('/', authMiddleware, async (req, res) => {
@@ -186,31 +302,62 @@ router.get('/:id/events', authMiddleware, permissionMiddleware('page:events:view
 router.get('/:id/photos', authMiddleware, permissionMiddleware('page:festivals:view'), async (req, res) => {
     try {
         const { rows } = await db.query(`
-            SELECT fp.id, fp.image_data AS "imageData", fp.public_id AS "publicId", u.username AS "uploadedBy" 
+            SELECT 
+                fp.id, 
+                fp.image_data AS "imageData", 
+                fp.public_id AS "publicId", 
+                COALESCE(fp.folder, 'General') AS "folder",
+                COALESCE(fp.media_type, 'image') AS "mediaType",
+                u.username AS "uploadedBy",
+                fp.created_at AS "createdAt"
             FROM festival_photos fp
             LEFT JOIN users u ON fp.uploaded_by_user_id = u.id
             WHERE fp.festival_id = $1
             ORDER BY fp.created_at DESC
         `, [req.params.id]);
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: 'Failed to fetch photos' }); }
+    } catch (err) {
+        console.error('Failed to fetch photos:', err);
+        res.status(500).json({ error: 'Failed to fetch photos' });
+    }
 });
 
 router.post('/:id/photos', authMiddleware, permissionMiddleware('action:edit'), async (req, res) => {
-    const { images, photos } = req.body;
+    const { images, photos, folder } = req.body;
     const photoList = [];
+
+    const defaultFolder = (folder && typeof folder === 'string' && folder.trim()) ? folder.trim() : 'General';
 
     if (Array.isArray(photos) && photos.length > 0) {
         for (const p of photos) {
             if (typeof p === 'string') {
-                photoList.push({ url: p, publicId: null });
+                const isVid = isVideoContentTypeOrName(null, p);
+                photoList.push({ 
+                    url: p, 
+                    publicId: null, 
+                    folder: defaultFolder,
+                    mediaType: isVid ? 'video' : 'image'
+                });
             } else if (p && p.url) {
-                photoList.push({ url: p.url, publicId: p.publicId || null });
+                const itemFolder = (p.folder && typeof p.folder === 'string' && p.folder.trim()) ? p.folder.trim() : defaultFolder;
+                const isVid = p.mediaType === 'video' || isVideoContentTypeOrName(null, p.url);
+                photoList.push({ 
+                    url: p.url, 
+                    publicId: p.publicId || p.key || null, 
+                    folder: itemFolder,
+                    mediaType: p.mediaType || (isVid ? 'video' : 'image')
+                });
             }
         }
     } else if (Array.isArray(images) && images.length > 0) {
         for (const img of images) {
-            photoList.push({ url: img, publicId: null });
+            const isVid = isVideoContentTypeOrName(null, img);
+            photoList.push({ 
+                url: img, 
+                publicId: null, 
+                folder: defaultFolder,
+                mediaType: isVid ? 'video' : 'image'
+            });
         }
     }
 
@@ -223,16 +370,17 @@ router.post('/:id/photos', authMiddleware, permissionMiddleware('action:edit'), 
         await client.query('BEGIN');
         for (const item of photoList) {
             await client.query(
-                'INSERT INTO festival_photos (festival_id, image_data, public_id, uploaded_by_user_id) VALUES ($1, $2, $3, $4)', 
-                [req.params.id, item.url, item.publicId, req.user.id]
+                `INSERT INTO festival_photos (festival_id, image_data, public_id, folder, media_type, uploaded_by_user_id) 
+                 VALUES ($1, $2, $3, $4, $5, $6)`, 
+                [req.params.id, item.url, item.publicId, item.folder || 'General', item.mediaType || 'image', req.user.id]
             );
         }
         await client.query('COMMIT');
-        res.status(201).json({ message: 'Photos uploaded successfully', count: photoList.length });
+        res.status(201).json({ message: 'Media uploaded successfully', count: photoList.length });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Failed to upload photos:', err);
-        res.status(500).json({ error: 'Failed to upload photos' });
+        console.error('Failed to upload photos/videos:', err);
+        res.status(500).json({ error: 'Failed to upload photos/videos' });
     } finally { client.release(); }
 });
 
@@ -244,20 +392,27 @@ router.delete('/photos/:photoId', authMiddleware, permissionMiddleware('action:d
         const photo = checkRes.rows[0];
         await db.query('DELETE FROM festival_photos WHERE id = $1', [req.params.photoId]);
 
-        // Attempt background deletion of Cloudinary asset if publicId exists or can be determined
-        let publicId = photo.publicId;
-        if (!publicId && photo.imageData && photo.imageData.includes('cloudinary.com')) {
-            const match = photo.imageData.match(/\/upload\/(?:v\d+\/)?([^\.]+)/);
-            if (match) publicId = match[1];
+        // Attempt deletion of asset from Cloudflare R2 if publicId / key exists
+        let objectKey = photo.publicId;
+        if (!objectKey && photo.imageData && !photo.imageData.startsWith('data:')) {
+            // Check if URL matches Cloudflare R2 path or bucket URL
+            try {
+                const parsedUrl = new URL(photo.imageData);
+                // Strip leading slash
+                objectKey = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ''));
+            } catch (e) {
+                // Ignore parse errors
+            }
         }
-        if (publicId) {
-            deleteFromCloudinary(publicId).catch(() => {});
+        
+        if (objectKey) {
+            deleteFromR2(objectKey).catch(() => {});
         }
 
         res.status(204).send();
     } catch(err) { 
-        console.error('Failed to delete photo:', err);
-        res.status(500).json({ error: 'Failed to delete photo' }); 
+        console.error('Failed to delete media:', err);
+        res.status(500).json({ error: 'Failed to delete media' }); 
     }
 });
 
